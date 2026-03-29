@@ -1,0 +1,28 @@
+#!/bin/bash
+# Ensures no GDScript uses ../ paths to reach up the scene tree.
+# Usage: no_parent_paths [file ...]    (no args = all *.gd files)
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+if [ $# -eq 0 ]; then
+    FILES=$(find "$REPO_ROOT" -name '*.gd' -not -path '*/.godot/*')
+else
+    FILES="$*"
+fi
+
+if [ -z "$FILES" ]; then exit 0; fi
+
+EXIT_CODE=0
+
+while IFS= read -r file; do
+    if [ ! -f "$file" ]; then continue; fi
+
+    MATCHES=$(grep -nE '(get_node[[:space:]]*\([[:space:]]*["'"'"']\.\./)|(NodePath[[:space:]]*\([[:space:]]*["'"'"']\.\.\/)' "$file" || true)
+    if [ -n "$MATCHES" ]; then
+        echo "BLOCKED: $file uses ../ paths. Children must not reach up the tree." >&2
+        echo "$MATCHES" >&2
+        EXIT_CODE=1
+    fi
+done <<< "$FILES"
+
+exit $EXIT_CODE
