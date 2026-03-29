@@ -25,3 +25,4 @@ Thumbs.db
 .claude/settings.local.json
 .claude/projects/*/memory
 .env
+docs/superpowers

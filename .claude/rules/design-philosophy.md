@@ -29,6 +29,23 @@ Same seed + same commands = identical output. Integer math, fixed tick rate, see
 ## Config Is Not Code
 Every tunable number in JSON. Only structural numbers in code (0, 1, -1, INVALID_ID, array indices, loop bounds).
 
+## Change Detection
+GameStateDB tracks which tick each component was last modified. `set_field` and `set_component` skip the write and notification if data is identical. Systems query `was_changed(entity_id, component, since_tick)` or `get_changed_entities(component, since_tick)` to react only to real mutations. This eliminates watcher noise at scale (1000 animals with desire decay every tick = 1000 no-op callbacks without this).
+
+## Spawn Templates
+Spawning an entity uses species JSON to auto-populate all required components. `spawn_from_template(species_id, overrides)` reads the species definition, creates the entity, deep-merges overrides. No manual component assembly. Every animal is guaranteed to have desires, personality, position, behavior — the template defines the *shape*, personality randomization provides the *values*.
+
+## Lifecycle Hooks
+GameStateDB fires callbacks on component lifecycle events — not just value changes. Three hooks beyond the existing watcher:
+- **on_add**: component added to entity for the first time (spatial hash insertion, teaching system registration)
+- **on_remove**: component removed from entity (spatial hash eviction, advertisement withdrawal)
+- **on_despawn**: entity destroyed (relationship cleanup, nav graph removal, proximity cooldown purge)
+
+Hooks are batched to end-of-tick like watchers. They do not execute synchronously during the mutation.
+
+## Entity Relationships
+GameStateDB maintains a relationship table for entity-to-entity connections: teaching lineages, social bonds, infrastructure links. Lightweight bidirectional lookup — forward (`get_targets`) and reverse (`get_sources`). Relationships auto-clean on entity despawn via lifecycle hooks. Relationship types are defined in config, not code.
+
 ---
 
 ## Reference: GameStateDB Interface
@@ -86,6 +103,30 @@ func watch(component: StringName, callback: Callable) -> void
 func unwatch(component: StringName, callback: Callable) -> void
 func flush_notifications() -> void                             # called once at end of tick
 
+# ── Lifecycle hooks (end-of-tick batched, like watchers) ──
+
+enum Lifecycle { ADDED, REMOVED, DESPAWNED }
+
+func watch_lifecycle(component: StringName, event: Lifecycle, callback: Callable) -> void
+func watch_entity(entity_id: int, component: StringName, callback: Callable) -> void  # entity-scoped
+
+# ── Change detection ──
+
+func was_changed(entity_id: int, component: StringName, since_tick: int) -> bool
+func get_changed_entities(component: StringName, since_tick: int) -> Array[int]
+
+# ── Relationships ──
+
+func add_relationship(rel: StringName, from_id: int, to_id: int) -> void
+func remove_relationship(rel: StringName, from_id: int, to_id: int) -> void
+func get_targets(rel: StringName, from_id: int) -> Array[int]          # forward: who does from_id point to?
+func get_sources(rel: StringName, to_id: int) -> Array[int]            # reverse: who points to to_id?
+func get_all_relationships(entity_id: int) -> Dictionary               # all rels involving this entity
+
+# ── Spawn templates ──
+
+func spawn_from_template(species_id: StringName, overrides: Dictionary = {}) -> int  # creates entity with all required components
+
 # ── Dirty tracking (drives AI evaluation priority) ──
 
 func mark_dirty(entity_id: int) -> void                        # entity needs AI re-evaluation
@@ -114,10 +155,10 @@ func destroy_entities_bulk(entity_ids: Array[int]) -> void
 | Per tick | Methods |
 |---|---|
 | Thousands | `add_all`, `mul_all`, `clamp_all`, `get_field`, `set_field` |
-| Tens | `get_entities_with`, `query_radius_with`, `update_spatial` |
+| Tens | `get_entities_with`, `query_radius_with`, `update_spatial`, `was_changed`, `get_changed_entities` |
 | Once | `advance_tick`, `flush_notifications`, `pop_dirty` |
 | On network tick | `snapshot_delta`, `apply_delta` |
-| Rare (events) | `create_entity`, `destroy_entity`, `set_component` |
+| Rare (events) | `create_entity`, `destroy_entity`, `set_component`, `spawn_from_template`, `add_relationship`, `remove_relationship` |
 | Very rare (save/load) | `snapshot`, `load_snapshot`, `create_entities_bulk` |
 
 ### Column storage internals
