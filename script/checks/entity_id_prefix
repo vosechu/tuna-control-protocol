@@ -1,0 +1,31 @@
+#!/bin/bash
+# Ensures all entity "id" fields in JSON are properly namespaced (mod_id:entity_name).
+# Usage: entity_id_prefix [file ...]    (no args = all project JSON/JSONC files)
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+if [ $# -eq 0 ]; then
+    FILES=$(find "$REPO_ROOT" -name '*.json' -o -name '*.jsonc' | grep -vE '(\.godot/|\.import/)')
+else
+    FILES="$*"
+fi
+
+if [ -z "$FILES" ]; then exit 0; fi
+
+EXIT_CODE=0
+
+while IFS= read -r file; do
+    if [ ! -f "$file" ]; then continue; fi
+    # Skip non-entity config files
+    if echo "$file" | grep -qE '(meta/|balance/|schema|\.godot/)'; then continue; fi
+
+    IDS=$(grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]+"' "$file" | sed 's/.*"id"[[:space:]]*:[[:space:]]*"//;s/"$//' || true)
+    for id in $IDS; do
+        if ! echo "$id" | grep -qE '^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$'; then
+            echo "BLOCKED: $file has invalid entity ID '$id'. Must match mod_id:entity_name (snake_case)." >&2
+            EXIT_CODE=1
+        fi
+    done
+done <<< "$FILES"
+
+exit $EXIT_CODE

@@ -1,0 +1,34 @@
+#!/bin/bash
+# Runs gdlint on GDScript files.
+# Usage: gdlint [file ...]    (no args = all *.gd files)
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+if [ $# -eq 0 ]; then
+    FILES=$(find "$REPO_ROOT" -name '*.gd' -not -path '*/.godot/*')
+else
+    FILES="$*"
+fi
+
+if [ -z "$FILES" ]; then exit 0; fi
+
+if ! command -v gdlint &> /dev/null; then
+    echo "WARNING: gdlint not installed. Skipping. Install: pip install gdtoolkit" >&2
+    exit 0
+fi
+
+ERRORS=""
+while IFS= read -r file; do
+    if [ -f "$file" ]; then
+        OUTPUT=$(gdlint "$file" 2>&1)
+        if [ $? -ne 0 ]; then
+            ERRORS="$ERRORS\n$OUTPUT"
+        fi
+    fi
+done <<< "$FILES"
+
+if [ -n "$ERRORS" ]; then
+    echo -e "GDScript lint errors:$ERRORS" >&2
+    exit 1
+fi
+exit 0

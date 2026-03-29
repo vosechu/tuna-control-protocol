@@ -1,0 +1,48 @@
+#!/bin/bash
+# Runs all checks against the entire project.
+# Usage: script/validate           (all checks)
+#        script/validate json      (only checks matching "json")
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CHECKS_DIR="$SCRIPT_DIR/checks"
+FILTER="${1:-}"
+
+if [ ! -d "$CHECKS_DIR" ]; then
+    echo "No checks directory at $CHECKS_DIR" >&2
+    exit 1
+fi
+
+FAILED=0
+PASSED=0
+SKIPPED=0
+
+for check in "$CHECKS_DIR"/*; do
+    if [ ! -x "$check" ]; then continue; fi
+    NAME=$(basename "$check")
+
+    if [ -n "$FILTER" ] && ! echo "$NAME" | grep -qi "$FILTER"; then
+        SKIPPED=$((SKIPPED + 1))
+        continue
+    fi
+
+    printf "  %-30s" "$NAME"
+    OUTPUT=$("$check" 2>&1)
+    STATUS=$?
+
+    if [ $STATUS -eq 0 ]; then
+        echo "ok"
+        PASSED=$((PASSED + 1))
+    else
+        echo "FAIL"
+        echo "$OUTPUT" | sed 's/^/    /' >&2
+        FAILED=$((FAILED + 1))
+    fi
+done
+
+echo ""
+echo "$PASSED passed, $FAILED failed, $SKIPPED skipped"
+
+if [ $FAILED -gt 0 ]; then
+    exit 1
+fi
+exit 0

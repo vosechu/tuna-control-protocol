@@ -1,0 +1,172 @@
+// Object Definition Schema
+// All game values use integer scale: 0-1000 maps to 0.0-1.0
+// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+//
+// A complete object file. New object type = new JSON file, not new code.
+// Located at: mods/<mod_id>/items/<object_type_id>.jsonc
+// Mods drop new files into their own items/ directory to add object types.
+
+{
+  "object_type_id": "cardboard_box",
+  "display_name_key": "object.cardboard_box.name",        // i18n key
+  "description_key": "object.cardboard_box.description",   // i18n key
+
+  // --- Placement rules ---
+  "placement": {
+    "size_u": 3,                        // rack units tall (vertical)
+    "placeable_on": ["rack", "floor"],  // where the player can put this
+    "rack_min_u": 0,                    // lowest rack unit allowed (0 = bottom)
+    "rack_max_u": 39,                   // highest starting unit allowed (42U rack - 3U)
+    "moveable": true,                   // can the player pick this up and relocate it?
+    "fixed": false                      // true for robot_arm_station, cooling_pipes, etc.
+  },
+
+  // --- Advertisements ---
+  // What needs this object satisfies for nearby animals.
+  // Animals evaluate these when deciding where to go.
+  // Each advertisement targets one desire and has a range + strength.
+  "advertisements": [
+    {
+      "desire": "shelter",
+      "strength": 800,                   // how well it satisfies this desire (0-1000)
+      "radius_u": 0,                    // 0 = must be inside/on the object
+      "species_filter": ["cat"],        // only cats see this as shelter
+      "capacity": 1,                    // max animals using this advertisement at once
+      "integrity_min": 340              // stops advertising shelter when too degraded
+    },
+    {
+      "desire": "stimulation",
+      "strength": 600,
+      "radius_u": 1,                    // ferrets are drawn from 1U away
+      "species_filter": ["ferret"],
+      "capacity": 1,
+      "integrity_min": 0                // ferrets find even scrappy boxes stimulating
+    },
+    {
+      "desire": "comfort",
+      "strength": 300,
+      "radius_u": 0,
+      "species_filter": ["cat"],
+      "capacity": 1,
+      "integrity_min": 500              // only comfy when reasonably intact
+    }
+  ],
+
+  // --- Heat interaction ---
+  "heat": {
+    "type": "insulator",                // "source" | "insulator" | "amplifier" | "none"
+    "insulation_factor": 1300,          // multiplies nearby heat retention (1000 = 1.0x)
+    "radius_u": 0                       // insulation applies to occupants only
+  },
+
+  // --- Degradation ---
+  // How this object loses integrity over time or through interaction.
+  // null if the object is indestructible.
+  "degradation": {
+    "initial_integrity": 1000,
+    "passive_decay_per_sec": 0,         // no passive decay for boxes
+    "interaction_drain": [
+      {
+        "interaction": "ferret_shred",
+        "cost": 50
+      }
+    ]
+  },
+
+  // --- Transformation ---
+  // What this object becomes when integrity reaches 0.
+  // null if the object simply disappears.
+  // References the transformation_chain schema for the full definition.
+  "transformation": {
+    "chain_id": "cardboard_box"         // key in transformation_chain config
+  },
+
+  // --- Proximity events ---
+  // Special sequences triggered by species/conditions near this object.
+  // Uses the general proximity_event system (same system for all discoveries).
+  "proximity_events": [
+    {
+      "event_id": "ferret_discovers_box",
+      "trigger": {
+        "species": "ferret",
+        "radius_u": 2,
+        "first_time": true,             // only fires once per ferret per box
+        "conditions": {
+          "ferret_alertness_min": 300   // must be somewhat alert, not dead-sleeping
+        }
+      },
+      "sequence": {
+        "steps": [
+          { "action": "animate", "target": "ferret", "animation": "sniff_approach", "duration_sec": 2.0 },
+          { "action": "animate", "target": "ferret", "animation": "squeeze_into_box", "duration_sec": 1.5 },
+          { "action": "sound", "sound_id": "box_rustle_muffled", "spatial": true },
+          { "action": "animate", "target": "ferret", "animation": "pop_head_out", "duration_sec": 1.0 }
+        ],
+        "scene_dim": 100,              // dim rest of scene 100/1000 to draw attention
+        "interruptible_after_sec": 3.0
+      },
+      "cooldown_sec": 0,               // first_time=true means it only fires once anyway
+      "narrator_event": "narrator.proximity.ferret_discovers_box"
+    }
+  ],
+
+  // --- Interactions ---
+  // Named interactions that animals can perform on this object.
+  // Referenced by species behaviors and transformation drain_sources.
+  "interactions": [
+    {
+      "interaction_id": "ferret_shred",
+      "species_filter": ["ferret"],
+      "animation_id": "ferret_shred_box",
+      "sound_id": "cardboard_tear",
+      "duration_sec": 3.0,
+      "desire_satisfied": "stimulation",
+      "satisfaction_amount": 150
+    },
+    {
+      "interaction_id": "cat_nestle",
+      "species_filter": ["cat"],
+      "animation_id": "cat_enter_box",
+      "sound_id": "box_rustle_settle",
+      "duration_sec": 2.0,
+      "desire_satisfied": "shelter",
+      "satisfaction_amount": 300
+    }
+  ],
+
+  // --- Visual ---
+  "visuals": {
+    "sprite_sheet": "mods/tcp_base/sprites/objects/cardboard_box.png",
+    // Variant sprites for degradation stages (referenced by transformation_chain stages).
+    "variants": {
+      "cardboard_box_pristine": "mods/tcp_base/sprites/objects/cardboard_box_pristine.png",
+      "cardboard_box_worn": "mods/tcp_base/sprites/objects/cardboard_box_worn.png",
+      "cardboard_box_collapsing": "mods/tcp_base/sprites/objects/cardboard_box_collapsing.png"
+    }
+  },
+
+  // --- Sound ---
+  "sounds": {
+    "sound_sets": {
+      "box_pristine": {
+        "bump": "mods/tcp_base/sounds/objects/box_bonk_deep.ogg",
+        "rustle": "mods/tcp_base/sounds/objects/box_rustle_muffled.ogg"
+      },
+      "box_worn": {
+        "bump": "mods/tcp_base/sounds/objects/box_bonk_thin.ogg",
+        "rustle": "mods/tcp_base/sounds/objects/box_tear_light.ogg"
+      },
+      "box_collapsing": {
+        "bump": "mods/tcp_base/sounds/objects/box_crumple.ogg",
+        "rustle": "mods/tcp_base/sounds/objects/scraps_whisper.ogg"
+      }
+    }
+  },
+
+  // --- Robot narrator ---
+  "narrator": {
+    "device_type_key": "narrator.device_type.enclosure_unit",
+    "integrity_reports": true,          // robot comments on degradation
+    "report_interval_sec": 60           // how often the robot checks on this
+  }
+}

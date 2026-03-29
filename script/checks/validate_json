@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""Validates JSON/JSONC files parse correctly.
+Strips // comments (full-line and inline) and trailing commas before parsing.
+Usage: validate_json [file ...]    (no args = all project JSON/JSONC files)
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+
+def strip_jsonc(text: str) -> str:
+    """Remove // comments and trailing commas to produce valid JSON."""
+    # Remove full-line and inline // comments (but not inside strings)
+    # Simple approach: strip everything after // that isn't inside a quoted string
+    lines = []
+    for line in text.splitlines():
+        # Find // that isn't inside a string
+        in_string = False
+        escape = False
+        result = []
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if escape:
+                result.append(ch)
+                escape = False
+                i += 1
+                continue
+            if ch == '\\' and in_string:
+                result.append(ch)
+                escape = True
+                i += 1
+                continue
+            if ch == '"':
+                in_string = not in_string
+                result.append(ch)
+                i += 1
+                continue
+            if not in_string and ch == '/' and i + 1 < len(line) and line[i + 1] == '/':
+                break  # rest of line is comment
+            result.append(ch)
+            i += 1
+        lines.append(''.join(result))
+
+    cleaned = '\n'.join(lines)
+    # Remove trailing commas before } or ]
+    cleaned = re.sub(r',\s*([}\]])', r'\1', cleaned)
+    return cleaned
+
+
+def find_all_json():
+    try:
+        root = subprocess.check_output(
+            ['git', 'rev-parse', '--show-toplevel'], text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        root = '.'
+    result = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ('.godot', '.import', '.claude')]
+        for f in filenames:
+            if f.endswith('.json') or f.endswith('.jsonc'):
+                result.append(os.path.join(dirpath, f))
+    return result
+
+
+def main():
+    files = sys.argv[1:] if len(sys.argv) > 1 else find_all_json()
+    errors = []
+
+    for filepath in files:
+        try:
+            with open(filepath, 'r') as f:
+                text = f.read()
+            cleaned = strip_jsonc(text)
+            json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            errors.append(f'  INVALID JSON: {filepath}\n    {e}')
+        except (UnicodeDecodeError, FileNotFoundError):
+            errors.append(f'  UNREADABLE: {filepath}')
+
+    if errors:
+        print('JSON syntax errors:', file=sys.stderr)
+        for e in errors:
+            print(e, file=sys.stderr)
+        sys.exit(1)
+
+    sys.exit(0)
+
+
+if __name__ == '__main__':
+    main()

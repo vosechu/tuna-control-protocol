@@ -1,0 +1,77 @@
+// Transformation Chain Schema
+// All game values use integer scale: 0-1000 maps to 0.0-1.0
+// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+//
+// Defines how objects transform into other objects over time or through interaction.
+// Prototype hardcodes cardboard_box -> bedding_scraps, but all future transformations
+// (and mods) will use this format.
+//
+// Design notes:
+// - Transformations are NOT instant. integrity drains gradually via interactions.
+// - When integrity hits 0, the source object is replaced by output entries.
+// - Occupants are gently ejected before collapse (never trapped).
+// - Visual/sound stages give the player readable feedback during the process.
+// - All numbers are overridable per the config-over-code principle.
+
+{
+  // Each key is a source object_type_id.
+  // A single object can have exactly one transformation chain.
+  // Mods can add new chains or override existing ones by redefining the key.
+
+  "cardboard_box": {
+
+    // What causes integrity to drain. Each entry is an interaction type
+    // paired with the amount of integrity lost per occurrence.
+    "drain_sources": [
+      {
+        "interaction": "ferret_shred",   // matches an interaction_id from species behavior
+        "integrity_cost": 50             // per shred event (20 shreds to destroy)
+      }
+    ],
+
+    // Visual and audio stages keyed to integrity ranges.
+    // Evaluated top-to-bottom; first matching range wins.
+    "stages": [
+      {
+        "id": "pristine",
+        "integrity_min": 670,
+        "integrity_max": 1000,
+        "sprite_variant": "cardboard_box_pristine",
+        "sound_set": "box_pristine"      // references a sound_set_id
+      },
+      {
+        "id": "worn",
+        "integrity_min": 340,
+        "integrity_max": 660,
+        "sprite_variant": "cardboard_box_worn",
+        "sound_set": "box_worn"
+      },
+      {
+        "id": "collapsing",
+        "integrity_min": 0,
+        "integrity_max": 330,
+        "sprite_variant": "cardboard_box_collapsing",
+        "sound_set": "box_collapsing"
+      }
+    ],
+
+    // What happens when integrity reaches 0.
+    "collapse": {
+      "duration_sec": 7.0,               // sag/collapse animation length
+      "eject_occupants": true,            // gently eject before replacing
+
+      // Output objects spawned at the source's position.
+      "outputs": [
+        {
+          "object_type_id": "bedding_scraps",
+          "count_min": 4,
+          "count_max": 6,
+          "scatter_radius_u": 1           // how far scraps spread (in rack units)
+        }
+      ]
+    },
+
+    // Robot narrator log entry on collapse (i18n key).
+    "narrator_event": "narrator.transformation.box_collapse"
+  }
+}

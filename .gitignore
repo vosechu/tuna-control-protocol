@@ -1,0 +1,27 @@
+# Godot 4+
+.godot/
+.nomedia
+.import/
+export.cfg
+export_credentials.cfg
+*.tmp
+*.translation
+.mono/
+data_*/
+mono_crash.*.json
+
+# Builds
+build/
+export/
+*.pck
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Claude Code
+.claude/settings.local.json
+.claude/projects/*/memory
+.env

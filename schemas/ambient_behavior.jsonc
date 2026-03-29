@@ -1,0 +1,109 @@
+// Ambient Behavior Table Schema
+// All game values use integer scale: 0-1000 maps to 0.0-1.0
+// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+//
+// Defines the pool of idle/ambient behaviors for each species.
+// These are what animals do when NOT pursuing a goal-directed action.
+// Target: ~70% of an animal's time is ambient, ~30% goal-directed.
+//
+// Behavior selection: weighted random from eligible behaviors each tick.
+// Eligibility is determined by the "conditions" block.
+// Once selected, the animal commits for at least duration_min_sec (hysteresis).
+// Interruptible only by goal-directed needs exceeding interrupt_threshold.
+//
+// Each species has its own file: mods/<mod_id>/behaviors/cat.jsonc, ferret.jsonc, etc.
+// Mods add new behaviors by providing additional files that merge into the pool.
+
+{
+  "species_id": "cat",
+
+  "behaviors": [
+    {
+      "id": "grooming",
+      "display_name_key": "behavior.cat.grooming",  // i18n key
+
+      // When this behavior is eligible for selection.
+      "conditions": {
+        "warmth_min": 400,           // 0-1000 scale, must be at least this warm
+        "comfort_min": 300,
+        "alertness_max": 600,        // too alert = won't groom
+        "after_action": ["eating", "sleeping"],  // more likely after these actions
+        "after_action_weight_bonus": 1500        // multiplier to base weight (1000 = 1.0x)
+      },
+
+      // Selection weight (higher = more likely when eligible).
+      "weight": 10,
+
+      // Duration commitment range.
+      "duration_min_sec": 15,
+      "duration_max_sec": 30,
+
+      // How strong a goal-directed need must be to interrupt this behavior.
+      // 0 = any need interrupts, 1000 = nothing interrupts.
+      "interrupt_threshold": 700,
+
+      // Animation and presentation.
+      "animation_id": "cat_groom",
+      "sprite_frames": "cat_groom_sheet",  // references sprite asset
+
+      // Sound emitted during this behavior.
+      "sound": {
+        "sound_id": "cat_lick",
+        "loop": true,
+        "volume_range": [200, 400],   // 0-1000 scale, varies for life
+        "spatial": true
+      },
+
+      // Effect on the animal's own desires while performing this behavior.
+      // Positive values increase satisfaction, negative decrease.
+      "self_effects": {
+        "comfort": 10                // per-second comfort gain while grooming (0-1000 scale)
+      },
+
+      // Effect on nearby animals (radius in rack units).
+      "proximity_effects": []         // grooming has no effect on others
+    },
+
+    {
+      "id": "slow_blink",
+      "display_name_key": "behavior.cat.slow_blink",
+      "conditions": {
+        "comfort_min": 600,
+        "nearby_species": ["cat", "player_cursor"],  // needs someone to blink at
+        "nearby_radius_u": 5
+      },
+      "weight": 5,
+      "duration_min_sec": 2,
+      "duration_max_sec": 3,
+      "interrupt_threshold": 300,
+      "animation_id": "cat_slow_blink",
+      "sprite_frames": "cat_slow_blink_sheet",
+      "sound": {
+        "sound_id": "cat_purr_quiet",
+        "loop": false,
+        "volume_range": [100, 200],
+        "spatial": true
+      },
+      "self_effects": {
+        "comfort": 20
+      },
+      "proximity_effects": [
+        {
+          "target_filter": "any",      // affects any nearby animal
+          "radius_u": 5,
+          "effects": {
+            "comfort": 10             // receiving a slow blink is comforting (0-1000 scale)
+          }
+        }
+      ]
+    }
+
+    // ... remaining cat behaviors: stretching, loafing, tail_flick,
+    //     head_track, repositioning, staring_at_nothing, kneading
+    // Each follows the same structure.
+  ],
+
+  // Cross-species ambient interactions go in a separate file:
+  // mods/<mod_id>/behaviors/cross_species.jsonc
+  // They use the same schema but with a "participants" block instead of "species_id".
+}

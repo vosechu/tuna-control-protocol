@@ -1,0 +1,272 @@
+#!/bin/bash
+# Tests every script in script/checks/ with known-good and known-bad fixtures.
+# Usage: script/test_checks
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CHECKS="$SCRIPT_DIR/checks"
+PASSED=0
+FAILED=0
+SKIPPED=0
+
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+assert_pass() {
+    local name="$1"; shift
+    if "$@" >/dev/null 2>&1; then
+        echo "  ok   $name"
+        PASSED=$((PASSED + 1))
+    else
+        echo "  FAIL $name (expected pass, got exit $?)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+
+assert_fail() {
+    local name="$1"; shift
+    if "$@" >/dev/null 2>&1; then
+        echo "  FAIL $name (expected fail, got exit 0)"
+        FAILED=$((FAILED + 1))
+    else
+        echo "  ok   $name"
+        PASSED=$((PASSED + 1))
+    fi
+}
+
+skip() {
+    echo "  skip $1"
+    SKIPPED=$((SKIPPED + 1))
+}
+
+# ============================================================
+echo "entity_id_prefix"
+# ============================================================
+
+cat > "$TMPDIR/valid_entity.json" << 'EOF'
+{
+  "id": "tcp_base:cat",
+  "name": "Mochi"
+}
+EOF
+
+cat > "$TMPDIR/bad_entity.json" << 'EOF'
+{
+  "id": "cat",
+  "name": "Mochi"
+}
+EOF
+
+cat > "$TMPDIR/camel_entity.json" << 'EOF'
+{
+  "id": "tcpBase:kittenSmall",
+  "name": "Tiny"
+}
+EOF
+
+mkdir -p "$TMPDIR/meta"
+cat > "$TMPDIR/meta/skip_me.json" << 'EOF'
+{
+  "id": "no_prefix_needed"
+}
+EOF
+
+cat > "$TMPDIR/no_id.json" << 'EOF'
+{
+  "name": "just a config file"
+}
+EOF
+
+assert_pass "valid namespaced ID"       "$CHECKS/entity_id_prefix" "$TMPDIR/valid_entity.json"
+assert_fail "missing namespace prefix"  "$CHECKS/entity_id_prefix" "$TMPDIR/bad_entity.json"
+assert_fail "camelCase in ID"           "$CHECKS/entity_id_prefix" "$TMPDIR/camel_entity.json"
+assert_pass "meta/ path is skipped"     "$CHECKS/entity_id_prefix" "$TMPDIR/meta/skip_me.json"
+assert_pass "file without id field"     "$CHECKS/entity_id_prefix" "$TMPDIR/no_id.json"
+
+# ============================================================
+echo "no_node_in_core"
+# ============================================================
+
+cat > "$TMPDIR/good_core.gd" << 'EOF'
+extends RefCounted
+
+var _data: Dictionary = {}
+
+func get_value(key: String) -> int:
+    return _data[key]
+EOF
+
+cat > "$TMPDIR/bad_extends.gd" << 'EOF'
+extends Node2D
+
+var speed: float = 100.0
+EOF
+
+cat > "$TMPDIR/bad_scene_access.gd" << 'EOF'
+extends RefCounted
+
+func do_thing() -> void:
+    var node := get_node("Child")
+EOF
+
+cat > "$TMPDIR/bad_dollar.gd" << 'EOF'
+extends RefCounted
+
+func do_thing() -> void:
+    $Sprite.play("idle")
+EOF
+
+cat > "$TMPDIR/bad_get_parent.gd" << 'EOF'
+extends RefCounted
+
+func do_thing() -> void:
+    var p := get_parent()
+EOF
+
+cat > "$TMPDIR/good_resource.gd" << 'EOF'
+extends Resource
+
+@export var strength: float = 0.5
+EOF
+
+assert_pass "extends RefCounted"         "$CHECKS/no_node_in_core" "$TMPDIR/good_core.gd"
+assert_pass "extends Resource"           "$CHECKS/no_node_in_core" "$TMPDIR/good_resource.gd"
+assert_fail "extends Node2D"             "$CHECKS/no_node_in_core" "$TMPDIR/bad_extends.gd"
+assert_fail "calls get_node()"           "$CHECKS/no_node_in_core" "$TMPDIR/bad_scene_access.gd"
+assert_fail "uses \$NodeName syntax"     "$CHECKS/no_node_in_core" "$TMPDIR/bad_dollar.gd"
+assert_fail "calls get_parent()"         "$CHECKS/no_node_in_core" "$TMPDIR/bad_get_parent.gd"
+
+# ============================================================
+echo "no_parent_paths"
+# ============================================================
+
+cat > "$TMPDIR/good_child_path.gd" << 'EOF'
+extends Node2D
+
+func _ready() -> void:
+    var child := get_node("AnimalAgent")
+EOF
+
+cat > "$TMPDIR/bad_parent_get_node.gd" << 'EOF'
+extends Node2D
+
+func _ready() -> void:
+    var sibling := get_node("../HeatGrid")
+EOF
+
+cat > "$TMPDIR/bad_parent_nodepath.gd" << 'EOF'
+extends Node2D
+
+func _ready() -> void:
+    var path := NodePath("../Sibling")
+EOF
+
+cat > "$TMPDIR/good_no_paths.gd" << 'EOF'
+extends RefCounted
+
+func calculate(x: int) -> int:
+    return x * 2
+EOF
+
+assert_pass "child path is fine"         "$CHECKS/no_parent_paths" "$TMPDIR/good_child_path.gd"
+assert_fail "get_node with ../"          "$CHECKS/no_parent_paths" "$TMPDIR/bad_parent_get_node.gd"
+assert_fail "NodePath with ../"          "$CHECKS/no_parent_paths" "$TMPDIR/bad_parent_nodepath.gd"
+assert_pass "no paths at all"            "$CHECKS/no_parent_paths" "$TMPDIR/good_no_paths.gd"
+
+# ============================================================
+echo "validate_json"
+# ============================================================
+
+cat > "$TMPDIR/valid.json" << 'EOF'
+{"species": "cat", "warmth": 850}
+EOF
+
+cat > "$TMPDIR/invalid.json" << 'EOF'
+{"species": "cat", "warmth": }
+EOF
+
+cat > "$TMPDIR/valid.jsonc" << 'EOF'
+{
+  // This is a comment
+  "species": "cat",
+  "warmth": 850,  // trailing comma is ok in JSONC
+}
+EOF
+
+assert_pass "valid JSON"                 "$CHECKS/validate_json" "$TMPDIR/valid.json"
+assert_fail "invalid JSON syntax"        "$CHECKS/validate_json" "$TMPDIR/invalid.json"
+assert_pass "valid JSONC with comments"  "$CHECKS/validate_json" "$TMPDIR/valid.jsonc"
+
+# ============================================================
+echo "json_snake_case_keys"
+# ============================================================
+
+cat > "$TMPDIR/snake_keys.json" << 'EOF'
+{"species_name": "cat", "base_desires": {"hunger": 500}}
+EOF
+
+cat > "$TMPDIR/camel_keys.json" << 'EOF'
+{"speciesName": "cat", "baseDesires": {"hunger": 500}}
+EOF
+
+cat > "$TMPDIR/schema_exempt.json" << 'EOF'
+{"$schema": "http://example.com/schema", "species_name": "cat"}
+EOF
+
+assert_pass "snake_case keys"            "$CHECKS/json_snake_case_keys" "$TMPDIR/snake_keys.json"
+assert_fail "camelCase keys"             "$CHECKS/json_snake_case_keys" "$TMPDIR/camel_keys.json"
+assert_pass "\$schema key is exempt"     "$CHECKS/json_snake_case_keys" "$TMPDIR/schema_exempt.json"
+
+# ============================================================
+echo "gdlint"
+# ============================================================
+
+if ! command -v gdlint &> /dev/null; then
+    skip "gdlint not installed"
+else
+    cat > "$TMPDIR/good_style.gd" << 'EOF'
+extends RefCounted
+
+var _counter: int = 0
+
+func increment() -> void:
+	_counter += 1
+EOF
+
+    cat > "$TMPDIR/bad_style.gd" << 'EOF'
+extends RefCounted
+
+var MyBadVariable = 0
+EOF
+
+    assert_pass "valid GDScript style"   "$CHECKS/gdlint" "$TMPDIR/good_style.gd"
+    assert_fail "bad variable naming"    "$CHECKS/gdlint" "$TMPDIR/bad_style.gd"
+fi
+
+# ============================================================
+echo "no_secrets"
+# ============================================================
+
+if ! command -v gitleaks &> /dev/null; then
+    skip "gitleaks not installed"
+else
+    cat > "$TMPDIR/clean_file.txt" << 'EOF'
+This is a normal config file with no secrets.
+warmth_threshold = 500
+EOF
+
+    # Generate a high-entropy fake token at runtime so no real-looking secret lives in this file
+    FAKE_TOKEN="ghp_$(head -c 30 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 36)"
+    echo "GITHUB_TOKEN=$FAKE_TOKEN" > "$TMPDIR/has_secret.txt"
+
+    assert_pass "clean file"             "$CHECKS/no_secrets" "$TMPDIR/clean_file.txt"
+    assert_fail "file with GitHub token" "$CHECKS/no_secrets" "$TMPDIR/has_secret.txt"
+fi
+
+# ============================================================
+echo ""
+echo "$PASSED passed, $FAILED failed, $SKIPPED skipped"
+
+if [ "$FAILED" -gt 0 ]; then
+    exit 1
+fi
+exit 0

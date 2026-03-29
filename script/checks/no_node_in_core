@@ -1,0 +1,31 @@
+#!/bin/bash
+# Ensures core/ logic never extends Node or accesses the scene tree.
+# Usage: no_node_in_core [file ...]    (no args = all engine/core/*.gd files)
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+if [ $# -eq 0 ]; then
+    FILES=$(find "$REPO_ROOT/engine/core" -name '*.gd' 2>/dev/null)
+else
+    FILES="$*"
+fi
+
+if [ -z "$FILES" ]; then exit 0; fi
+
+EXIT_CODE=0
+
+while IFS= read -r file; do
+    if [ ! -f "$file" ]; then continue; fi
+
+    if grep -nE '^[[:space:]]*extends[[:space:]]+(Node|Node2D|Node3D|Control|CharacterBody2D|StaticBody2D|RigidBody2D|Area2D|Sprite2D|AnimatedSprite2D|AudioStreamPlayer|Camera2D|CanvasLayer)([[:space:]]|$)' "$file"; then
+        echo "BLOCKED: $file extends a Node type. Core logic must extend RefCounted or Resource." >&2
+        EXIT_CODE=1
+    fi
+
+    if grep -nE '(^|[^a-zA-Z_])(get_node|get_parent|get_tree|add_child|remove_child)([[:space:]]*\(|$)|[$][A-Z]' "$file"; then
+        echo "BLOCKED: $file accesses the scene tree. Core logic must be scene-tree-free." >&2
+        EXIT_CODE=1
+    fi
+done <<< "$FILES"
+
+exit $EXIT_CODE

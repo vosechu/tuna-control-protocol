@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Ensures all JSON keys are snake_case. Rejects camelCase, kebab-case, PascalCase.
+Usage: json_snake_case_keys [file ...]    (no args = all project JSON files)
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+SNAKE_CASE = re.compile(r'^[a-z_][a-z0-9_]*$')
+EXEMPTIONS = frozenset(['$schema'])
+
+
+def check_keys(obj, path='', errors=None):
+    if errors is None:
+        errors = []
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            current_path = f'{path}.{key}' if path else key
+            if key not in EXEMPTIONS and not SNAKE_CASE.match(key):
+                errors.append(current_path)
+            check_keys(value, current_path, errors)
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            check_keys(item, f'{path}[{i}]', errors)
+    return errors
+
+
+def find_all_json():
+    try:
+        root = subprocess.check_output(
+            ['git', 'rev-parse', '--show-toplevel'], text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        root = '.'
+    result = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ('.godot', '.import')]
+        for f in filenames:
+            if f.endswith('.json'):
+                result.append(os.path.join(dirpath, f))
+    return result
+
+
+def main():
+    files = sys.argv[1:] if len(sys.argv) > 1 else find_all_json()
+    exit_code = 0
+
+    for filepath in files:
+        try:
+            with open(filepath, 'r') as f:
+                lines = f.readlines()
+                cleaned = '\n'.join(
+                    line for line in lines if not line.strip().startswith('//')
+                )
+                data = json.loads(cleaned)
+        except (json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError):
+            continue
+
+        errors = check_keys(data)
+        if errors:
+            print(f'ERROR: {filepath} has non-snake_case keys:', file=sys.stderr)
+            for e in errors:
+                print(f'  {e}', file=sys.stderr)
+            exit_code = 1
+
+    sys.exit(exit_code)
+
+
+if __name__ == '__main__':
+    main()

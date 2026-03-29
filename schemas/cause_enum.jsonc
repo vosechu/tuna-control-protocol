@@ -1,0 +1,50 @@
+// Item Movement Cause Enum
+// Every time an item changes position, the movement is tagged with a cause.
+// This enum exists so that when intentional cooperation ships, we already have
+// the vocabulary to distinguish "cat batted it randomly" from "cat carried it
+// deliberately." Deferred from prototype tracking, but the values are defined
+// now so all future code and mods use consistent identifiers.
+//
+// Usage: movement events carry a "cause" field set to one of these string values.
+// Mods may NOT add new cause values (this is engine-level, not content-level).
+
+{
+  "causes": [
+
+    // --- Physics / environment ---
+    "GRAVITY",                // item fell due to gravity (rolled off edge, shelf broke)
+    "PHYSICS_BOUNCE",         // item deflected off another object or wall
+    "WIND",                   // pushed by fan or airflow
+
+    // --- Animal: unintentional ---
+    "ACCIDENTAL_BAT",         // cat batted it without goal (idle play, tail flick)
+    "ACCIDENTAL_KICK",        // animal bumped it while moving through space
+    "ACCIDENTAL_DROP",        // animal was carrying something and got startled/interrupted
+
+    // --- Animal: instinct-driven (not cooperation) ---
+    "DRAG",                   // ferret dragging for fun (tuna can across floor)
+    "STASH",                  // ferret collecting to a stash location
+    "STASH_RELOCATE",         // ferret moving items between stashes
+    "SHRED",                  // ferret/animal destructive interaction (box shredding)
+    "NEST_ARRANGE",           // cat arranging nesting material
+    "POUNCE_SCATTER",         // items displaced by a pounce
+
+    // --- Animal: intentional (future, requires learning system) ---
+    "INTENTIONAL_DELIVER",    // animal deliberately brought item to another animal
+    "INTENTIONAL_SHARE",      // animal placed item for another to find (teaching)
+    "INTENTIONAL_TRADE",      // reciprocal exchange (if this ever exists)
+
+    // --- Player ---
+    "PLAYER_PLACED",          // player put it here via the placement system
+    "PLAYER_MOVED",           // player relocated it from one spot to another
+
+    // --- Robot arm ---
+    "ROBOT_PROCESS",          // robot arm moved item during processing (can opening)
+    "ROBOT_CLEANUP",          // robot arm tidying (washing can, hose removal)
+
+    // --- System ---
+    "SPAWN",                  // item appeared (initial placement, delivery arrival)
+    "TRANSFORM",              // item created by transformation chain (box -> scraps)
+    "DESPAWN_DECAY"           // item removed due to decay timer expiring
+  ]
+}

@@ -1,0 +1,139 @@
+# TCP Animal AI
+
+## State Machine
+
+Two layers: **meta-state** (AMBIENT vs. GOAL_DIRECTED) and **specific states**.
+
+### States
+
+**Ambient:** IDLE, GROOMING, LOAFING, STRETCHING, SLOW_BLINK, KNEADING, STARING, HEAD_TRACK, TAIL_FLICK, REPOSITIONING, WAR_DANCE (ferret), DEAD_SLEEP (ferret), SPEED_BUMP (ferret), SNIFFING (ferret), SLEEPING_ON_CAT (ferret), STASH_CHECK (ferret)
+
+**Goal-directed:** SEEKING, MOVING_TO, PERFORMING, COMPLETING
+
+**Special:** STARTLED, RELOCATING, BEING_CARRIED
+
+### Transitions
+
+- AMBIENT → GOAL_DIRECTED: desire score exceeds current commitment + SWITCH_THRESHOLD (150)
+- GOAL_DIRECTED → AMBIENT: action complete or desire satisfied
+- Any → STARTLED: pounce, loud noise, infrastructure removal
+- STARTLED → AMBIENT/IDLE: after 0.5-1.5 sec flee to safe spot
+
+### Hysteresis Integration
+
+```gdscript
+var commitment_score: int = 0
+var min_duration: float = 0.0  # Minimum time in current state (engine seconds)
+
+func try_transition(new_state: State, score: int) -> bool:
+    if state_timer < min_duration: return false
+    if meta_state == GOAL_DIRECTED:
+        if score < commitment_score + SWITCH_THRESHOLD: return false
+    _enter_state(new_state, score)
+    return true
+
+func tick(delta: float) -> void:  # delta is engine time, stays float
+    state_timer += delta
+    commitment_score = maxi(0, commitment_score - int(10 * delta))  # Decays (10/1000 per sec)
+```
+
+### Ambient State Selection
+
+Weighted random pool filtered by context: warm → grooming/kneading eligible, near other animal → slow blink eligible, ferret high energy → war dance, ferret low energy → dead sleep.
+
+---
+
+## Object Advertisement Schema
+
+```gdscript
+class_name ObjectAdvertisement extends Resource
+
+@export var desire_type: StringName    # "warmth", "food", "comfort", etc.
+@export var strength: int = 500        # 0 to 1000
+@export var radius_ru: int = 3         # Rack units
+@export var falloff_curve: Curve       # Linear by default (samples 0.0-1.0 for rendering)
+@export var species_filter: Array[StringName] = []
+@export var required_traversal: StringName = ""
+@export var max_occupants: int = 1
+var current_occupants: int = 0
+
+func score_for(animal: AnimalAgent, distance_ru: int) -> int:
+    if distance_ru > radius_ru: return 0
+    if not species_filter.is_empty() and animal.species not in species_filter: return 0
+    if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
+    if not is_available(): return 0
+    var desire_weight: int = animal.get_desire_weight(desire_type)
+    var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
+    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_ru) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_ru)) * 1000)
+    return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
+```
+
+### PlacedObject Advertisement Config
+
+```json
+{
+  "clothes_pile": {
+    "advertisements": [
+      {"desire_type": "comfort", "strength": 800, "radius_ru": 1, "max_occupants": 3},
+      {"desire_type": "stimulation", "strength": 400, "radius_ru": 1, "max_occupants": 1, "species_filter": ["ferret"]}
+    ]
+  }
+}
+```
+
+### Scoring Loop (DesireResolver)
+
+Uses the adaptive time budget from `tick-architecture.md`. Each tick, evaluates dirty entities in priority order (highest desire deficit first) until the time budget is spent.
+
+```gdscript
+const EVAL_TIME_BUDGET_USEC: int = 1000  # 1ms per tick
+
+func evaluate_budget() -> void:
+    var start := Time.get_ticks_usec()
+    while _dirty.size() > 0:
+        if Time.get_ticks_usec() - start >= EVAL_TIME_BUDGET_USEC:
+            break
+        var id: int = _pop_highest_deficit()
+        _evaluate_one(id)
+
+func _evaluate_one(entity_id: int) -> void:
+    var x: int = db.get_field(entity_id, &"position", &"x")
+    var y: int = db.get_field(entity_id, &"position", &"y")
+    var ads: Array[int] = db.query_radius_with(x, y, 8_00, &"advertisements")
+    var best_score: int = 0
+    var best_ad_id: int = GameStateDB.INVALID_ID
+    for ad_id in ads:
+        var score: int = _score_advertisement(entity_id, ad_id)
+        if score > best_score:
+            best_score = score
+            best_ad_id = ad_id
+    var commitment: int = db.get_field(entity_id, &"ai_state", &"commitment_score")
+    if best_score > commitment + SWITCH_THRESHOLD:
+        _transition(entity_id, best_ad_id, best_score)
+```
+
+**Dirty marking:** The scatter system (see `tick-architecture.md`) marks entities dirty when a desire value crosses a threshold band (multiples of 100). Entities are also marked dirty on: cell movement, nearby entity arrival/departure, object placement/removal within perception radius.
+
+**Priority:** `_pop_highest_deficit` returns the dirty entity with the largest gap between any desire's current value and its satisfaction level. Most-uncomfortable entities react first.
+
+---
+
+## Desire Activation (Maslow Layer)
+
+Higher-order desire weights (curiosity, social, stimulation) scale via sigmoid as base needs (warmth, food, water) are met. No hard thresholds.
+
+**Hysteresis offset:** Activation and deactivation thresholds differ. Example: curiosity activates around 600 warmth satisfaction, doesn't deactivate until warmth drops below ~450. Brief dips don't snap off behavior.
+
+All threshold numbers, curve parameters, and hysteresis bands in `config/balance/desire_thresholds.json`, tunable per species.
+
+## Occupancy & Collision
+
+Soft occupancy, no hard blocking. Per-surface capacity in config (server top: 1 cat, clothes pile: 3 cats + 2 ferrets, tube segment: 1 ferret hard). Over-capacity → choose next-best destination. Pile-on exception: soft cap reduces everyone's comfort proportionally. Animals never block pathfinding. Visual overlap: z-sort + random offset.
+
+## Object Removal
+
+Universal 2-second CLEARING state. Object pulses, occupants receive eviction stimulus, exit via normal movement. Not clear in 2 sec → force-eject to floor with STARTLED. Never trap. Cancelling removal during CLEARING: object returns to normal, departing animals continue (hysteresis).
+
+## Ambient-to-Goal Ratio
+
+Target ~70/30 emerges naturally from desire math, not enforced. Well-met needs → 80-90% ambient. Critically unmet → 10-20% ambient. Dev metric: flag if 60-second average drops below 40%.

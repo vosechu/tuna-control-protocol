@@ -1,0 +1,52 @@
+#!/bin/bash
+# Git pre-commit hook. Runs checks/ on staged files only.
+# Install: ln -sf ../../script/pre_commit .git/hooks/pre-commit
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CHECKS_DIR="$SCRIPT_DIR/checks"
+
+if [ ! -d "$CHECKS_DIR" ]; then
+    exit 0
+fi
+
+STAGED=$(git diff --cached --name-only 2>/dev/null || true)
+STAGED_GD=$(echo "$STAGED" | grep -E '\.gd$' || true)
+STAGED_JSON=$(echo "$STAGED" | grep -E '\.(json|jsonc)$' | grep -vE '(\.godot/|\.import/)' || true)
+
+for check in "$CHECKS_DIR"/*; do
+    if [ ! -x "$check" ]; then continue; fi
+    NAME=$(basename "$check")
+
+    # Determine which staged files are relevant to this check
+    case "$NAME" in
+        gdlint|no_parent_paths)
+            [ -z "$STAGED_GD" ] && continue
+            echo "$STAGED_GD" | xargs "$check"
+            ;;
+        no_node_in_core)
+            CORE_GD=$(echo "$STAGED_GD" | grep -E '^engine/' || true)
+            [ -z "$CORE_GD" ] && continue
+            echo "$CORE_GD" | xargs "$check"
+            ;;
+        validate_json|json_snake_case_keys|entity_id_prefix)
+            [ -z "$STAGED_JSON" ] && continue
+            echo "$STAGED_JSON" | xargs "$check"
+            ;;
+        no_secrets)
+            [ -z "$STAGED" ] && continue
+            echo "$STAGED" | xargs "$check"
+            ;;
+        *)
+            # Unknown check — run without file args (it decides what to scan)
+            "$check"
+            ;;
+    esac
+
+    STATUS=$?
+    if [ $STATUS -ne 0 ]; then
+        echo "pre-commit blocked by: $NAME" >&2
+        exit $STATUS
+    fi
+done
+
+exit 0

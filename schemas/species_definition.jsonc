@@ -1,0 +1,137 @@
+// Species Definition Schema
+// All game values use integer scale: 0-1000 maps to 0.0-1.0
+// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+//
+// A complete species file. New species = new JSON file, not new code.
+// Located at: mods/<mod_id>/species/<species_id>.jsonc
+// Mods drop new files into their own species/ directory to add species.
+
+{
+  "species_id": "cat",
+  "display_name_key": "species.cat.name",       // i18n key
+  "description_key": "species.cat.description",  // i18n key
+
+  // --- Arrival conditions (Terry Pratchett logic) ---
+  // What must exist in the world for this species to appear.
+  // Prototype pre-populates actors; this is used in the full game.
+  "arrival": {
+    "conditions": [
+      { "type": "object_nearby", "object_type_id": "server", "min_count": 1 },
+      { "type": "heat_min", "value": 300 },
+      { "type": "object_nearby", "object_type_id": "nesting_box", "min_count": 1 }
+    ],
+    "cooldown_sec": 120,               // minimum time between arrivals
+    "max_population": -1               // -1 = no cap (abundance principle)
+  },
+
+  // --- Desires (Maslow hierarchy) ---
+  // Base layer needs are universal within the species.
+  // Higher layer weights are per-individual (randomized within these ranges).
+  "desires": {
+    "base": {
+      // These must be met before higher-order desires activate.
+      // activation_curve: sigmoid parameters for how higher needs scale.
+      "warmth":  { "weight": 1000, "critical_threshold": 200 },
+      "food":    { "weight": 1000, "critical_threshold": 150 },
+      "water":   { "weight": 800, "critical_threshold": 150 },
+      "shelter": { "weight": 700, "critical_threshold": 100 }
+    },
+    "higher": {
+      // Per-individual weights randomized in [weight_min, weight_max].
+      // This is what makes each cat unique.
+      "companionship": { "weight_min": 300, "weight_max": 1000 },
+      "comfort":       { "weight_min": 400, "weight_max": 1000 },
+      "stimulation":   { "weight_min": 100, "weight_max": 800 },
+      "novelty":       { "weight_min": 0, "weight_max": 500 },
+      "teaching":      { "weight_min": 0, "weight_max": 600 }
+    },
+    // Sigmoid curve controlling when higher-order desires activate.
+    // x = average base satisfaction, y = scaling factor for higher desires.
+    "activation_curve": {
+      "midpoint": 600,                  // 600/1000 base satisfaction = half activation
+      "steepness": 8000
+    },
+    // Hysteresis band: desire activates at threshold, deactivates at threshold - band.
+    "hysteresis_band": 150
+  },
+
+  // --- Traversal capabilities ---
+  // Which nav edge types this species can use.
+  // Pathfinding filters edges by these tags.
+  "traversal": {
+    "capabilities": ["walk", "jump"],   // ferrets: ["walk", "climb_tube", "climb_cable"]
+    "jump_height_u": 3,                 // max vertical jump in rack units
+    "move_speed": 1000,                  // base speed multiplier (1000 = normal)
+    "floor_only": false                 // true for ferrets (without infrastructure)
+  },
+
+  // --- Physical properties ---
+  "physical": {
+    "size_category": "medium",          // small | medium | large
+    "body_heat_output": 50,             // heat contribution when resting (0-1000 scale)
+    "weight_kg_range": [3.0, 6.0],      // cosmetic, used for weight display
+    "occupies_u": 1                     // rack units occupied when resting
+  },
+
+  // --- Ambient behaviors ---
+  // Reference to the behavior table file for this species.
+  "ambient_behavior_file": "mods/tcp_base/behaviors/cat.jsonc",
+
+  // --- Visual ---
+  "visuals": {
+    "model_variants": [
+      {
+        "id": "cat_white_fluffy",
+        "sprite_sheet": "mods/tcp_base/sprites/cat/cat_white_fluffy.png",
+        "portrait": "mods/tcp_base/sprites/cat/cat_white_fluffy_portrait.png"
+      },
+      {
+        "id": "cat_orange_tabby",
+        "sprite_sheet": "mods/tcp_base/sprites/cat/cat_orange_tabby.png",
+        "portrait": "mods/tcp_base/sprites/cat/cat_orange_tabby_portrait.png"
+      }
+      // ... up to 5 distinct models per PLANNING.md
+    ],
+    // Visual states tied to satisfaction tiers.
+    "satisfaction_visuals": {
+      "content":     { "posture": "settled", "eyes": "half_lidded", "extras": ["warmth_halo"] },
+      "restless":    { "posture": "alert", "eyes": "open", "extras": ["ear_twitch"] },
+      "relocating":  { "posture": "standing", "eyes": "wide", "extras": ["tail_twitch"] }
+    }
+  },
+
+  // --- Sound ---
+  "sounds": {
+    "purr": {
+      // Each variant gets a slightly different purr for individuation.
+      "samples": ["mods/tcp_base/sounds/cat/purr_01.ogg", "mods/tcp_base/sounds/cat/purr_02.ogg"],
+      "base_frequency_hz": 90,
+      "volume_maps_to": "satisfaction",  // louder when happier
+      "spatial": true
+    },
+    "vocalization_uncomfortable": {
+      "samples": ["mods/tcp_base/sounds/cat/mrrp_01.ogg", "mods/tcp_base/sounds/cat/chirp_01.ogg"],
+      "trigger": "satisfaction_below",
+      "trigger_threshold": 400,
+      "spatial": true
+    },
+    "ambient": {
+      // Ambient sounds played during ambient behaviors.
+      // Keyed by behavior_id; overrides the behavior-level sound if present.
+      "stretching": { "samples": ["mods/tcp_base/sounds/cat/squeak_yawn.ogg"] },
+      "repositioning": { "samples": ["mods/tcp_base/sounds/cat/thud_soft.ogg", "mods/tcp_base/sounds/cat/sigh.ogg"] }
+    }
+  },
+
+  // --- Robot narrator ---
+  // How the robot interprets this species.
+  "narrator": {
+    "device_type_key": "narrator.device_type.cat",       // "squishy server"
+    "satisfaction_labels": {
+      "content":    "narrator.status.nominal",
+      "restless":   "narrator.status.advisory",
+      "unhappy":    "narrator.status.degraded"
+    },
+    "iops_source": "purr"               // what the robot measures as IOPS
+  }
+}
