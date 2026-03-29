@@ -1,3 +1,4 @@
+# Git LFS — binary assets
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg filter=lfs diff=lfs merge=lfs -text
@@ -12,4 +13,15 @@
 *.fbx filter=lfs diff=lfs merge=lfs -text
 *.svg filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
+
+# Godot binary resources
 *.res filter=lfs diff=lfs merge=lfs -text
+*.tres diff merge text
+# Keep text files normalized
+*.gd text eol=lf
+*.tscn text eol=lf
+*.tres text eol=lf
+*.cfg text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+*.md text eol=lf
