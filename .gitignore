@@ -1,7 +1,8 @@
 # Godot 4+
 .godot/
 .nomedia
-.import/
+# .import/ files are committed (needed for UID references)
+# Only .godot/imported/ (binary cache) is ignored via .godot/ above
 export.cfg
 export_credentials.cfg
 *.tmp

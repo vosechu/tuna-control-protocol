@@ -1,0 +1,53 @@
+#!/bin/bash
+# Runs all GUT unit and integration tests.
+# Usage: script/checks/gut_tests              (all test dirs)
+#        script/checks/gut_tests unit          (only unit tests)
+
+GODOT="/Applications/Godot.app/Contents/MacOS/godot"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+if [ ! -x "$GODOT" ]; then
+    echo "Godot not found at $GODOT" >&2
+    exit 1
+fi
+
+FILTER="${1:-}"
+FAILED=0
+
+run_tests() {
+    local dir="$1"
+    local name="$2"
+
+    if [ ! -d "$PROJECT_ROOT/$dir" ]; then
+        return 0
+    fi
+
+    # Check if there are any test files
+    if ! ls "$PROJECT_ROOT/$dir"/test_*.gd >/dev/null 2>&1; then
+        return 0
+    fi
+
+    OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" -s addons/gut/gut_cmdln.gd -gdir="res://$dir" -gexit 2>&1)
+    STATUS=$?
+
+    if echo "$OUTPUT" | grep -q "All tests passed"; then
+        return 0
+    else
+        echo "FAIL: $name tests"
+        echo "$OUTPUT" | grep -E "(FAILED|ERROR|Failing)" | head -10
+        return 1
+    fi
+}
+
+if [ -z "$FILTER" ] || [ "$FILTER" = "unit" ]; then
+    run_tests "tests/unit" "Unit" || FAILED=$((FAILED + 1))
+fi
+
+if [ -z "$FILTER" ] || [ "$FILTER" = "integration" ]; then
+    run_tests "tests/integration" "Integration" || FAILED=$((FAILED + 1))
+fi
+
+if [ $FAILED -gt 0 ]; then
+    exit 1
+fi
+exit 0
