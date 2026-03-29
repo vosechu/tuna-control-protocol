@@ -136,7 +136,7 @@ Rules live in `.claude/rules/` as auto-loadable files.
 
 | Rule file | Covers |
 |---|---|
-| `design-philosophy.md` | Pure Core, Redux state, integers, null, determinism, config-not-code, GameStateDB reference |
+| `design-philosophy.md` | Pure Core, Redux state, integers, null, determinism, config-not-code, change detection, spawn templates, lifecycle hooks, relationships, GameStateDB reference |
 | `code-style.md` | Types, naming, returns, null handling, signals, comments, code examples |
 | `testing.md` | GUT, test suites, CI pipeline, coverage targets, test exemplars |
 | `signals.md` | Three signal patterns, event bus, ownership, UI pattern, scenario traces |
