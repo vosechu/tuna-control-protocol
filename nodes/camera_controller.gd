@@ -1,7 +1,11 @@
 extends Camera2D
 
-const PAN_SPEED: float = 300.0
-const ZOOM_LEVELS: Array[Vector2] = [Vector2(1.0, 1.0), Vector2(0.5, 0.5)]
+const PAN_SPEED: float = 200.0
+const ZOOM_LEVELS: Array[Vector2] = [
+	Vector2(2.0, 2.0),    # Close-up: floor + bottom racks fill the screen
+	Vector2(1.0, 1.0),    # Full view: all racks visible
+	Vector2(0.5, 0.5),    # Overview: zoomed out
+]
 
 var _zoom_index: int = 0
 
@@ -13,6 +17,8 @@ func _ready() -> void:
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PX + Constants.FLOOR_HEIGHT_PX / 2
 	)
 	position = Vector2(total_width / 2.0, floor_center_y)
+	# Start zoomed in so animals are visible
+	zoom = ZOOM_LEVELS[0]
 
 
 func _process(delta: float) -> void:
