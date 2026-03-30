@@ -19,10 +19,26 @@ func _physics_process(_delta: float) -> void:
 	db.advance_tick()
 	heat_grid.propagate()
 	_scatter_desires()
+	_decay_commitment()
 	_mark_animals_dirty()
 	desire_resolver.evaluate_budget()
 	_move_animals()
 	db.flush_notifications()
+
+
+func _decay_commitment() -> void:
+	var animals: Array[int] = db.get_entities_with(&"ai_state")
+	for entity_id: int in animals:
+		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
+		var commitment: int = ai[&"commitment_score"]
+		if commitment > 0:
+			# Decay by 1 per tick (10 per second at 10Hz)
+			var new_commitment: int = maxi(0, commitment - 1)
+			db.set_component(entity_id, &"ai_state", {
+				&"state": ai[&"state"],
+				&"meta_state": ai[&"meta_state"],
+				&"commitment_score": new_commitment,
+			})
 
 
 func _scatter_desires() -> void:
