@@ -34,19 +34,23 @@ func _apply_source(entity_id: int) -> void:
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	var hs: Dictionary = _db.get_component(entity_id, &"heat_source")
 
+	@warning_ignore("integer_division")
 	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 	var value: int = hs[&"value"]
 	var radius: int = hs[&"radius_ru"]
 
 	# "3U up, 1U down" scaled by radius: upward range = radius, downward = radius / 3.
 	# range(-radius, radius / 3 + 1) covers up to 3U upward (-3,-2,-1,0) and 1U downward (1).
+	@warning_ignore("integer_division")
 	for ds: int in range(-radius, radius / 3 + 1):
 		var target_slot: int = slot + ds
 		if target_slot < 0 or target_slot >= Constants.SLOTS_PER_RACK:
 			continue
 		var distance: int = absi(ds)
 		# Linear falloff: full value at distance 0, zero at distance == radius.
+		@warning_ignore("integer_division")
 		var heat: int = value * (radius - distance) / radius
 
 		# Same-rack contribution.
@@ -56,6 +60,7 @@ func _apply_source(entity_id: int) -> void:
 		# Cross-rack spillover: 1/4 strength to both adjacent racks, same slot only.
 		# Only spill the source slot (ds == 0) to keep it simple and spec-compliant.
 		if ds == 0:
+			@warning_ignore("integer_division")
 			var spill: int = value / 4
 			if rack > 0:
 				var left_cell: int = Constants.rack_cell(rack - 1, target_slot)
@@ -66,5 +71,6 @@ func _apply_source(entity_id: int) -> void:
 
 	# Floor radiation: weak heat below the source rack.
 	var floor_idx: int = Constants.floor_cell(rack)
+	@warning_ignore("integer_division")
 	var floor_heat: int = value / (radius + 1)
 	_grid[floor_idx] = mini(_grid[floor_idx] + floor_heat, Constants.UNIT)

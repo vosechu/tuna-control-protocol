@@ -26,7 +26,9 @@ func _scatter_desires() -> void:
 		if not db.has_component(entity_id, &"position"):
 			continue
 		var pos: Dictionary = db.get_component(entity_id, &"position")
+		@warning_ignore("integer_division")
 		var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+		@warning_ignore("integer_division")
 		var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 		var cell: int
 		if slot >= Constants.SLOTS_PER_RACK:
