@@ -25,55 +25,53 @@ func register_cat(entity_id: int) -> void:
 
 
 func _setup_audio_players() -> void:
-	# Purr loop 1
-	_purr_player_1 = AudioStreamPlayer.new()
 	var purr_stream_1: AudioStream = load(
 		"res://mods/tcp_base/sounds/cat/purr_loop_01.wav"
 	)
-	if purr_stream_1:
-		# Enable looping on the WAV stream
-		if purr_stream_1 is AudioStreamWAV:
-			var wav_1: AudioStreamWAV = purr_stream_1 as AudioStreamWAV
-			wav_1.loop_mode = AudioStreamWAV.LOOP_FORWARD
-			wav_1.loop_end = -1
-		_purr_player_1.stream = purr_stream_1
-		_purr_player_1.volume_db = -40.0
-		_purr_player_1.pitch_scale = 0.95
-		_purr_player_1.autoplay = true
-	add_child(_purr_player_1)
-
-	# Purr loop 2 — slight pitch offset for organic layering
-	_purr_player_2 = AudioStreamPlayer.new()
 	var purr_stream_2: AudioStream = load(
 		"res://mods/tcp_base/sounds/cat/purr_loop_02.wav"
 	)
-	if purr_stream_2:
-		if purr_stream_2 is AudioStreamWAV:
-			var wav_2: AudioStreamWAV = purr_stream_2 as AudioStreamWAV
-			wav_2.loop_mode = AudioStreamWAV.LOOP_FORWARD
-			wav_2.loop_end = -1
-		_purr_player_2.stream = purr_stream_2
-		_purr_player_2.volume_db = -40.0
-		_purr_player_2.pitch_scale = 1.05
-		_purr_player_2.autoplay = true
-	add_child(_purr_player_2)
 
-	# Ambient datacenter hum — always on at low volume
-	# Placeholder: use purr at very low pitch as a rumble until we have a
-	# proper datacenter_hum_loop asset
+	# Enable looping on WAV streams
+	_set_loop(purr_stream_1)
+	_set_loop(purr_stream_2)
+
+	# Purr loop 1
+	_purr_player_1 = AudioStreamPlayer.new()
+	_purr_player_1.stream = purr_stream_1
+	_purr_player_1.volume_db = -40.0
+	_purr_player_1.pitch_scale = 0.95
+	add_child(_purr_player_1)
+	_purr_player_1.play()
+
+	# Purr loop 2 — slight pitch offset for organic layering
+	_purr_player_2 = AudioStreamPlayer.new()
+	_purr_player_2.stream = purr_stream_2
+	_purr_player_2.volume_db = -40.0
+	_purr_player_2.pitch_scale = 1.05
+	add_child(_purr_player_2)
+	_purr_player_2.play()
+
+	# Ambient datacenter hum — placeholder using purr at very low pitch
 	_ambient_player = AudioStreamPlayer.new()
 	if purr_stream_1:
-		# Duplicate so loop settings don't conflict with purr player
 		var ambient_stream: AudioStream = purr_stream_1.duplicate()
-		if ambient_stream is AudioStreamWAV:
-			var wav_amb: AudioStreamWAV = ambient_stream as AudioStreamWAV
-			wav_amb.loop_mode = AudioStreamWAV.LOOP_FORWARD
-			wav_amb.loop_end = -1
+		_set_loop(ambient_stream)
 		_ambient_player.stream = ambient_stream
-		_ambient_player.volume_db = -35.0
-		_ambient_player.pitch_scale = 0.3  # Very low rumble
-		_ambient_player.autoplay = true
+		_ambient_player.volume_db = -30.0
+		_ambient_player.pitch_scale = 0.3
 	add_child(_ambient_player)
+	_ambient_player.play()
+
+
+
+func _set_loop(stream: AudioStream) -> void:
+	if stream == null:
+		return
+	if stream is AudioStreamWAV:
+		var wav: AudioStreamWAV = stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_end = -1
 
 
 func _on_state_or_desire_changed(_entity_id: int) -> void:
@@ -121,3 +119,11 @@ func _process(_delta: float) -> void:
 	_purr_player_2.volume_db = lerpf(
 		_purr_player_2.volume_db, target_db - 3.0, smooth
 	)
+
+	# Restart players if they stopped (loop didn't hold)
+	if not _purr_player_1.playing and _purr_player_1.stream:
+		_purr_player_1.play()
+	if not _purr_player_2.playing and _purr_player_2.stream:
+		_purr_player_2.play()
+	if not _ambient_player.playing and _ambient_player.stream:
+		_ambient_player.play()

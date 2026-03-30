@@ -183,6 +183,8 @@ func _update_ambient_states() -> void:
 		# warmth desire: 0 = warm/satisfied, 1000 = cold/desperate
 		var is_warm: bool = desires[&"warmth"] < 400
 
+
+
 		var new_state: StringName = _pick_ambient_state(is_cat, is_warm)
 		if new_state != current_state:
 			db.set_component(entity_id, &"ai_state", {
