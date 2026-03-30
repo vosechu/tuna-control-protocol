@@ -343,3 +343,103 @@ func _spawn_starter_entities() -> void:
 		&"entity_id": Constants.INVALID_ID,
 	})
 	db.update_spatial(cat, cat_x, cat_y)
+
+	# Second cat: Biscuit — comfort-focused, on the floor near rack 2
+	var cat2: int = db.create_entity()
+	db.set_component(cat2, &"species", {
+		&"id": &"tcp_base:cat", &"variant": &"cat02", &"name": &"Biscuit",
+	})
+	@warning_ignore("integer_division")
+	var cat2_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	@warning_ignore("integer_division")
+	var cat2_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+	)
+	db.set_component(cat2, &"position", {&"x": cat2_x, &"y": cat2_y})
+	db.set_component(cat2, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
+	db.set_component(cat2, &"personality", {
+		&"warmth_weight": 500, &"comfort_weight": 900, &"curiosity_weight": 100,
+	})
+	db.set_component(cat2, &"ai_state", {
+		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
+	})
+	db.set_component(cat2, &"target", {
+		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
+		&"entity_id": Constants.INVALID_ID,
+	})
+	db.update_spatial(cat2, cat2_x, cat2_y)
+
+	# Third cat: Noodle — balanced, on the floor near rack 4
+	var cat3: int = db.create_entity()
+	db.set_component(cat3, &"species", {
+		&"id": &"tcp_base:cat", &"variant": &"cat03", &"name": &"Noodle",
+	})
+	@warning_ignore("integer_division")
+	var cat3_x: int = 4 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	@warning_ignore("integer_division")
+	var cat3_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+	)
+	db.set_component(cat3, &"position", {&"x": cat3_x, &"y": cat3_y})
+	db.set_component(cat3, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
+	db.set_component(cat3, &"personality", {
+		&"warmth_weight": 700, &"comfort_weight": 700, &"curiosity_weight": 200,
+	})
+	db.set_component(cat3, &"ai_state", {
+		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
+	})
+	db.set_component(cat3, &"target", {
+		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
+		&"entity_id": Constants.INVALID_ID,
+	})
+	db.update_spatial(cat3, cat3_x, cat3_y)
+
+	# First ferret: Slinky — explorer, on the floor near rack 1
+	var ferret1: int = db.create_entity()
+	db.set_component(ferret1, &"species", {
+		&"id": &"tcp_base:ferret", &"variant": &"lilotter", &"name": &"Slinky",
+	})
+	@warning_ignore("integer_division")
+	var f1_x: int = 1 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	@warning_ignore("integer_division")
+	var f1_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+	)
+	db.set_component(ferret1, &"position", {&"x": f1_x, &"y": f1_y})
+	db.set_component(ferret1, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
+	db.set_component(ferret1, &"personality", {
+		&"warmth_weight": 300, &"comfort_weight": 600, &"curiosity_weight": 900,
+	})
+	db.set_component(ferret1, &"ai_state", {
+		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
+	})
+	db.set_component(ferret1, &"target", {
+		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
+		&"entity_id": Constants.INVALID_ID,
+	})
+	db.update_spatial(ferret1, f1_x, f1_y)
+
+	# Second ferret: Bandit — comfort hoarder, on the floor near rack 3
+	var ferret2: int = db.create_entity()
+	db.set_component(ferret2, &"species", {
+		&"id": &"tcp_base:ferret", &"variant": &"lilotter", &"name": &"Bandit",
+	})
+	@warning_ignore("integer_division")
+	var f2_x: int = 3 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 4
+	@warning_ignore("integer_division")
+	var f2_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+	)
+	db.set_component(ferret2, &"position", {&"x": f2_x, &"y": f2_y})
+	db.set_component(ferret2, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
+	db.set_component(ferret2, &"personality", {
+		&"warmth_weight": 400, &"comfort_weight": 800, &"curiosity_weight": 800,
+	})
+	db.set_component(ferret2, &"ai_state", {
+		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
+	})
+	db.set_component(ferret2, &"target", {
+		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
+		&"entity_id": Constants.INVALID_ID,
+	})
+	db.update_spatial(ferret2, f2_x, f2_y)
