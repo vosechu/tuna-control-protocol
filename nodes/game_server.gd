@@ -418,10 +418,10 @@ func _spawn_starter_entities() -> void:
 	)
 	db.update_spatial(box, box_x, box_y)
 
-	# Clothes pile on the floor near rack 3
+	# Clothes pile on the floor near rack 2
 	var pile: int = db.create_entity()
 	@warning_ignore("integer_division")
-	var pile_x: int = 3 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	var pile_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
 	@warning_ignore("integer_division")
 	var pile_y: int = (
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 3
@@ -477,13 +477,13 @@ func _spawn_starter_entities() -> void:
 	})
 	db.update_spatial(cat, cat_x, cat_y)
 
-	# Second cat: Biscuit — comfort-focused, on the floor near rack 2
+	# Second cat: Biscuit — comfort-focused, on the floor near rack 1
 	var cat2: int = db.create_entity()
 	db.set_component(cat2, &"species", {
 		&"id": &"tcp_base:cat", &"variant": &"cat02", &"name": &"Biscuit",
 	})
 	@warning_ignore("integer_division")
-	var cat2_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	var cat2_x: int = 1 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 4
 	@warning_ignore("integer_division")
 	var cat2_y: int = (
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
@@ -502,13 +502,13 @@ func _spawn_starter_entities() -> void:
 	})
 	db.update_spatial(cat2, cat2_x, cat2_y)
 
-	# Third cat: Noodle — balanced, on the floor near rack 4
+	# Third cat: Noodle — balanced, on the floor near rack 2
 	var cat3: int = db.create_entity()
 	db.set_component(cat3, &"species", {
 		&"id": &"tcp_base:cat", &"variant": &"cat03", &"name": &"Noodle",
 	})
 	@warning_ignore("integer_division")
-	var cat3_x: int = 4 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	var cat3_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
 	@warning_ignore("integer_division")
 	var cat3_y: int = (
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
@@ -552,13 +552,13 @@ func _spawn_starter_entities() -> void:
 	})
 	db.update_spatial(ferret1, f1_x, f1_y)
 
-	# Second ferret: Bandit — comfort hoarder, on the floor near rack 3
+	# Second ferret: Bandit — comfort hoarder, on the floor near rack 2
 	var ferret2: int = db.create_entity()
 	db.set_component(ferret2, &"species", {
 		&"id": &"tcp_base:ferret", &"variant": &"lilotter", &"name": &"Bandit",
 	})
 	@warning_ignore("integer_division")
-	var f2_x: int = 3 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 4
+	var f2_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 4
 	@warning_ignore("integer_division")
 	var f2_y: int = (
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
