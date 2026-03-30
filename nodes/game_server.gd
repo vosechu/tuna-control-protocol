@@ -129,28 +129,27 @@ func _move_animals() -> void:
 
 
 func _spawn_starter_entities() -> void:
-	# Pre-placed server at rack 2, slots 20-21
+	# Pre-placed server at rack 2, slot 38 (near the bottom of the rack, close to floor)
 	var server: int = db.create_entity()
-	db.set_component(server, &"position", {
-		&"x": 2 * Constants.RACK_WIDTH_PU,
-		&"y": 20 * Constants.SLOT_HEIGHT_PU,
-	})
+	var server_x: int = 2 * Constants.RACK_WIDTH_PU
+	var server_y: int = 38 * Constants.SLOT_HEIGHT_PU
+	db.set_component(server, &"position", {&"x": server_x, &"y": server_y})
 	db.set_component(server, &"heat_source", {&"value": 800, &"radius_ru": 3})
 	db.set_component(server, &"advertisements", {&"list": [
-		{&"desire_type": &"warmth", &"strength": 800, &"radius_ru": 3, &"max_occupants": 1}
+		{&"desire_type": &"warmth", &"strength": 800, &"radius_ru": 8, &"max_occupants": 1}
 	]})
-	db.update_spatial(server, 2 * Constants.RACK_WIDTH_PU, 20 * Constants.SLOT_HEIGHT_PU)
+	db.update_spatial(server, server_x, server_y)
 
-	# Pre-placed cardboard box at rack 1, slots 8-10
+	# Pre-placed cardboard box on the floor near rack 0
 	var box: int = db.create_entity()
-	db.set_component(box, &"position", {
-		&"x": 1 * Constants.RACK_WIDTH_PU,
-		&"y": 8 * Constants.SLOT_HEIGHT_PU,
-	})
+	@warning_ignore("integer_division")
+	var box_x: int = 0 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	var box_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 4
+	db.set_component(box, &"position", {&"x": box_x, &"y": box_y})
 	db.set_component(box, &"advertisements", {&"list": [
-		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 1, &"max_occupants": 1}
+		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4, &"max_occupants": 1}
 	]})
-	db.update_spatial(box, 1 * Constants.RACK_WIDTH_PU, 8 * Constants.SLOT_HEIGHT_PU)
+	db.update_spatial(box, box_x, box_y)
 
 	# First cat: Mochi — on the floor near rack 0
 	var cat: int = db.create_entity()
