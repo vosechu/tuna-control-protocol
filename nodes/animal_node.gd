@@ -36,26 +36,40 @@ func _setup_sprite(species: Dictionary) -> void:
 	var variant: String = String(
 		species.get(&"variant", &"cat01")
 	)
-	var idle_path: String = ""
+	var base_path: String = ""
 	if String(species[&"id"]).contains("cat"):
-		idle_path = (
+		base_path = (
 			"res://mods/tcp_base/sprites/cat/"
-			+ "%s_idle_strip8.png" % variant
+			+ "%s" % variant
 		)
 		_sprite.scale = Vector2(2.0, 2.0)
 	else:
-		idle_path = (
+		base_path = (
 			"res://mods/tcp_base/sprites/ferret/"
-			+ "%s_idle_strip8.png" % variant
+			+ "%s" % variant
 		)
 		_sprite.scale = Vector2(2.0, 2.0)
-	var texture: Texture2D = load(idle_path)
-	if texture == null:
-		push_error("Could not load sprite: %s" % idle_path)
-		return
-	_sprite.sprite_frames = _make_frames_from_strip(
-		&"idle", texture, 8, 6.0
+	var idle_tex: Texture2D = load(
+		base_path + "_idle_strip8.png"
 	)
+	if idle_tex == null:
+		push_error(
+			"Could not load idle sprite: %s"
+			% (base_path + "_idle_strip8.png")
+		)
+		return
+	var walk_tex: Texture2D = load(
+		base_path + "_walk_strip8.png"
+	)
+	var frames := SpriteFrames.new()
+	if frames.has_animation(&"default"):
+		frames.remove_animation(&"default")
+	_add_strip_animation(frames, &"idle", idle_tex, 8, 6.0)
+	if walk_tex:
+		_add_strip_animation(
+			frames, &"walk", walk_tex, 8, 8.0
+		)
+	_sprite.sprite_frames = frames
 	_sprite.play(&"idle")
 
 
@@ -66,15 +80,13 @@ func _setup_name_label(species: Dictionary) -> void:
 	_name_label.text = animal_name
 
 
-func _make_frames_from_strip(
+func _add_strip_animation(
+	frames: SpriteFrames,
 	anim_name: StringName,
 	sheet: Texture2D,
 	frame_count: int,
 	fps: float,
-) -> SpriteFrames:
-	var frames := SpriteFrames.new()
-	if frames.has_animation(&"default"):
-		frames.remove_animation(&"default")
+) -> void:
 	frames.add_animation(anim_name)
 	frames.set_animation_speed(anim_name, fps)
 	frames.set_animation_loop(anim_name, true)
@@ -89,7 +101,6 @@ func _make_frames_from_strip(
 			frame_width, frame_height
 		)
 		frames.add_frame(anim_name, atlas)
-	return frames
 
 
 func _physics_process(_delta: float) -> void:
@@ -103,6 +114,28 @@ func _physics_process(_delta: float) -> void:
 		Constants.to_world(pos[&"x"]),
 		Constants.to_world(pos[&"y"])
 	)
+
+	# Update animation based on AI state
+	if _db.has_component(entity_id, &"ai_state"):
+		var ai: Dictionary = _db.get_component(
+			entity_id, &"ai_state"
+		)
+		var state: StringName = ai[&"state"]
+		var anim: StringName = &"idle"
+		if state == &"MOVING_TO" or state == &"SEEKING":
+			anim = &"walk"
+		if (
+			_sprite.sprite_frames
+			and _sprite.sprite_frames.has_animation(anim)
+		):
+			if _sprite.animation != anim:
+				_sprite.play(anim)
+
+	# Flip sprite based on movement direction
+	if _target_pos.x < _prev_pos.x:
+		_sprite.flip_h = true
+	elif _target_pos.x > _prev_pos.x:
+		_sprite.flip_h = false
 
 
 func _process(_delta: float) -> void:
