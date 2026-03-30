@@ -228,9 +228,9 @@ func _pick_ambient_state(is_cat: bool, is_warm: bool) -> StringName:
 
 
 func _spawn_starter_entities() -> void:
-	# Pre-placed server at rack 2, slot 40 (bottom of rack, right above floor)
+	# Pre-placed server at rack 1, slot 40 (bottom of rack, right above floor, near Mochi)
 	var server: int = db.create_entity()
-	var server_x: int = 2 * Constants.RACK_WIDTH_PU
+	var server_x: int = 1 * Constants.RACK_WIDTH_PU
 	var server_y: int = 40 * Constants.SLOT_HEIGHT_PU
 	db.set_component(server, &"position", {&"x": server_x, &"y": server_y})
 	db.set_component(server, &"heat_source", {&"value": 1000, &"radius_ru": 5})
