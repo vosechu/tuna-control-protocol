@@ -59,13 +59,13 @@ func _build_floor() -> void:
 
 
 func _build_starter_objects() -> void:
-	# Server at rack 2, slot 38 (near bottom of rack, close to floor)
+	# Server at rack 2, slot 40 (bottom of rack, right above floor)
 	var server_sprite := Sprite2D.new()
 	server_sprite.texture = _SERVER_TEX
 	server_sprite.centered = false
 	server_sprite.position = Vector2(
 		2 * (Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX) + 6,
-		38 * Constants.SLOT_HEIGHT_PX
+		40 * Constants.SLOT_HEIGHT_PX
 	)
 	$World/PlacedObjects.add_child(server_sprite)
 
