@@ -178,6 +178,30 @@ GDScript style is enforced by `.gdlintrc`. When adding a new rule:
 
 ---
 
+## Godot CLI
+
+Godot binary: `/Applications/Godot.app/Contents/MacOS/godot`
+
+Common commands:
+```bash
+# Import/reimport all project resources (run after adding new assets or on fresh checkout)
+/Applications/Godot.app/Contents/MacOS/godot --headless --import
+
+# Run all GUT unit tests
+/Applications/Godot.app/Contents/MacOS/godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -gexit
+
+# Run a specific test file
+/Applications/Godot.app/Contents/MacOS/godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -gtest=test_constants.gd -gexit
+
+# Run integration tests
+/Applications/Godot.app/Contents/MacOS/godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/integration -gexit
+
+# Run the game
+/Applications/Godot.app/Contents/MacOS/godot --path .
+```
+
+---
+
 ## Human Setup
 
 See [README.md](README.md) for prerequisites, installation, and contributor guidelines.
