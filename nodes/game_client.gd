@@ -26,6 +26,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_spawn_animal_nodes()
 	_setup_heat_overlay()
+	_setup_sound_manager()
 
 
 func _build_racks() -> void:
@@ -90,6 +91,25 @@ func _setup_heat_overlay() -> void:
 	overlay.set_script(overlay_script)
 	$World.add_child(overlay)
 	overlay.initialize(game_server.db, game_server.heat_grid)
+
+
+func _setup_sound_manager() -> void:
+	var sm_script: GDScript = preload("res://nodes/sound_manager.gd")
+	# Replace the empty placeholder node with a scripted one
+	var old_sm: Node = $SoundManager
+	old_sm.queue_free()
+	var sm: Node = Node.new()
+	sm.name = "SoundManager"
+	sm.set_script(sm_script)
+	add_child(sm)
+	sm.initialize(game_server.db)
+	# Register cat entities with the sound manager
+	var db: GameStateDB = game_server.db
+	var animals: Array[int] = db.get_entities_with(&"species")
+	for entity_id: int in animals:
+		var species: Dictionary = db.get_component(entity_id, &"species")
+		if String(species[&"id"]).contains("cat"):
+			sm.register_cat(entity_id)
 
 
 func _spawn_animal_nodes() -> void:

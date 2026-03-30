@@ -8,6 +8,7 @@ var _target_pos: Vector2
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _name_label: Label = $NameLabel
+@onready var _purr_indicator: Label = $PurrIndicator
 
 
 func initialize(db: GameStateDB, eid: int) -> void:
@@ -126,6 +127,17 @@ func _physics_process(_delta: float) -> void:
 		_sprite.flip_h = true
 	elif _target_pos.x > _prev_pos.x:
 		_sprite.flip_h = false
+
+	# Visual purr indicator (accessibility: visual equivalent of purring sound)
+	if _purr_indicator and _db.has_component(entity_id, &"desires"):
+		var desires: Dictionary = _db.get_component(entity_id, &"desires")
+		var ai_dict: Dictionary = _db.get_component(entity_id, &"ai_state")
+		var current_state: StringName = ai_dict[&"state"]
+		var is_purring: bool = (
+			(current_state == &"LOAFING" or current_state == &"SLEEPING")
+			and desires[&"warmth"] < 500
+		)
+		_purr_indicator.visible = is_purring
 
 
 func _state_to_animation(state: StringName) -> StringName:
