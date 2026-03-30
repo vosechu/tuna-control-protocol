@@ -12,11 +12,16 @@ func _ready() -> void:
 	_spawn_starter_entities()
 
 
+const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10Hz)
+
+
 func _physics_process(_delta: float) -> void:
 	db.advance_tick()
 	heat_grid.propagate()
 	_scatter_desires()
+	_mark_animals_dirty()
 	desire_resolver.evaluate_budget()
+	_move_animals()
 	db.flush_notifications()
 
 
@@ -49,6 +54,78 @@ func _scatter_desires() -> void:
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
+
+
+func _mark_animals_dirty() -> void:
+	var animals: Array[int] = db.get_entities_with(&"desires")
+	for entity_id: int in animals:
+		if not db.has_component(entity_id, &"species"):
+			continue
+		desire_resolver.mark_dirty(entity_id)
+
+
+func _move_animals() -> void:
+	var animals: Array[int] = db.get_entities_with(&"ai_state")
+	for entity_id: int in animals:
+		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
+		var state: StringName = ai[&"state"]
+		if state != &"SEEKING" and state != &"MOVING_TO":
+			continue
+
+		var pos: Dictionary = db.get_component(entity_id, &"position")
+		var target: Dictionary = db.get_component(entity_id, &"target")
+		if target[&"entity_id"] == Constants.INVALID_ID:
+			continue
+
+		# Transition SEEKING -> MOVING_TO on first movement tick
+		if state == &"SEEKING":
+			db.set_component(entity_id, &"ai_state", {
+				&"state": &"MOVING_TO",
+				&"meta_state": &"GOAL_DIRECTED",
+				&"commitment_score": ai[&"commitment_score"],
+			})
+
+		# Move toward target
+		var dx: int = target[&"x"] - pos[&"x"]
+		var dy: int = target[&"y"] - pos[&"y"]
+		var dist: int = absi(dx) + absi(dy)
+
+		if dist <= ANIMAL_SPEED_PU:
+			# Arrived
+			db.set_component(entity_id, &"position", {
+				&"x": target[&"x"], &"y": target[&"y"],
+			})
+			db.update_spatial(entity_id, target[&"x"], target[&"y"])
+			# Transition to IDLE (simplified for now)
+			db.set_component(entity_id, &"ai_state", {
+				&"state": &"IDLE",
+				&"meta_state": &"AMBIENT",
+				&"commitment_score": ai[&"commitment_score"],
+			})
+			db.set_component(entity_id, &"target", {
+				&"x": Constants.INVALID_ID,
+				&"y": Constants.INVALID_ID,
+				&"entity_id": Constants.INVALID_ID,
+			})
+		else:
+			# Move one step toward target
+			var move_x: int = 0
+			var move_y: int = 0
+			if dx != 0:
+				@warning_ignore("integer_division")
+				move_x = ANIMAL_SPEED_PU * dx / dist
+			if dy != 0:
+				@warning_ignore("integer_division")
+				move_y = ANIMAL_SPEED_PU * dy / dist
+			# Ensure at least 1 unit of movement
+			if move_x == 0 and dx != 0:
+				move_x = 1 if dx > 0 else -1
+			if move_y == 0 and dy != 0:
+				move_y = 1 if dy > 0 else -1
+			var new_x: int = pos[&"x"] + move_x
+			var new_y: int = pos[&"y"] + move_y
+			db.set_component(entity_id, &"position", {&"x": new_x, &"y": new_y})
+			db.update_spatial(entity_id, new_x, new_y)
 
 
 func _spawn_starter_entities() -> void:
