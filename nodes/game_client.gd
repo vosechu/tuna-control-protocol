@@ -82,8 +82,13 @@ func _build_starter_objects() -> void:
 
 func _setup_heat_overlay() -> void:
 	var overlay_script: GDScript = preload("res://nodes/heat_overlay.gd")
-	var overlay: Node2D = $World/HeatOverlay
+	# Remove the empty placeholder node and replace with a scripted one
+	var old_overlay: Node2D = $World/HeatOverlay
+	old_overlay.queue_free()
+	var overlay: Node2D = Node2D.new()
+	overlay.name = "HeatOverlay"
 	overlay.set_script(overlay_script)
+	$World.add_child(overlay)
 	overlay.initialize(game_server.db, game_server.heat_grid)
 
 
