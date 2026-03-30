@@ -74,3 +74,45 @@ func _spawn_starter_entities() -> void:
 		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 1, &"max_occupants": 1}
 	]})
 	db.update_spatial(box, 1 * Constants.RACK_WIDTH_PU, 8 * Constants.SLOT_HEIGHT_PU)
+
+	# First cat: Mochi — on the floor near rack 0
+	var cat: int = db.create_entity()
+	db.set_component(cat, &"species", {
+		&"id": &"tcp_base:cat",
+		&"variant": &"cat01",
+		&"name": &"Mochi",
+	})
+	@warning_ignore("integer_division")
+	var cat_x: int = (
+		0 * Constants.RACK_WIDTH_PU
+		+ Constants.RACK_WIDTH_PU / 2
+	)
+	@warning_ignore("integer_division")
+	var cat_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+		+ Constants.FLOOR_HEIGHT_PU / 2
+	)
+	db.set_component(cat, &"position", {
+		&"x": cat_x, &"y": cat_y,
+	})
+	db.set_component(cat, &"desires", {
+		&"warmth": 200,
+		&"comfort": 200,
+		&"curiosity": 0,
+	})
+	db.set_component(cat, &"personality", {
+		&"warmth_weight": 800,
+		&"comfort_weight": 600,
+		&"curiosity_weight": 100,
+	})
+	db.set_component(cat, &"ai_state", {
+		&"state": &"IDLE",
+		&"meta_state": &"AMBIENT",
+		&"commitment_score": 0,
+	})
+	db.set_component(cat, &"target", {
+		&"x": Constants.INVALID_ID,
+		&"y": Constants.INVALID_ID,
+		&"entity_id": Constants.INVALID_ID,
+	})
+	db.update_spatial(cat, cat_x, cat_y)

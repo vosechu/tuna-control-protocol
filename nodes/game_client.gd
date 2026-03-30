@@ -13,6 +13,8 @@ const _BOX_TEX := preload(
 	"res://mods/tcp_base/sprites/objects/box_cardboard_new.png"
 )
 
+const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
+
 @onready var game_server: Node = get_node("../GameServer")
 
 
@@ -20,6 +22,9 @@ func _ready() -> void:
 	_build_racks()
 	_build_floor()
 	_build_starter_objects()
+	# Wait one frame for GameServer._ready() to create entities
+	await get_tree().process_frame
+	_spawn_animal_nodes()
 
 
 func _build_racks() -> void:
@@ -71,3 +76,12 @@ func _build_starter_objects() -> void:
 		8 * Constants.SLOT_HEIGHT_PX
 	)
 	$World/PlacedObjects.add_child(box_sprite)
+
+
+func _spawn_animal_nodes() -> void:
+	var db: GameStateDB = game_server.db
+	var animals: Array[int] = db.get_entities_with(&"species")
+	for entity_id: int in animals:
+		var node: Node2D = _ANIMAL_SCENE.instantiate()
+		$World/Animals.add_child(node)
+		node.initialize(db, entity_id)
