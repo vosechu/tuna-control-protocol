@@ -5,6 +5,7 @@ const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10
 var db: GameStateDB
 var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
+var nav_builder: NavGraphBuilder
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations: Dictionary = {
 	&"IDLE": 3.0,
@@ -20,7 +21,22 @@ func _ready() -> void:
 	db = GameStateDB.new()
 	heat_grid = HeatGrid.new(db)
 	desire_resolver = DesireResolver.new(db)
+	nav_builder = NavGraphBuilder.new()
 	_spawn_starter_entities()
+	_build_nav_for_objects()
+
+
+func _build_nav_for_objects() -> void:
+	# Register nav nodes for all pre-placed objects in rack slots
+	var objects: Array[int] = db.get_entities_with(&"object_type")
+	for entity_id: int in objects:
+		var pos: Dictionary = db.get_component(entity_id, &"position")
+		@warning_ignore("integer_division")
+		var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+		@warning_ignore("integer_division")
+		var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
+		if slot < Constants.SLOTS_PER_RACK:
+			nav_builder.add_rack_slot(rack, slot)
 
 
 func _physics_process(_delta: float) -> void:
@@ -137,8 +153,24 @@ func _move_animals() -> void:
 		if target[&"entity_id"] == Constants.INVALID_ID:
 			continue
 
-		# Transition SEEKING -> MOVING_TO on first movement tick
+		# Transition SEEKING -> MOVING_TO on first movement tick, with nav graph check
 		if state == &"SEEKING":
+			var species: Dictionary = db.get_component(entity_id, &"species")
+			var from_pos: Vector2 = Vector2(float(pos[&"x"]), float(pos[&"y"]))
+			var to_pos: Vector2 = Vector2(float(target[&"x"]), float(target[&"y"]))
+			# If the species cannot navigate to the target, cancel seeking
+			if not nav_builder.can_reach(species[&"id"], from_pos, to_pos):
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"IDLE",
+					&"meta_state": &"AMBIENT",
+					&"commitment_score": 0,
+				})
+				db.set_component(entity_id, &"target", {
+					&"x": Constants.INVALID_ID,
+					&"y": Constants.INVALID_ID,
+					&"entity_id": Constants.INVALID_ID,
+				})
+				continue
 			db.set_component(entity_id, &"ai_state", {
 				&"state": &"MOVING_TO",
 				&"meta_state": &"GOAL_DIRECTED",
@@ -312,6 +344,9 @@ func place_object(
 	var rack: int = world_x / Constants.RACK_WIDTH_PU
 	@warning_ignore("integer_division")
 	var slot: int = world_y / Constants.SLOT_HEIGHT_PU
+	# Add nav node if object is in a rack slot (not on the floor)
+	if slot < Constants.SLOTS_PER_RACK:
+		nav_builder.add_rack_slot(rack, slot)
 	Events.object_placed.emit(
 		entity, rack, slot, object_type
 	)
@@ -343,6 +378,9 @@ func remove_object(entity_id: int) -> void:
 	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
 	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
+	# Remove nav node if object was in a rack slot
+	if slot < Constants.SLOTS_PER_RACK:
+		nav_builder.remove_rack_slot(rack, slot)
 	Events.object_removed.emit(entity_id, rack, slot)
 	db.remove_spatial(entity_id)
 	db.destroy_entity(entity_id)
