@@ -20,14 +20,7 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	)
 	_prev_pos = _target_pos
 	global_position = _target_pos
-
-
-func _ready() -> void:
-	if _db == null or not _db.has_entity(entity_id):
-		return
-	var species: Dictionary = _db.get_component(
-		entity_id, &"species"
-	)
+	var species: Dictionary = _db.get_component(entity_id, &"species")
 	_setup_sprite(species)
 	_setup_name_label(species)
 
