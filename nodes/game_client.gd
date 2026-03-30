@@ -12,6 +12,9 @@ const _SERVER_TEX := preload(
 const _BOX_TEX := preload(
 	"res://mods/tcp_base/sprites/objects/box_cardboard_new.png"
 )
+const _PILE_TEX := preload(
+	"res://mods/tcp_base/sprites/objects/pile_clothes.png"
+)
 
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
 
@@ -79,6 +82,14 @@ func _build_starter_objects() -> void:
 		floor_y + 4.0
 	)
 	$World/PlacedObjects.add_child(box_sprite)
+
+	# Clothes pile on the floor near rack 3
+	var pile_sprite := Sprite2D.new()
+	pile_sprite.texture = _PILE_TEX
+	pile_sprite.centered = false
+	var pile_x: float = 3.0 * float(Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX) + 12.0
+	pile_sprite.position = Vector2(pile_x, floor_y + 4.0)
+	$World/PlacedObjects.add_child(pile_sprite)
 
 
 func _setup_heat_overlay() -> void:

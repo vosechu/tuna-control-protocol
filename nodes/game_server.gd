@@ -1,19 +1,10 @@
 extends Node
 
+const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10Hz)
+
 var db: GameStateDB
 var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
-
-
-func _ready() -> void:
-	db = GameStateDB.new()
-	heat_grid = HeatGrid.new(db)
-	desire_resolver = DesireResolver.new(db)
-	_spawn_starter_entities()
-
-
-const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10Hz)
-
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations: Dictionary = {
 	&"IDLE": 3.0,
@@ -23,6 +14,13 @@ var _min_durations: Dictionary = {
 	&"SNIFFING": 10.0,
 	&"SPEED_BUMP": 15.0,
 }
+
+
+func _ready() -> void:
+	db = GameStateDB.new()
+	heat_grid = HeatGrid.new(db)
+	desire_resolver = DesireResolver.new(db)
+	_spawn_starter_entities()
 
 
 func _physics_process(_delta: float) -> void:
@@ -78,9 +76,44 @@ func _scatter_desires() -> void:
 	# Comfort and curiosity decay
 	db.add_all(&"desires", &"comfort", 5)
 	db.add_all(&"desires", &"curiosity", 3)
+	# Comfort satisfaction: animals near comfort-advertising objects get comfort reduced
+	_scatter_comfort()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
+
+
+func _scatter_comfort() -> void:
+	var animals: Array[int] = db.get_entities_with(&"desires")
+	for entity_id: int in animals:
+		if not db.has_component(entity_id, &"position"):
+			continue
+		if not db.has_component(entity_id, &"species"):
+			continue
+		var pos: Dictionary = db.get_component(entity_id, &"position")
+		# Check nearby objects for comfort advertisements
+		var nearby: Array[int] = db.query_radius(pos[&"x"], pos[&"y"], Constants.ru_to_pu(4))
+		var best_comfort: int = 0
+		for other_id: int in nearby:
+			if other_id == entity_id:
+				continue
+			if not db.has_component(other_id, &"advertisements"):
+				continue
+			var ads: Dictionary = db.get_component(other_id, &"advertisements")
+			for ad: Dictionary in ads[&"list"]:
+				if ad[&"desire_type"] == &"comfort":
+					var other_pos: Dictionary = db.get_component(other_id, &"position")
+					var dist: int = absi(pos[&"x"] - other_pos[&"x"]) + absi(pos[&"y"] - other_pos[&"y"])
+					var radius_pu: int = Constants.ru_to_pu(ad[&"radius_ru"])
+					if dist <= radius_pu and ad[&"strength"] > best_comfort:
+						best_comfort = ad[&"strength"]
+		# If near a comfort source, reduce the comfort desire (satisfy it)
+		if best_comfort > 0:
+			var current: int = db.get_field(entity_id, &"desires", &"comfort")
+			@warning_ignore("integer_division")
+			var satisfaction: int = best_comfort * (1000 - current) / 1000
+			var new_comfort: int = maxi(0, current - satisfaction / 10)
+			db.set_field(entity_id, &"desires", &"comfort", new_comfort)
 
 
 func _mark_animals_dirty() -> void:
@@ -245,12 +278,29 @@ func _spawn_starter_entities() -> void:
 	var box: int = db.create_entity()
 	@warning_ignore("integer_division")
 	var box_x: int = 0 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
-	var box_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 4
+	@warning_ignore("integer_division")
+	var box_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 4
+	)
 	db.set_component(box, &"position", {&"x": box_x, &"y": box_y})
 	db.set_component(box, &"advertisements", {&"list": [
 		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4, &"max_occupants": 1}
 	]})
 	db.update_spatial(box, box_x, box_y)
+
+	# Clothes pile on the floor near rack 3
+	var pile: int = db.create_entity()
+	@warning_ignore("integer_division")
+	var pile_x: int = 3 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	@warning_ignore("integer_division")
+	var pile_y: int = (
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 3
+	)
+	db.set_component(pile, &"position", {&"x": pile_x, &"y": pile_y})
+	db.set_component(pile, &"advertisements", {&"list": [
+		{&"desire_type": &"comfort", &"strength": 800, &"radius_ru": 4, &"max_occupants": 3}
+	]})
+	db.update_spatial(pile, pile_x, pile_y)
 
 	# First cat: Mochi — on the floor near rack 0
 	var cat: int = db.create_entity()
