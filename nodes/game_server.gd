@@ -14,6 +14,16 @@ func _ready() -> void:
 
 const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10Hz)
 
+var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
+var _min_durations: Dictionary = {
+	&"IDLE": 3.0,
+	&"GROOMING": 10.0,
+	&"LOAFING": 15.0,
+	&"SLEEPING": 30.0,
+	&"SNIFFING": 10.0,
+	&"SPEED_BUMP": 15.0,
+}
+
 
 func _physics_process(_delta: float) -> void:
 	db.advance_tick()
@@ -23,6 +33,7 @@ func _physics_process(_delta: float) -> void:
 	_mark_animals_dirty()
 	desire_resolver.evaluate_budget()
 	_move_animals()
+	_update_ambient_states()
 	db.flush_notifications()
 
 
@@ -142,6 +153,78 @@ func _move_animals() -> void:
 			var new_y: int = pos[&"y"] + move_y
 			db.set_component(entity_id, &"position", {&"x": new_x, &"y": new_y})
 			db.update_spatial(entity_id, new_x, new_y)
+
+
+func _update_ambient_states() -> void:
+	var tick_delta: float = 0.1  # 1/10Hz
+	var animals: Array[int] = db.get_entities_with(&"ai_state")
+	for entity_id: int in animals:
+		if not db.has_component(entity_id, &"species"):
+			continue
+		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
+		if ai[&"meta_state"] != &"AMBIENT":
+			continue
+
+		# Update timer
+		if not _state_timers.has(entity_id):
+			_state_timers[entity_id] = 0.0
+		_state_timers[entity_id] += tick_delta
+
+		# Check if min duration elapsed
+		var current_state: StringName = ai[&"state"]
+		var min_dur: float = _min_durations.get(current_state, 3.0)
+		if _state_timers[entity_id] < min_dur:
+			continue
+
+		# Pick new ambient state
+		var species: Dictionary = db.get_component(entity_id, &"species")
+		var desires: Dictionary = db.get_component(entity_id, &"desires")
+		var is_cat: bool = String(species[&"id"]).contains("cat")
+		# warmth desire: 0 = warm/satisfied, 1000 = cold/desperate
+		var is_warm: bool = desires[&"warmth"] < 400
+
+		var new_state: StringName = _pick_ambient_state(is_cat, is_warm)
+		if new_state != current_state:
+			db.set_component(entity_id, &"ai_state", {
+				&"state": new_state,
+				&"meta_state": &"AMBIENT",
+				&"commitment_score": ai[&"commitment_score"],
+			})
+			_state_timers[entity_id] = 0.0
+
+
+func _pick_ambient_state(is_cat: bool, is_warm: bool) -> StringName:
+	# Weighted pool based on species and warmth context
+	var pool: Array[Dictionary] = []
+	# IDLE is always available
+	pool.append({&"state": &"IDLE", &"weight": 10})
+
+	if is_cat:
+		if is_warm:
+			pool.append({&"state": &"GROOMING", &"weight": 15})
+			pool.append({&"state": &"LOAFING", &"weight": 20})
+			pool.append({&"state": &"SLEEPING", &"weight": 25})
+		else:
+			pool.append({&"state": &"GROOMING", &"weight": 5})
+			pool.append({&"state": &"LOAFING", &"weight": 10})
+	else:
+		# Ferret ambient states
+		pool.append({&"state": &"SNIFFING", &"weight": 20})
+		pool.append({&"state": &"SPEED_BUMP", &"weight": 10})
+		if is_warm:
+			pool.append({&"state": &"SLEEPING", &"weight": 15})
+
+	# Weighted random selection
+	var total_weight: int = 0
+	for entry: Dictionary in pool:
+		total_weight += int(entry[&"weight"])
+	var roll: int = randi_range(0, total_weight - 1)
+	var cumulative: int = 0
+	for entry: Dictionary in pool:
+		cumulative += int(entry[&"weight"])
+		if roll < cumulative:
+			return entry[&"state"]
+	return &"IDLE"
 
 
 func _spawn_starter_entities() -> void:

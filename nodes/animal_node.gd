@@ -26,44 +26,48 @@ func initialize(db: GameStateDB, eid: int) -> void:
 
 
 func _setup_sprite(species: Dictionary) -> void:
-	var variant: String = String(
-		species.get(&"variant", &"cat01")
-	)
+	var variant: String = String(species.get(&"variant", &"cat01"))
 	var base_path: String = ""
-	if String(species[&"id"]).contains("cat"):
-		base_path = (
-			"res://mods/tcp_base/sprites/cat/"
-			+ "%s" % variant
-		)
-		_sprite.scale = Vector2(2.0, 2.0)
+	var is_cat: bool = String(species[&"id"]).contains("cat")
+	if is_cat:
+		base_path = "res://mods/tcp_base/sprites/cat/%s" % variant
 	else:
-		base_path = (
-			"res://mods/tcp_base/sprites/ferret/"
-			+ "%s" % variant
-		)
-		_sprite.scale = Vector2(2.0, 2.0)
-	var idle_tex: Texture2D = load(
-		base_path + "_idle_strip8.png"
-	)
+		base_path = "res://mods/tcp_base/sprites/ferret/%s" % variant
+	_sprite.scale = Vector2(2.0, 2.0)
+
+	var idle_tex: Texture2D = load(base_path + "_idle_strip8.png")
 	if idle_tex == null:
-		push_error(
-			"Could not load idle sprite: %s"
-			% (base_path + "_idle_strip8.png")
-		)
+		push_error("Could not load idle sprite: %s" % (base_path + "_idle_strip8.png"))
 		return
-	var walk_tex: Texture2D = load(
-		base_path + "_walk_strip8.png"
-	)
+
 	var frames := SpriteFrames.new()
 	if frames.has_animation(&"default"):
 		frames.remove_animation(&"default")
-	_add_strip_animation(frames, &"idle", idle_tex, 8, 6.0)
-	if walk_tex:
-		_add_strip_animation(
-			frames, &"walk", walk_tex, 8, 8.0
-		)
+
+	# Load common animations
+	_load_strip(frames, &"idle", base_path + "_idle_strip8.png", 8, 6.0)
+	_load_strip(frames, &"walk", base_path + "_walk_strip8.png", 8, 8.0)
+	_load_strip(frames, &"sit", base_path + "_sit_strip8.png", 8, 4.0)
+
+	if is_cat:
+		_load_strip(frames, &"sleep", base_path + "_sleep_strip8.png", 8, 2.0)
+		_load_strip(frames, &"crouch", base_path + "_crouch_strip8.png", 8, 6.0)
+		_load_strip(frames, &"fright", base_path + "_fright_strip8.png", 8, 8.0)
+	else:
+		_load_strip(frames, &"sleep", base_path + "_sleep_strip4.png", 4, 2.0)
+		_load_strip(frames, &"sneak", base_path + "_sneak_strip4.png", 4, 6.0)
+		_load_strip(frames, &"liedown", base_path + "_liedown_strip8.png", 8, 4.0)
+		_load_strip(frames, &"dash", base_path + "_dash_strip10.png", 10, 10.0)
+
 	_sprite.sprite_frames = frames
 	_sprite.play(&"idle")
+
+
+func _load_strip(frames: SpriteFrames, anim_name: StringName, path: String, frame_count: int, fps: float) -> void:
+	var tex: Texture2D = load(path)
+	if tex == null:
+		return
+	_add_strip_animation(frames, anim_name, tex, frame_count, fps)
 
 
 func _setup_name_label(species: Dictionary) -> void:
@@ -110,17 +114,10 @@ func _physics_process(_delta: float) -> void:
 
 	# Update animation based on AI state
 	if _db.has_component(entity_id, &"ai_state"):
-		var ai: Dictionary = _db.get_component(
-			entity_id, &"ai_state"
-		)
+		var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
-		var anim: StringName = &"idle"
-		if state == &"MOVING_TO" or state == &"SEEKING":
-			anim = &"walk"
-		if (
-			_sprite.sprite_frames
-			and _sprite.sprite_frames.has_animation(anim)
-		):
+		var anim: StringName = _state_to_animation(state)
+		if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(anim):
 			if _sprite.animation != anim:
 				_sprite.play(anim)
 
@@ -129,6 +126,30 @@ func _physics_process(_delta: float) -> void:
 		_sprite.flip_h = true
 	elif _target_pos.x > _prev_pos.x:
 		_sprite.flip_h = false
+
+
+func _state_to_animation(state: StringName) -> StringName:
+	match state:
+		&"IDLE":
+			return &"idle"
+		&"GROOMING":
+			return &"crouch"
+		&"LOAFING":
+			return &"sit"
+		&"SLEEPING":
+			return &"sleep"
+		&"SNIFFING":
+			return &"sneak"
+		&"SPEED_BUMP":
+			return &"liedown"
+		&"SEEKING", &"MOVING_TO":
+			return &"walk"
+		&"STARTLED":
+			return &"fright"
+		&"SETTLING":
+			return &"sit"
+		_:
+			return &"idle"
 
 
 func _process(_delta: float) -> void:
