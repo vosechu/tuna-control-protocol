@@ -93,11 +93,11 @@ func _build_starter_objects() -> void:
 	$World/PlacedObjects.add_child(box_sprite)
 	_starter_sprites.append(box_sprite)
 
-	# Clothes pile on the floor near rack 3
+	# Clothes pile on the floor near rack 2
 	var pile_sprite := Sprite2D.new()
 	pile_sprite.texture = _PILE_TEX
 	pile_sprite.centered = false
-	var pile_x: float = 3.0 * float(Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX) + 12.0
+	var pile_x: float = 2.0 * float(Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX) + 12.0
 	pile_sprite.position = Vector2(pile_x, floor_y + 4.0)
 	$World/PlacedObjects.add_child(pile_sprite)
 	_starter_sprites.append(pile_sprite)
