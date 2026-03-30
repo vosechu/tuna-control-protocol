@@ -25,6 +25,7 @@ func _ready() -> void:
 	# Wait one frame for GameServer._ready() to create entities
 	await get_tree().process_frame
 	_spawn_animal_nodes()
+	_setup_heat_overlay()
 
 
 func _build_racks() -> void:
@@ -76,6 +77,13 @@ func _build_starter_objects() -> void:
 		8 * Constants.SLOT_HEIGHT_PX
 	)
 	$World/PlacedObjects.add_child(box_sprite)
+
+
+func _setup_heat_overlay() -> void:
+	var overlay_script: GDScript = preload("res://nodes/heat_overlay.gd")
+	var overlay: Node2D = $World/HeatOverlay
+	overlay.set_script(overlay_script)
+	overlay.initialize(game_server.db, game_server.heat_grid)
 
 
 func _spawn_animal_nodes() -> void:
