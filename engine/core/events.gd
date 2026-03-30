@@ -1,6 +1,7 @@
+@warning_ignore("unused_signal")
 extends Node
 
-# Object lifecycle
+# Object lifecycle — emitted by GameServer systems, consumed by GameClient systems
 signal object_placed(object_id: int, rack: int, slot: int, object_type: StringName)
 signal object_removed(object_id: int, rack: int, slot: int)
 

@@ -25,6 +25,7 @@ static func ru_to_pu(ru: int) -> int:
 
 
 static func pu_to_ru(pu: int) -> int:
+	@warning_ignore("integer_division")
 	return pu / SLOT_HEIGHT_PU
 
 

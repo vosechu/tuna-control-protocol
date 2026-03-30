@@ -51,8 +51,10 @@ func score_ad(animal_id: int, object_id: int, ad: Dictionary) -> int:
 	if dist_pu > radius_pu:
 		return 0
 
+	@warning_ignore("integer_division")
 	var dist_factor: int = 1000 - (dist_pu * 1000 / radius_pu) if radius_pu > 0 else 1000
 
+	@warning_ignore("integer_division")
 	return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
 
 
