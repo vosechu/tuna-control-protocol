@@ -262,6 +262,92 @@ func _pick_ambient_state(is_cat: bool, is_warm: bool) -> StringName:
 	return &"IDLE"
 
 
+func place_object(
+	object_type: StringName,
+	world_x: int,
+	world_y: int,
+) -> int:
+	var entity: int = db.create_entity()
+	db.set_component(
+		entity, &"position", {&"x": world_x, &"y": world_y}
+	)
+
+	match object_type:
+		&"server_2u":
+			db.set_component(entity, &"heat_source", {
+				&"value": 1000, &"radius_ru": 5,
+			})
+			db.set_component(entity, &"advertisements", {
+				&"list": [{
+					&"desire_type": &"warmth",
+					&"strength": 800,
+					&"radius_ru": 8,
+					&"max_occupants": 1,
+				}],
+			})
+		&"cardboard_box":
+			db.set_component(entity, &"advertisements", {
+				&"list": [{
+					&"desire_type": &"comfort",
+					&"strength": 700,
+					&"radius_ru": 4,
+					&"max_occupants": 1,
+				}],
+			})
+		&"clothes_pile":
+			db.set_component(entity, &"advertisements", {
+				&"list": [{
+					&"desire_type": &"comfort",
+					&"strength": 800,
+					&"radius_ru": 4,
+					&"max_occupants": 3,
+				}],
+			})
+
+	db.set_component(
+		entity, &"object_type", {&"type": object_type}
+	)
+	db.update_spatial(entity, world_x, world_y)
+	@warning_ignore("integer_division")
+	var rack: int = world_x / Constants.RACK_WIDTH_PU
+	@warning_ignore("integer_division")
+	var slot: int = world_y / Constants.SLOT_HEIGHT_PU
+	Events.object_placed.emit(
+		entity, rack, slot, object_type
+	)
+	return entity
+
+
+func remove_object(entity_id: int) -> void:
+	if not db.has_entity(entity_id):
+		return
+	var pos: Dictionary = db.get_component(
+		entity_id, &"position"
+	)
+	# Startle nearby animals
+	var nearby: Array[int] = db.query_radius(
+		pos[&"x"], pos[&"y"], Constants.ru_to_pu(2)
+	)
+	for other_id: int in nearby:
+		if not db.has_component(other_id, &"species"):
+			continue
+		if not db.has_component(other_id, &"ai_state"):
+			continue
+		db.set_component(other_id, &"ai_state", {
+			&"state": &"STARTLED",
+			&"meta_state": &"SPECIAL",
+			&"commitment_score": 0,
+		})
+		_state_timers[other_id] = 0.0
+	@warning_ignore("integer_division")
+	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+	@warning_ignore("integer_division")
+	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
+	Events.object_removed.emit(entity_id, rack, slot)
+	db.remove_spatial(entity_id)
+	db.destroy_entity(entity_id)
+
+
 func _spawn_starter_entities() -> void:
 	# Pre-placed server at rack 1, slot 40 (bottom of rack, right above floor, near Mochi)
 	var server: int = db.create_entity()
@@ -272,6 +358,9 @@ func _spawn_starter_entities() -> void:
 	db.set_component(server, &"advertisements", {&"list": [
 		{&"desire_type": &"warmth", &"strength": 800, &"radius_ru": 8, &"max_occupants": 1}
 	]})
+	db.set_component(
+		server, &"object_type", {&"type": &"server_2u"}
+	)
 	db.update_spatial(server, server_x, server_y)
 
 	# Pre-placed cardboard box on the floor near rack 0
@@ -286,6 +375,9 @@ func _spawn_starter_entities() -> void:
 	db.set_component(box, &"advertisements", {&"list": [
 		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4, &"max_occupants": 1}
 	]})
+	db.set_component(
+		box, &"object_type", {&"type": &"cardboard_box"}
+	)
 	db.update_spatial(box, box_x, box_y)
 
 	# Clothes pile on the floor near rack 3
@@ -300,6 +392,9 @@ func _spawn_starter_entities() -> void:
 	db.set_component(pile, &"advertisements", {&"list": [
 		{&"desire_type": &"comfort", &"strength": 800, &"radius_ru": 4, &"max_occupants": 3}
 	]})
+	db.set_component(
+		pile, &"object_type", {&"type": &"clothes_pile"}
+	)
 	db.update_spatial(pile, pile_x, pile_y)
 
 	# First cat: Mochi — on the floor near rack 0

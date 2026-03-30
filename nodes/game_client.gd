@@ -18,6 +18,12 @@ const _PILE_TEX := preload(
 
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
 
+var _placement_ui_node: Control
+var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
+# entity_id -> float (seconds elapsed in clearing)
+var _clearing_objects: Dictionary = {}
+var _starter_sprites: Array[Sprite2D] = []
+
 @onready var game_server: Node = get_node("../GameServer")
 
 
@@ -27,9 +33,11 @@ func _ready() -> void:
 	_build_starter_objects()
 	# Wait one frame for GameServer._ready() to create entities
 	await get_tree().process_frame
+	_register_starter_sprites()
 	_spawn_animal_nodes()
 	_setup_heat_overlay()
 	_setup_sound_manager()
+	_setup_placement_ui()
 
 
 func _build_racks() -> void:
@@ -71,6 +79,7 @@ func _build_starter_objects() -> void:
 		40 * Constants.SLOT_HEIGHT_PX
 	)
 	$World/PlacedObjects.add_child(server_sprite)
+	_starter_sprites.append(server_sprite)
 
 	# Box on the floor near rack 0
 	var box_sprite := Sprite2D.new()
@@ -82,6 +91,7 @@ func _build_starter_objects() -> void:
 		floor_y + 4.0
 	)
 	$World/PlacedObjects.add_child(box_sprite)
+	_starter_sprites.append(box_sprite)
 
 	# Clothes pile on the floor near rack 3
 	var pile_sprite := Sprite2D.new()
@@ -90,6 +100,26 @@ func _build_starter_objects() -> void:
 	var pile_x: float = 3.0 * float(Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX) + 12.0
 	pile_sprite.position = Vector2(pile_x, floor_y + 4.0)
 	$World/PlacedObjects.add_child(pile_sprite)
+	_starter_sprites.append(pile_sprite)
+
+
+func _register_starter_sprites() -> void:
+	# Match starter sprites to DB entities with object_type
+	var db: GameStateDB = game_server.db
+	var objects: Array[int] = db.get_entities_with(
+		&"object_type"
+	)
+	# Starter objects are created in order: server, box, pile
+	# Match by index (same creation order as sprites)
+	var sprite_idx: int = 0
+	for entity_id: int in objects:
+		if sprite_idx >= _starter_sprites.size():
+			break
+		_object_sprites[entity_id] = (
+			_starter_sprites[sprite_idx]
+		)
+		sprite_idx += 1
+	_starter_sprites.clear()
 
 
 func _setup_heat_overlay() -> void:
@@ -130,3 +160,159 @@ func _spawn_animal_nodes() -> void:
 		var node: Node2D = _ANIMAL_SCENE.instantiate()
 		$World/Animals.add_child(node)
 		node.initialize(db, entity_id)
+
+
+func _setup_placement_ui() -> void:
+	var ui_script: GDScript = preload(
+		"res://nodes/placement_ui.gd"
+	)
+	var old_ui: Control = $PlacementUI
+	old_ui.queue_free()
+	_placement_ui_node = Control.new()
+	_placement_ui_node.name = "PlacementUI"
+	_placement_ui_node.set_script(ui_script)
+	add_child(_placement_ui_node)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event is InputEventMouseButton:
+		return
+	if not event.pressed:
+		return
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+
+	var camera: Camera2D = $Camera
+	var world_pos: Vector2 = (
+		camera.get_global_mouse_position()
+	)
+
+	if _placement_ui_node.is_remove_mode():
+		_try_remove_at(world_pos)
+	elif _placement_ui_node.get_selected_type() != &"":
+		_try_place_at(
+			world_pos,
+			_placement_ui_node.get_selected_type(),
+		)
+
+
+func _try_place_at(
+	world_pos: Vector2,
+	object_type: StringName,
+) -> void:
+	var total_rack_px: int = (
+		Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX
+	)
+	@warning_ignore("integer_division")
+	var rack: int = int(world_pos.x) / total_rack_px
+	rack = clampi(rack, 0, Constants.RACK_COUNT - 1)
+	@warning_ignore("integer_division")
+	var slot: int = int(world_pos.y) / Constants.SLOT_HEIGHT_PX
+
+	var place_x: int
+	var place_y: int
+
+	if object_type == &"server_2u":
+		# Servers go in racks
+		slot = clampi(
+			slot,
+			Constants.TOR_SWITCH_SLOTS,
+			Constants.SLOTS_PER_RACK - 2,
+		)
+		place_x = rack * Constants.RACK_WIDTH_PU
+		place_y = slot * Constants.SLOT_HEIGHT_PU
+	else:
+		# Boxes and piles go on the floor
+		@warning_ignore("integer_division")
+		var half_rack: int = Constants.RACK_WIDTH_PU / 2
+		place_x = rack * Constants.RACK_WIDTH_PU + half_rack
+		@warning_ignore("integer_division")
+		var floor_third: int = Constants.FLOOR_HEIGHT_PU / 3
+		place_y = (
+			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			+ floor_third
+		)
+
+	var entity_id: int = game_server.place_object(
+		object_type, place_x, place_y
+	)
+	_create_object_sprite(
+		entity_id, object_type, place_x, place_y
+	)
+	_placement_ui_node.clear_selection()
+
+
+func _try_remove_at(world_pos: Vector2) -> void:
+	var click_pu_x: int = Constants.from_world(world_pos.x)
+	var click_pu_y: int = Constants.from_world(world_pos.y)
+	var nearby: Array[int] = game_server.db.query_radius(
+		click_pu_x, click_pu_y, Constants.ru_to_pu(2)
+	)
+	for entity_id: int in nearby:
+		if not game_server.db.has_component(
+			entity_id, &"object_type"
+		):
+			continue
+		_start_clearing(entity_id)
+		break
+
+
+func _start_clearing(entity_id: int) -> void:
+	if _clearing_objects.has(entity_id):
+		# Click again to cancel
+		_clearing_objects.erase(entity_id)
+		if _object_sprites.has(entity_id):
+			_object_sprites[entity_id].modulate = Color.WHITE
+		return
+	if _object_sprites.has(entity_id):
+		_clearing_objects[entity_id] = 0.0
+
+
+func _create_object_sprite(
+	entity_id: int,
+	object_type: StringName,
+	pu_x: int,
+	pu_y: int,
+) -> void:
+	var sprite := Sprite2D.new()
+	match object_type:
+		&"server_2u":
+			sprite.texture = _SERVER_TEX
+		&"cardboard_box":
+			sprite.texture = _BOX_TEX
+		&"clothes_pile":
+			sprite.texture = _PILE_TEX
+	sprite.centered = false
+	sprite.position = Vector2(
+		Constants.to_world(pu_x),
+		Constants.to_world(pu_y),
+	)
+	$World/PlacedObjects.add_child(sprite)
+	_object_sprites[entity_id] = sprite
+
+
+func _process(delta: float) -> void:
+	var to_remove: Array[int] = []
+	for entity_id: int in _clearing_objects:
+		_clearing_objects[entity_id] += delta
+		var timer: float = _clearing_objects[entity_id]
+		# Pulse the sprite with accelerating frequency
+		if _object_sprites.has(entity_id):
+			var pulse: float = (
+				0.5
+				+ 0.5 * sin(
+					timer * PI * (2.0 + timer * 2.0)
+				)
+			)
+			_object_sprites[entity_id].modulate = Color(
+				1.0, 1.0, 1.0, pulse
+			)
+		# After 2 seconds, remove
+		if timer >= 2.0:
+			to_remove.append(entity_id)
+	for entity_id: int in to_remove:
+		_clearing_objects.erase(entity_id)
+		if _object_sprites.has(entity_id):
+			_object_sprites[entity_id].queue_free()
+			_object_sprites.erase(entity_id)
+		game_server.remove_object(entity_id)
