@@ -178,6 +178,31 @@ GDScript style is enforced by `.gdlintrc`. When adding a new rule:
 
 ---
 
+## Grid & Viewport (Ring 0 Redesign — 2026-03-31)
+
+Real-world-proportioned grid. 1 pixel ≈ 0.25 inches. Cats render at native 1x.
+
+| Element | Value | Notes |
+|---|---|---|
+| 1U height | 7px | 1.75" real × 4px/inch |
+| Rack height (42U) | 294px | 73.5" real (6 feet) |
+| Rack width | 76px | 19" real |
+| Rack gap | 4px | Between racks |
+| Floor strip | ~40px | Below racks |
+| Cat sprite | 40×40px native, **1x scale** | ~10" real sitting cat |
+| Ferret/kitten sprite | 32×32px native, **1x scale** | Smaller than cats |
+| 4U server | 28×76px | 7"×19" real |
+| Internal viewport | **640×360** (16:9) | Scales to any display |
+| Layout | 7 playable racks + 2 decorative half-racks | 7×80 + 2×40 = 640px |
+
+**Scaling:** Godot `canvas_items` stretch mode. 3x→1920×1080, 2x→1280×720, 4x→2560×1440.
+
+**Half racks:** 40px wide decorative racks on each edge. Not playable (no placement grid). Imply the datacenter continues. May have ambient details (cables, moss, kitten paw).
+
+**Infrastructure sprites need regeneration** at the new 7px/U scale.
+
+---
+
 ## Godot CLI
 
 Godot binary: `/Applications/Godot.app/Contents/MacOS/godot`
@@ -187,18 +212,24 @@ Common commands:
 # Import/reimport all project resources (run after adding new assets or on fresh checkout)
 /Applications/Godot.app/Contents/MacOS/godot --headless --import
 
-# Run all GUT unit tests
-/Applications/Godot.app/Contents/MacOS/godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -gexit
+# Run all tests (PREFERRED — use this, not raw Godot commands)
+script/checks/gut_tests
 
-# Run a specific test file
-/Applications/Godot.app/Contents/MacOS/godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -gtest=test_constants.gd -gexit
-
-# Run integration tests
-/Applications/Godot.app/Contents/MacOS/godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/integration -gexit
+# Run all validation checks
+script/validate
 
 # Run the game
 /Applications/Godot.app/Contents/MacOS/godot --path .
 ```
+
+---
+
+## Known Issues (Ring 0)
+
+- **Audio playback silent:** AudioStreamWAV reports `playing=true` at 0dB but no audible output. WAV files are valid (stereo 16-bit 48kHz). Visual purr indicator (~) works correctly. Needs investigation — try OGG format or raw PCM loading.
+- **Ferret curiosity doesn't drive wandering:** Curiosity builds but there's no advertisement to seek. Ferrets need random floor target selection or a different mechanism.
+- **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
+- **Infrastructure sprites at wrong scale:** Generated at 24px/U, need regeneration at 7px/U.
 
 ---
 

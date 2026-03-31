@@ -29,7 +29,7 @@ Cosmetic on receiving client. Real entities on server with authoritative positio
 
 ## Physical Layout
 
-**Prototype:** 5 racks wide, 42U per rack. Floor: 8U deep × 24U wide (20U rack width + 2U overhang each side). Floor Y=0; rack slots Y=1+. Pixel scale in `art-direction.md`.
+**Prototype:** 7 playable racks + 2 decorative half-racks, 42U per rack. Internal viewport 640×360. Floor strip ~40px below racks. Pixel scale: 7px/U (real-world proportioned). Full layout in `art-direction.md`.
 
 Animals move on continuous coordinate plane. Player-placed objects snap to 1U grid. Interior view is view-only in prototype (not a placement grid).
 

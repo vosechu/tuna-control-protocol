@@ -9,17 +9,25 @@ paths:
 
 ## 1. Pixel Resolution and Base Grid
 
-**Target viewport:** 960px tall, displaying 42 rack units per rack, 5 racks wide.
+**Target viewport:** 640×360 internal (16:9), scaled to any display via Godot `canvas_items` stretch mode. 3x→1920×1080, 2x→1280×720, 4x→2560×1440. Tablet and phone friendly.
 
-**Math:** 960px / 42U = 22.86px per rack unit. Round up to **24px per rack unit**. This leaves a 48px margin at top and bottom (960 - 42x24 = 952, so 4px spare, plus the top HUD drawers sit above the viewport proper). 24px is divisible by 2, 3, 4, 6, 8, and 12, which is critical for subdivision.
+**Real-world-proportioned grid.** 1 pixel ≈ 0.25 inches. Cat sprites render at native 1x — no scaling artifacts.
 
-**Base sprite grid: 24x24px per rack unit.** All rack-mounted objects snap to this grid vertically. A 2U server is 24x48px. A 3U nesting box is 24x72px. Rack width is **96px** (4 grid cells wide), giving 5 racks = 480px plus inter-rack gaps of 4px each = 496px of rack, leaving ample floor and margins in a 16:9 frame.
+**Base unit: 7px per rack unit.** 1U = 1.75 inches real = 7px. A 4U server is 28×76px. A 42U rack is 294px tall. Rack width is **76px** (19" real). 7 playable racks + 2 decorative half-racks = 7×80 + 2×40 = **640px** — exactly fills the viewport width.
 
-**Cat silhouette at this scale:** A sitting cat in a 3U space gets a 24x72px bounding box viewed from the front. At 24px wide, a cat silhouette needs exactly 3 distinguishing features to be readable: body shape (round vs. lean), ear shape (pointed vs. folded vs. tufted), and tail position (curled vs. straight vs. hidden). This is tight but proven — Stardew Valley's chickens are readable at 16x16px with only body shape and color. 24px gives us significantly more room. A cat curled into a loaf reads as a half-circle with two triangles on top. That is unmistakable.
+**Layout:**
+```
+[half|  1  |  2  |  3  |  4  |  5  |  6  |  7  |half]
+ 40px  80px  80px  80px  80px  80px  80px  80px  40px = 640px
+```
 
-**Floor strip:** 48px tall (2U equivalent), running the full width below the racks. This is where ferrets operate, tuna cans sit, and the robot arm station lives.
+Half-racks are decorative (no placement grid). They imply the datacenter continues beyond the viewport. May have ambient details: dangling cables, moss, a kitten paw reaching from offscreen.
 
-**Sub-grid for interior (drawer) view:** When a rack slot is clicked and the drawer pulls out, the interior renders at **2x zoom** (48px per U equivalent), giving a 4x4 placement grid where each cell is 48x48px. At this scale, individual kitten expressions become readable.
+**Cat silhouette at this scale:** A sitting cat is 40×40px native — about 5.7U tall. Cats are bigger than servers, which is physically accurate. At 40px, a cat silhouette has room for body shape, ear shape, tail position, and color pattern — highly readable. Five distinct cat models are visually distinguishable.
+
+**Floor strip:** ~40px tall, running the full width below the racks. This is where ferrets operate, tuna cans sit, and the robot arm station lives.
+
+**Sub-grid for interior (drawer) view:** When a rack slot is clicked and the drawer pulls out, the interior renders at **2x zoom** (14px per U), giving detailed visibility of animals and equipment inside the slot.
 
 ---
 
