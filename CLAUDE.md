@@ -181,6 +181,10 @@ GDScript style is enforced by `.gdlintrc`. When adding a new rule:
 2. If it requires judgment (architecture, design patterns, testing strategy) — add it to the relevant `.claude/rules/*.md` file.
 3. Never put the same rule in both places. Linters enforce; rules guide.
 
+Notable checks: `gdscript_compile` (catches parse errors via `--import`), `gdlint`, `gut_tests` (unit + scene + integration + scenario), `no_secrets` (gitleaks).
+
+**Claude Code hook:** `.claude/settings.json` has a PostToolUse hook that runs `script/hooks/post-edit-validate` after Write/Edit on game files (`.gd`, `.json`, `.tscn`, etc.). This catches compilation errors and lint issues immediately.
+
 ---
 
 ## Grid & Viewport (Ring 0 Redesign — 2026-03-31)
