@@ -5,9 +5,12 @@ var entity_id: int = Constants.INVALID_ID
 var _db: GameStateDB
 var _prev_pos: Vector2
 var _target_pos: Vector2
+var _is_ferret: bool = false
+var _footstep_player: AudioStreamPlayer2D
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _name_label: Label = $NameLabel
+@onready var _state_label: Label = $StateLabel
 @onready var _purr_indicator: Label = $PurrIndicator
 
 
@@ -22,8 +25,11 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	_prev_pos = _target_pos
 	global_position = _target_pos
 	var species: Dictionary = _db.get_component(entity_id, &"species")
+	_is_ferret = not String(species[&"id"]).contains("cat")
 	_setup_sprite(species)
 	_setup_name_label(species)
+	if _is_ferret:
+		_setup_footstep_audio()
 
 
 func _setup_sprite(species: Dictionary) -> void:
@@ -71,11 +77,38 @@ func _load_strip(frames: SpriteFrames, anim_name: StringName, path: String, fram
 	_add_strip_animation(frames, anim_name, tex, frame_count, fps)
 
 
+const _NAME_COLORS: Array[Color] = [
+	Color.CORAL,       # Mochi
+	Color.CYAN,        # Biscuit
+	Color.YELLOW,      # Noodle
+	Color.LIME_GREEN,  # Slinky
+	Color.ORCHID,      # Bandit
+]
+var _color_index: int = 0
+static var _next_color: int = 0
+
+
 func _setup_name_label(species: Dictionary) -> void:
 	var animal_name: String = String(
 		species.get(&"name", &"???")
 	)
 	_name_label.text = animal_name
+	_color_index = _next_color % _NAME_COLORS.size()
+	_next_color += 1
+	_name_label.add_theme_color_override("font_color", _NAME_COLORS[_color_index])
+
+
+func _setup_footstep_audio() -> void:
+	var stream: AudioStream = load(
+		"res://mods/tcp_base/sounds/objects/animal_footsteps_01.wav"
+	)
+	if stream == null:
+		return
+	_footstep_player = AudioStreamPlayer2D.new()
+	_footstep_player.stream = stream
+	_footstep_player.volume_db = -15.0
+	_footstep_player.max_distance = 500.0
+	add_child(_footstep_player)
 
 
 func _add_strip_animation(
@@ -113,7 +146,7 @@ func _physics_process(_delta: float) -> void:
 		Constants.to_world(pos[&"y"])
 	)
 
-	# Update animation based on AI state
+	# Update animation and state label based on AI state
 	if _db.has_component(entity_id, &"ai_state"):
 		var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
@@ -121,6 +154,18 @@ func _physics_process(_delta: float) -> void:
 		if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(anim):
 			if _sprite.animation != anim:
 				_sprite.play(anim)
+		_state_label.text = String(state).to_lower().replace("_", " ")
+
+		# Ferret footstep audio — play when moving, restart when clip ends
+		if _footstep_player:
+			var is_moving: bool = (
+				state == &"SEEKING" or state == &"MOVING_TO"
+				or state == &"WANDERING"
+			)
+			if is_moving and not _footstep_player.playing:
+				_footstep_player.play()
+			elif not is_moving and _footstep_player.playing:
+				_footstep_player.stop()
 
 	# Flip sprite based on movement direction
 	if _target_pos.x < _prev_pos.x:
@@ -154,7 +199,7 @@ func _state_to_animation(state: StringName) -> StringName:
 			return &"sneak"
 		&"SPEED_BUMP":
 			return &"liedown"
-		&"SEEKING", &"MOVING_TO":
+		&"SEEKING", &"MOVING_TO", &"WANDERING":
 			return &"walk"
 		&"STARTLED":
 			return &"fright"
