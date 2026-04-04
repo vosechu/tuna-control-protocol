@@ -7,6 +7,7 @@ var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
 var nav_builder: NavGraphBuilder
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
+var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
 var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
 var _min_durations: Dictionary = {
 	&"IDLE": 3.0,
@@ -189,9 +190,25 @@ func _move_animals() -> void:
 				&"x": target[&"x"], &"y": target[&"y"],
 			})
 			db.update_spatial(entity_id, target[&"x"], target[&"y"])
-			# Transition to IDLE (simplified for now)
+
+			# Determine arrival state based on what drew the animal here
+			var arrival_state: StringName = &"IDLE"
+			var arrival_duration: float = -1.0
+			if _curiosity_trackers.has(entity_id) and target[&"entity_id"] != Constants.INVALID_ID:
+				var target_id: int = target[&"entity_id"]
+				if db.has_component(target_id, &"advertisements"):
+					var ads: Dictionary = db.get_component(target_id, &"advertisements")
+					for ad: Dictionary in ads[&"list"]:
+						if ad[&"desire_type"] == &"curiosity":
+							arrival_state = &"SNIFFING"
+							arrival_duration = float(ad.get(&"novelty_duration", 100)) / 10.0
+							_curiosity_trackers[entity_id].visit(
+								target_id, db.get_tick()
+							)
+							break
+
 			db.set_component(entity_id, &"ai_state", {
-				&"state": &"IDLE",
+				&"state": arrival_state,
 				&"meta_state": &"AMBIENT",
 				&"commitment_score": ai[&"commitment_score"],
 			})
@@ -200,6 +217,10 @@ func _move_animals() -> void:
 				&"y": Constants.INVALID_ID,
 				&"entity_id": Constants.INVALID_ID,
 			})
+			# Override min duration for this SNIFFING session if set
+			if arrival_duration > 0.0:
+				_state_timers[entity_id] = 0.0
+				_min_durations_override[entity_id] = arrival_duration
 		else:
 			# Move one step toward target
 			var move_x: int = 0
@@ -238,7 +259,7 @@ func _update_ambient_states() -> void:
 
 		# Check if min duration elapsed
 		var current_state: StringName = ai[&"state"]
-		var min_dur: float = _min_durations.get(current_state, 3.0)
+		var min_dur: float = _min_durations_override.get(entity_id, _min_durations.get(current_state, 3.0))
 		if _state_timers[entity_id] < min_dur:
 			continue
 
@@ -259,6 +280,7 @@ func _update_ambient_states() -> void:
 				&"commitment_score": ai[&"commitment_score"],
 			})
 			_state_timers[entity_id] = 0.0
+			_min_durations_override.erase(entity_id)
 
 
 func _pick_ambient_state(is_cat: bool, is_warm: bool) -> StringName:
