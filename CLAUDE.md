@@ -150,6 +150,11 @@ Rules live in `.claude/rules/` as auto-loadable files.
 | `animal-ai.md` | State machine, hysteresis, object advertisements, scoring loop |
 | `navigation.md` | AStar2D point graph, node/edge types, species capabilities, dynamic updates |
 | `secrets.md` | What never gets committed, where secrets go, .gitignore policy |
+| `ai-dev.md` | AI-DEV inline comment markers — permanent LLM instructions in code |
+| `llm-test-verification.md` | Red-green-refactor verification, test protection, post-hoc review |
+| `naming-conventions.md` | Verb vocabulary, boolean prefixes, A/HC/LC structure, opposites |
+| `pr-review-checklist.md` | Review roles, security/testing/quality checklists, failure thinking |
+| `test-philosophy.md` | Sandi Metz test matrix, unit vs integration philosophy |
 
 ### Loaded by path (design specs)
 
@@ -224,12 +229,29 @@ script/validate
 
 ---
 
+## Audio Asset Conventions
+
+- **Format standard:** All WAVs must be 16-bit 48kHz. Normalize to -1 dBFS peak using `sox input.wav -b 16 -r 48000 output.wav gain -n -1`.
+- **Import settings:** `.import` files must have `compress/mode=2` (QOA) and `edit/loop_mode=0`. Looping is handled in code via restart-on-finish, not via import settings.
+- **Naming:** `{type}_{variant}_{state}.wav` — all lowercase, underscores, no Freesound IDs. (e.g. `ferret_dook_01.wav`, not `155115__jzazvurek__ferret.wav`)
+- **Credits:** Every imported sound gets an entry in `../game_assets/Credits.md` with author name and source URL.
+- **Archive:** Original files (pre-normalization) are kept in `../game_assets/`.
+- **Tools:** `sox` (install via `brew install sox`) for normalization and format conversion.
+
+---
+
 ## Known Issues (Ring 0)
 
-- **Audio playback silent:** AudioStreamWAV reports `playing=true` at 0dB but no audible output. WAV files are valid (stereo 16-bit 48kHz). Visual purr indicator (~) works correctly. Needs investigation — try OGG format or raw PCM loading.
-- **Ferret curiosity doesn't drive wandering:** Curiosity builds but there's no advertisement to seek. Ferrets need random floor target selection or a different mechanism.
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
 - **Infrastructure sprites at wrong scale:** Generated at 24px/U, need regeneration at 7px/U.
+- **Grid constants don't match spec:** `SLOT_HEIGHT_PX=24` (spec: 7), `RACK_WIDTH_PX=96` (spec: 76), `RACK_COUNT=5` (spec: 7 playable + 2 decorative half-racks). Current values are from the old 24px/U scale. Updating these requires regenerating sprites, adjusting nav graph, heat grid, and all position math. Blocked on sprite regeneration.
+- **Viewport feels too zoomed in:** Even at 1x camera zoom, the 24px/U scale means racks are ~1008px tall vs. the 360px viewport height. The spec's 7px/U scale would make racks 294px tall, fitting naturally. Root cause is the grid constants above.
+
+## Workarounds Without Root Causes
+
+<!-- AI-DEV: Items in this section are **empirical fixes found by trial and error**. We do NOT understand the root causes. Do NOT present these as facts about how Godot works. If a problem recurs, start from first principles rather than assuming these workarounds are correct. -->
+
+- **WAV audio silent despite `playing=true`:** Uncompressed WAV (`compress/mode=0` in `.import`) produced no audio in Godot 4.6.1. Switching to QOA compression (`compress/mode=2`) fixed playback. However, QOA with `edit/loop_mode=1` was also silent — workaround is `edit/loop_mode=0` with code-driven restart when the stream ends. Fix found by comparing with a working project (purrBall), not by understanding the cause.
 
 ---
 
