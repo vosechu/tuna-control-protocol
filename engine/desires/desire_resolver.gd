@@ -1,5 +1,7 @@
 class_name DesireResolver extends RefCounted
 
+const WANDER_THRESHOLD: int = 800
+
 var _db: GameStateDB
 # Set semantics: entity_id -> true. Prevents duplicate entries.
 var _dirty: Dictionary = {}
@@ -123,6 +125,25 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 			&"y": best_target_pos[&"y"],
 			&"entity_id": best_target_id,
 		})
+	elif ai_state[&"meta_state"] == &"AMBIENT" and commitment == 0:
+		# No good ad in range — wander if any desire is high enough
+		var desires: Dictionary = _db.get_component(entity_id, &"desires")
+		var worst_deficit: int = 0
+		for key: StringName in desires:
+			if desires[key] > worst_deficit:
+				worst_deficit = desires[key]
+		if worst_deficit >= WANDER_THRESHOLD:
+			var wander_pos: Dictionary = _random_floor_position()
+			_db.set_component(entity_id, &"ai_state", {
+				&"state": &"WANDERING",
+				&"meta_state": &"GOAL_DIRECTED",
+				&"commitment_score": 0,
+			})
+			_db.set_component(entity_id, &"target", {
+				&"x": wander_pos[&"x"],
+				&"y": wander_pos[&"y"],
+				&"entity_id": Constants.INVALID_ID,
+			})
 
 
 # Returns and removes the dirty entity with the highest desire deficit.
@@ -157,3 +178,11 @@ func _pop_highest_deficit() -> int:
 		_dirty.erase(best_id)
 
 	return best_id
+
+
+func _random_floor_position() -> Dictionary:
+	var rack: int = randi_range(0, Constants.RACK_COUNT - 1)
+	@warning_ignore("integer_division")
+	var x: int = rack * Constants.RACK_WIDTH_PU + randi_range(0, Constants.RACK_WIDTH_PU)
+	var y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+	return {&"x": x, &"y": y}

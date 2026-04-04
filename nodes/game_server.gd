@@ -94,11 +94,42 @@ func _scatter_desires() -> void:
 	# Comfort and curiosity decay
 	db.add_all(&"desires", &"comfort", 5)
 	db.add_all(&"desires", &"curiosity", 3)
+	# Warmth satisfaction from nearby warm objects (clothes piles, cats, etc.)
+	_scatter_warmth_from_objects()
 	# Comfort satisfaction: animals near comfort-advertising objects get comfort reduced
 	_scatter_comfort()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
+
+
+func _scatter_warmth_from_objects() -> void:
+	var animals: Array[int] = db.get_entities_with(&"desires")
+	for entity_id: int in animals:
+		if not db.has_component(entity_id, &"position"):
+			continue
+		var pos: Dictionary = db.get_component(entity_id, &"position")
+		var nearby: Array[int] = db.query_radius(pos[&"x"], pos[&"y"], Constants.ru_to_pu(4))
+		var best_warmth: int = 0
+		for other_id: int in nearby:
+			if other_id == entity_id:
+				continue
+			if not db.has_component(other_id, &"advertisements"):
+				continue
+			var ads: Dictionary = db.get_component(other_id, &"advertisements")
+			for ad: Dictionary in ads[&"list"]:
+				if ad[&"desire_type"] == &"warmth":
+					var other_pos: Dictionary = db.get_component(other_id, &"position")
+					var dist: int = absi(pos[&"x"] - other_pos[&"x"]) + absi(pos[&"y"] - other_pos[&"y"])
+					var radius_pu: int = Constants.ru_to_pu(ad[&"radius_ru"])
+					if dist <= radius_pu and ad[&"strength"] > best_warmth:
+						best_warmth = ad[&"strength"]
+		if best_warmth > 0:
+			var current: int = db.get_field(entity_id, &"desires", &"warmth")
+			@warning_ignore("integer_division")
+			var satisfaction: int = best_warmth * (1000 - current) / 1000
+			var new_warmth: int = maxi(0, current - satisfaction / 10)
+			db.set_field(entity_id, &"desires", &"warmth", new_warmth)
 
 
 func _scatter_comfort() -> void:
@@ -147,12 +178,13 @@ func _move_animals() -> void:
 	for entity_id: int in animals:
 		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
-		if state != &"SEEKING" and state != &"MOVING_TO":
+		if state != &"SEEKING" and state != &"MOVING_TO" and state != &"WANDERING":
 			continue
 
 		var pos: Dictionary = db.get_component(entity_id, &"position")
 		var target: Dictionary = db.get_component(entity_id, &"target")
-		if target[&"entity_id"] == Constants.INVALID_ID:
+		# SEEKING/MOVING_TO require an entity target; WANDERING just needs a position
+		if state != &"WANDERING" and target[&"entity_id"] == Constants.INVALID_ID:
 			continue
 
 		# Transition SEEKING -> MOVING_TO on first movement tick, with nav graph check
@@ -160,7 +192,6 @@ func _move_animals() -> void:
 			var species: Dictionary = db.get_component(entity_id, &"species")
 			var from_pos: Vector2 = Vector2(float(pos[&"x"]), float(pos[&"y"]))
 			var to_pos: Vector2 = Vector2(float(target[&"x"]), float(target[&"y"]))
-			# If the species cannot navigate to the target, cancel seeking
 			if not nav_builder.can_reach(species[&"id"], from_pos, to_pos):
 				db.set_component(entity_id, &"ai_state", {
 					&"state": &"IDLE",
@@ -178,6 +209,7 @@ func _move_animals() -> void:
 				&"meta_state": &"GOAL_DIRECTED",
 				&"commitment_score": ai[&"commitment_score"],
 			})
+		# WANDERING skips nav check — random floor positions are always reachable
 
 		# Move toward target
 		var dx: int = target[&"x"] - pos[&"x"]
@@ -210,7 +242,7 @@ func _move_animals() -> void:
 			db.set_component(entity_id, &"ai_state", {
 				&"state": arrival_state,
 				&"meta_state": &"AMBIENT",
-				&"commitment_score": ai[&"commitment_score"],
+				&"commitment_score": 0,
 			})
 			db.set_component(entity_id, &"target", {
 				&"x": Constants.INVALID_ID,
@@ -249,6 +281,22 @@ func _update_ambient_states() -> void:
 		if not db.has_component(entity_id, &"species"):
 			continue
 		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
+
+		# Recover from STARTLED after min duration expires
+		if ai[&"state"] == &"STARTLED":
+			if not _state_timers.has(entity_id):
+				_state_timers[entity_id] = 0.0
+			_state_timers[entity_id] += tick_delta
+			var startled_dur: float = _min_durations.get(&"STARTLED", 1.0)
+			if _state_timers[entity_id] >= startled_dur:
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"IDLE",
+					&"meta_state": &"AMBIENT",
+					&"commitment_score": 0,
+				})
+				_state_timers[entity_id] = 0.0
+			continue
+
 		if ai[&"meta_state"] != &"AMBIENT":
 			continue
 
@@ -342,12 +390,21 @@ func place_object(
 			})
 		&"cardboard_box":
 			db.set_component(entity, &"advertisements", {
-				&"list": [{
-					&"desire_type": &"comfort",
-					&"strength": 700,
-					&"radius_ru": 4,
-					&"max_occupants": 1,
-				}],
+				&"list": [
+					{
+						&"desire_type": &"comfort",
+						&"strength": 700,
+						&"radius_ru": 4,
+						&"max_occupants": 1,
+					},
+					{
+						&"desire_type": &"curiosity",
+						&"strength": 500,
+						&"radius_ru": 5,
+						&"novelty_duration": 400,
+						&"novelty_cooldown": 300,
+					},
+				],
 			})
 		&"clothes_pile":
 			db.set_component(entity, &"advertisements", {
@@ -451,7 +508,10 @@ func _spawn_starter_entities() -> void:
 	)
 	db.set_component(pile, &"position", {&"x": pile_x, &"y": pile_y})
 	db.set_component(pile, &"advertisements", {&"list": [
-		{&"desire_type": &"comfort", &"strength": 800, &"radius_ru": 4, &"max_occupants": 3}
+		{&"desire_type": &"comfort", &"strength": 800, &"radius_ru": 4, &"max_occupants": 3},
+		{&"desire_type": &"warmth", &"strength": 500, &"radius_ru": 3},
+		{&"desire_type": &"curiosity", &"strength": 400, &"radius_ru": 4,
+		 &"novelty_duration": 300, &"novelty_cooldown": 200},
 	]})
 	db.set_component(
 		pile, &"object_type", {&"type": &"clothes_pile"}
@@ -604,7 +664,7 @@ func _spawn_starter_entities() -> void:
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
 	)
 	db.set_component(ferret1, &"position", {&"x": f1_x, &"y": f1_y})
-	db.set_component(ferret1, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
+	db.set_component(ferret1, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 700})
 	db.set_component(ferret1, &"personality", {
 		&"warmth_weight": 300, &"comfort_weight": 600, &"curiosity_weight": 900,
 	})
@@ -630,7 +690,7 @@ func _spawn_starter_entities() -> void:
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
 	)
 	db.set_component(ferret2, &"position", {&"x": f2_x, &"y": f2_y})
-	db.set_component(ferret2, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
+	db.set_component(ferret2, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 700})
 	db.set_component(ferret2, &"personality", {
 		&"warmth_weight": 400, &"comfort_weight": 800, &"curiosity_weight": 800,
 	})
@@ -657,7 +717,7 @@ func _spawn_rack_entities() -> void:
 		db.set_component(rack_entity, &"advertisements", {&"list": [
 			{
 				&"desire_type": &"curiosity",
-				&"strength": 300,
+				&"strength": 500,
 				&"radius_ru": 8,
 				&"novelty_duration": 30,
 				&"novelty_cooldown": 100,
