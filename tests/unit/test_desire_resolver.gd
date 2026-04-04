@@ -33,6 +33,35 @@ func _make_warm_server(x: int, y: int, strength: int = 800, radius_ru: int = 3) 
 	return id
 
 
+func _make_ferret(x: int, y: int, curiosity: int, curiosity_weight: int = 900) -> int:
+	var id: int = _db.create_entity()
+	_db.set_component(id, &"species", {&"id": &"tcp_base:ferret"})
+	_db.set_component(id, &"position", {&"x": x, &"y": y})
+	_db.set_component(id, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": curiosity})
+	_db.set_component(id, &"personality", {
+		&"warmth_weight": 400, &"comfort_weight": 600, &"curiosity_weight": curiosity_weight,
+	})
+	_db.set_component(id, &"ai_state", {
+		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
+	})
+	_db.set_component(id, &"target", {
+		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID, &"entity_id": Constants.INVALID_ID,
+	})
+	_db.update_spatial(id, x, y)
+	return id
+
+
+func _make_curiosity_source(x: int, y: int, strength: int = 300, radius_ru: int = 8, novelty_duration: int = 30, novelty_cooldown: int = 100) -> int:
+	var id: int = _db.create_entity()
+	_db.set_component(id, &"position", {&"x": x, &"y": y})
+	_db.set_component(id, &"advertisements", {&"list": [
+		{&"desire_type": &"curiosity", &"strength": strength, &"radius_ru": radius_ru,
+		 &"novelty_duration": novelty_duration, &"novelty_cooldown": novelty_cooldown},
+	]})
+	_db.update_spatial(id, x, y)
+	return id
+
+
 # ── score_ad: basic scoring ───────────────────────────────────────────────────
 
 func test_cold_cat_scores_warm_server_positively():
@@ -204,3 +233,78 @@ func test_pop_highest_deficit_picks_most_desperate_first():
 	# warm cat (100) — score will be very low, stays AMBIENT
 	assert_eq(warm_state[&"meta_state"], &"AMBIENT",
 		"Warm cat (warmth=100) should remain AMBIENT, scored too low")
+
+
+# ── Curiosity + CuriosityTracker integration ─────────────────────────────────
+
+func test_curious_ferret_scores_curiosity_ad_positively():
+	var ferret_id: int = _make_ferret(0, 0, 800)
+	var rack_id: int = _make_curiosity_source(0, 0)
+	var ad: Dictionary = {
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"novelty_duration": 30, &"novelty_cooldown": 100,
+	}
+	var score: int = _resolver.score_ad(ferret_id, rack_id, ad)
+	assert_gt(score, 0,
+		"Curious ferret (curiosity=800) must score curiosity ad positively, got %d" % score)
+
+
+func test_curiosity_ad_scores_zero_when_recently_visited():
+	var ferret_id: int = _make_ferret(0, 0, 800)
+	var rack_id: int = _make_curiosity_source(0, 0, 300, 8, 30, 100)
+	var tracker: CuriosityTracker = CuriosityTracker.new()
+	tracker.visit(rack_id, 0)
+	var ad: Dictionary = {
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"novelty_duration": 30, &"novelty_cooldown": 100,
+	}
+	var score: int = _resolver.score_ad(ferret_id, rack_id, ad, tracker, 50)
+	assert_eq(score, 0,
+		"Recently visited curiosity ad must score 0, got %d" % score)
+
+
+func test_curiosity_ad_scores_normally_after_cooldown():
+	var ferret_id: int = _make_ferret(0, 0, 800)
+	var rack_id: int = _make_curiosity_source(0, 0, 300, 8, 30, 100)
+	var tracker: CuriosityTracker = CuriosityTracker.new()
+	tracker.visit(rack_id, 0)
+	var ad: Dictionary = {
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"novelty_duration": 30, &"novelty_cooldown": 100,
+	}
+	var score: int = _resolver.score_ad(ferret_id, rack_id, ad, tracker, 101)
+	assert_gt(score, 0,
+		"Curiosity ad must score positively after cooldown expires, got %d" % score)
+
+
+func test_cat_ignores_curiosity_ad_due_to_low_weight():
+	var cat_id: int = _make_cat(0, 0, 200, 500)
+	var rack_id: int = _make_curiosity_source(0, 0)
+	var ad: Dictionary = {
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"novelty_duration": 30, &"novelty_cooldown": 100,
+	}
+	var score: int = _resolver.score_ad(cat_id, rack_id, ad)
+	assert_eq(score, 0,
+		"Cat with curiosity=0 must score curiosity ad at 0, got %d" % score)
+
+
+func test_evaluate_budget_with_trackers_transitions_ferret():
+	var ferret_id: int = _make_ferret(0, 0, 800)
+	var rack_id: int = _make_curiosity_source(0, 0, 300, 8, 30, 100)
+	var trackers: Dictionary = {ferret_id: CuriosityTracker.new()}
+	_resolver.mark_dirty(ferret_id)
+	_resolver.evaluate_budget(trackers)
+	var ai_state: Dictionary = _db.get_component(ferret_id, &"ai_state")
+	assert_eq(ai_state[&"state"], &"SEEKING",
+		"Curious ferret near curiosity source must transition to SEEKING")
+
+
+func test_evaluate_budget_without_trackers_still_works():
+	var cat_id: int = _make_cat(0, 0, 900)
+	var server_id: int = _make_warm_server(0, 0)
+	_resolver.mark_dirty(cat_id)
+	_resolver.evaluate_budget()
+	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
+	assert_eq(ai_state[&"state"], &"SEEKING",
+		"evaluate_budget() with no trackers arg must still work for cats")

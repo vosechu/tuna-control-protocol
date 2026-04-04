@@ -15,8 +15,9 @@ func mark_dirty(entity_id: int) -> void:
 
 
 # Evaluate dirty entities in priority order (highest deficit first) until the
-# time budget is exhausted.
-func evaluate_budget() -> void:
+# time budget is exhausted. Pass a trackers dict (entity_id -> CuriosityTracker)
+# to enable novelty checks for curiosity ads.
+func evaluate_budget(trackers: Dictionary = {}) -> void:
 	var start: int = Time.get_ticks_usec()
 	while _dirty.size() > 0:
 		if Time.get_ticks_usec() - start >= Constants.EVAL_TIME_BUDGET_USEC:
@@ -24,13 +25,26 @@ func evaluate_budget() -> void:
 		var id: int = _pop_highest_deficit()
 		if id == Constants.INVALID_ID:
 			break
-		_evaluate_one(id)
+		_evaluate_one(id, trackers)
 
 
 # Score a single advertisement against an animal's desires.
 # Returns 0 if the object is out of range or desire type is missing.
-func score_ad(animal_id: int, object_id: int, ad: Dictionary) -> int:
+# Pass tracker + current_tick to apply novelty filtering for curiosity ads.
+func score_ad(
+	animal_id: int,
+	object_id: int,
+	ad: Dictionary,
+	tracker: CuriosityTracker = null,
+	current_tick: int = 0,
+) -> int:
 	var desire_type: StringName = ad[&"desire_type"]
+
+	# Curiosity novelty check: if tracker provided and target was recently visited, score 0.
+	if tracker != null and desire_type == &"curiosity":
+		var cooldown: int = ad.get(&"novelty_cooldown", 100)
+		if not tracker.is_novel(object_id, current_tick, cooldown):
+			return 0
 
 	var personality: Dictionary = _db.get_component(animal_id, &"personality")
 	var desires: Dictionary = _db.get_component(animal_id, &"desires")
@@ -60,7 +74,7 @@ func score_ad(animal_id: int, object_id: int, ad: Dictionary) -> int:
 
 # ── Private ───────────────────────────────────────────────────────────────────
 
-func _evaluate_one(entity_id: int) -> void:
+func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 	if not _db.has_entity(entity_id):
 		return
 	if not _db.has_component(entity_id, &"position"):
@@ -71,6 +85,9 @@ func _evaluate_one(entity_id: int) -> void:
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	var perception_pu: int = Constants.ru_to_pu(8)
 	var nearby: Array[int] = _db.query_radius(pos[&"x"], pos[&"y"], perception_pu)
+
+	var tracker: CuriosityTracker = trackers.get(entity_id, null)
+	var current_tick: int = _db.get_tick()
 
 	var best_score: int = 0
 	var best_target_id: int = Constants.INVALID_ID
@@ -86,7 +103,7 @@ func _evaluate_one(entity_id: int) -> void:
 		var ads_component: Dictionary = _db.get_component(candidate_id, &"advertisements")
 		var ad_list: Array = ads_component[&"list"]
 		for ad: Dictionary in ad_list:
-			var score: int = score_ad(entity_id, candidate_id, ad)
+			var score: int = score_ad(entity_id, candidate_id, ad, tracker, current_tick)
 			if score > best_score:
 				best_score = score
 				best_target_id = candidate_id
