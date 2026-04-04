@@ -9,51 +9,69 @@ func before_each() -> void:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-func test_visiting_new_cell_returns_satisfied():
-	# A cell never seen before should be novel — fully satisfy curiosity.
-	var result: int = _tracker.visit_cell(42, 0)
-	assert_eq(result, 0,
-		"Visiting a new cell must return 0 (curiosity satisfied)")
+func test_visiting_new_cell_is_novel():
+	assert_true(_tracker.is_novel(42, 0, 100),
+		"A never-visited entity must be novel")
 
 
-func test_revisiting_within_cooldown_returns_no_change():
-	# Visiting the same cell again before the cooldown expires should not reward.
-	_tracker.visit_cell(42, 0)
-	var result: int = _tracker.visit_cell(42, CuriosityTracker.NOVELTY_COOLDOWN_TICKS - 1)
-	assert_eq(result, -1,
-		"Revisiting within cooldown must return -1 (no satisfaction change)")
+func test_revisiting_within_cooldown_is_not_novel():
+	_tracker.visit(42, 0)
+	assert_false(_tracker.is_novel(42, 99, 100),
+		"Entity visited at tick 0 must not be novel at tick 99 with cooldown 100")
 
 
-func test_cell_becomes_novel_again_after_cooldown_expires():
-	# After NOVELTY_COOLDOWN_TICKS have passed the cell is unknown again.
-	_tracker.visit_cell(42, 0)
-	var result: int = _tracker.visit_cell(42, CuriosityTracker.NOVELTY_COOLDOWN_TICKS + 1)
-	assert_eq(result, 0,
-		"Cell must become novel again after cooldown expires")
+func test_entity_becomes_novel_again_after_cooldown_expires():
+	_tracker.visit(42, 0)
+	assert_true(_tracker.is_novel(42, 101, 100),
+		"Entity must become novel again after cooldown expires")
 
 
-func test_multiple_cells_tracked_independently():
-	# Different cells have independent novelty clocks.
-	var result_a: int = _tracker.visit_cell(1, 0)
-	var result_b: int = _tracker.visit_cell(2, 0)
-	assert_eq(result_a, 0,
-		"Cell 1 must be novel on first visit")
-	assert_eq(result_b, 0,
-		"Cell 2 must be novel on first visit regardless of cell 1")
-
-	# Re-visit cell 1 immediately — still in cooldown.
-	var result_a2: int = _tracker.visit_cell(1, 1)
-	# Re-visit cell 2 after its cooldown — novel again.
-	var result_b2: int = _tracker.visit_cell(2, CuriosityTracker.NOVELTY_COOLDOWN_TICKS + 1)
-	assert_eq(result_a2, -1,
-		"Cell 1 must still be known within cooldown")
-	assert_eq(result_b2, 0,
-		"Cell 2 must be novel again after its own cooldown expires")
+func test_multiple_entities_tracked_independently():
+	_tracker.visit(1, 0)
+	_tracker.visit(2, 0)
+	assert_false(_tracker.is_novel(1, 50, 100),
+		"Entity 1 must still be known within cooldown")
+	assert_true(_tracker.is_novel(2, 50, 30),
+		"Entity 2 must be novel with shorter cooldown (30) at tick 50")
 
 
-func test_visit_at_exact_cooldown_boundary_returns_satisfied():
-	# Visiting at exactly first_visit + NOVELTY_COOLDOWN_TICKS should be novel.
-	_tracker.visit_cell(99, 100)
-	var result: int = _tracker.visit_cell(99, 100 + CuriosityTracker.NOVELTY_COOLDOWN_TICKS)
-	assert_eq(result, 0,
-		"Visiting at exactly the cooldown boundary must return 0 (novel again)")
+func test_visit_at_exact_cooldown_boundary():
+	_tracker.visit(99, 100)
+	assert_true(_tracker.is_novel(99, 200, 100),
+		"Visiting at exactly the cooldown boundary must be novel")
+
+
+func test_is_novel_returns_true_for_unvisited_entity():
+	var result: bool = _tracker.is_novel(10, 0, 100)
+	assert_true(result,
+		"Unvisited entity must be novel")
+
+
+func test_is_novel_returns_false_within_cooldown():
+	_tracker.visit(10, 0)
+	var result: bool = _tracker.is_novel(10, 50, 100)
+	assert_false(result,
+		"Entity visited 50 ticks ago with cooldown 100 must not be novel")
+
+
+func test_is_novel_returns_true_after_cooldown_expires():
+	_tracker.visit(10, 0)
+	var result: bool = _tracker.is_novel(10, 101, 100)
+	assert_true(result,
+		"Entity visited 101 ticks ago with cooldown 100 must be novel again")
+
+
+func test_short_cooldown_expires_before_long_cooldown():
+	_tracker.visit(10, 0)
+	var short_novel: bool = _tracker.is_novel(10, 31, 30)
+	var long_novel: bool = _tracker.is_novel(10, 31, 200)
+	assert_true(short_novel,
+		"Short cooldown (30) must expire by tick 31")
+	assert_false(long_novel,
+		"Long cooldown (200) must not expire by tick 31")
+
+
+func test_visit_records_without_returning_novelty():
+	_tracker.visit(10, 50)
+	assert_false(_tracker.is_novel(10, 60, 100),
+		"visit() must record the tick so is_novel() can check it")
