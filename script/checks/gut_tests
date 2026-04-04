@@ -47,6 +47,10 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "integration" ]; then
     run_tests "tests/integration" "Integration" || FAILED=$((FAILED + 1))
 fi
 
+if [ -z "$FILTER" ] || [ "$FILTER" = "scenario" ]; then
+    run_tests "tests/scenario" "Scenario" || FAILED=$((FAILED + 1))
+fi
+
 if [ $FAILED -gt 0 ]; then
     exit 1
 fi
