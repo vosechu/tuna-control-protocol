@@ -7,6 +7,7 @@ var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
 var nav_builder: NavGraphBuilder
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
+var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
 var _min_durations: Dictionary = {
 	&"IDLE": 3.0,
 	&"GROOMING": 10.0,
@@ -45,7 +46,7 @@ func _physics_process(_delta: float) -> void:
 	_scatter_desires()
 	_decay_commitment()
 	_mark_animals_dirty()
-	desire_resolver.evaluate_budget()
+	desire_resolver.evaluate_budget(_curiosity_trackers)
 	_move_animals()
 	_update_ambient_states()
 	db.flush_notifications()
@@ -475,6 +476,20 @@ func _spawn_starter_entities() -> void:
 		&"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
+	db.set_component(cat, &"advertisements", {&"list": [
+		{
+			&"desire_type": &"warmth",
+			&"strength": 300,
+			&"radius_ru": 2,
+		},
+		{
+			&"desire_type": &"curiosity",
+			&"strength": 400,
+			&"radius_ru": 3,
+			&"novelty_duration": 150,
+			&"novelty_cooldown": 50,
+		},
+	]})
 	db.update_spatial(cat, cat_x, cat_y)
 
 	# Second cat: Biscuit — comfort-focused, on the floor near rack 1
@@ -500,6 +515,20 @@ func _spawn_starter_entities() -> void:
 		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
+	db.set_component(cat2, &"advertisements", {&"list": [
+		{
+			&"desire_type": &"warmth",
+			&"strength": 300,
+			&"radius_ru": 2,
+		},
+		{
+			&"desire_type": &"curiosity",
+			&"strength": 400,
+			&"radius_ru": 3,
+			&"novelty_duration": 150,
+			&"novelty_cooldown": 50,
+		},
+	]})
 	db.update_spatial(cat2, cat2_x, cat2_y)
 
 	# Third cat: Noodle — balanced, on the floor near rack 2
@@ -525,6 +554,20 @@ func _spawn_starter_entities() -> void:
 		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
+	db.set_component(cat3, &"advertisements", {&"list": [
+		{
+			&"desire_type": &"warmth",
+			&"strength": 300,
+			&"radius_ru": 2,
+		},
+		{
+			&"desire_type": &"curiosity",
+			&"strength": 400,
+			&"radius_ru": 3,
+			&"novelty_duration": 150,
+			&"novelty_cooldown": 50,
+		},
+	]})
 	db.update_spatial(cat3, cat3_x, cat3_y)
 
 	# First ferret: Slinky — explorer, on the floor near rack 1
@@ -551,6 +594,7 @@ func _spawn_starter_entities() -> void:
 		&"entity_id": Constants.INVALID_ID,
 	})
 	db.update_spatial(ferret1, f1_x, f1_y)
+	_curiosity_trackers[ferret1] = CuriosityTracker.new()
 
 	# Second ferret: Bandit — comfort hoarder, on the floor near rack 2
 	var ferret2: int = db.create_entity()
@@ -576,3 +620,25 @@ func _spawn_starter_entities() -> void:
 		&"entity_id": Constants.INVALID_ID,
 	})
 	db.update_spatial(ferret2, f2_x, f2_y)
+	_curiosity_trackers[ferret2] = CuriosityTracker.new()
+
+	_spawn_rack_entities()
+
+
+func _spawn_rack_entities() -> void:
+	for rack_idx: int in Constants.RACK_COUNT:
+		var rack_entity: int = db.create_entity()
+		@warning_ignore("integer_division")
+		var x: int = rack_idx * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+		var y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+		db.set_component(rack_entity, &"position", {&"x": x, &"y": y})
+		db.set_component(rack_entity, &"advertisements", {&"list": [
+			{
+				&"desire_type": &"curiosity",
+				&"strength": 300,
+				&"radius_ru": 8,
+				&"novelty_duration": 30,
+				&"novelty_cooldown": 100,
+			},
+		]})
+		db.update_spatial(rack_entity, x, y)
