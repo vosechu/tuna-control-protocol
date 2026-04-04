@@ -43,6 +43,10 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "unit" ]; then
     run_tests "tests/unit" "Unit" || FAILED=$((FAILED + 1))
 fi
 
+if [ -z "$FILTER" ] || [ "$FILTER" = "scene" ]; then
+    run_tests "tests/scene" "Scene" || FAILED=$((FAILED + 1))
+fi
+
 if [ -z "$FILTER" ] || [ "$FILTER" = "integration" ]; then
     run_tests "tests/integration" "Integration" || FAILED=$((FAILED + 1))
 fi
