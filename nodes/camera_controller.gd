@@ -7,7 +7,7 @@ const ZOOM_LEVELS: Array[Vector2] = [
 	Vector2(0.5, 0.5),    # Overview: zoomed out
 ]
 
-var _zoom_index: int = 0
+var _zoom_index: int = 1
 
 
 func _ready() -> void:
@@ -17,8 +17,7 @@ func _ready() -> void:
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PX + Constants.FLOOR_HEIGHT_PX / 2
 	)
 	position = Vector2(total_width / 2.0, floor_center_y)
-	# Start zoomed in so animals are visible
-	zoom = ZOOM_LEVELS[0]
+	zoom = ZOOM_LEVELS[_zoom_index]
 
 
 func _process(delta: float) -> void:
