@@ -8,6 +8,7 @@ GUT (Godot Unit Test). Tests live in `tests/` mirroring `src/` structure. Test f
 
 ## Test Suites
 - **Unit** (`tests/unit/`): Pure logic, no scene tree, no I/O.
+- **Scene** (`tests/scene/`): Load `.tscn` files, instantiate, verify node structure and types. No game logic, no DB, no ticks. Catches parse errors, missing nodes, wrong types.
 - **Integration** (`tests/integration/`): Node-to-core wiring, signal flow.
 - **Scenario** (`tests/scenario/`): Multi-tick simulation stories.
 - **Snapshot** (`tests/snapshot/`): Determinism — same seed = same output.
@@ -16,6 +17,7 @@ GUT (Godot Unit Test). Tests live in `tests/` mirroring `src/` structure. Test f
 
 ## Suite Rules
 - Unit tests: max 50ms each. No `await`, no `yield`, no filesystem.
+- Scene tests: max 200ms each. Load and instantiate `.tscn`, verify structure. No game logic.
 - Integration tests: max 500ms. May instantiate scenes via `add_child()`.
 - Snapshot tests: serialize full state, compare against golden file.
 - Soak tests: run 10,000+ ticks, assert invariants.
@@ -23,7 +25,7 @@ GUT (Godot Unit Test). Tests live in `tests/` mirroring `src/` structure. Test f
 
 ## CI Pipeline
 1. `gdlint` — style enforcement
-2. Unit + Integration — fail-fast
+2. Unit + Scene + Integration — fail-fast
 3. Snapshot — determinism gate
 4. Soak — invariant gate
 5. Perf — budget gate (warn only in PR, block in release)
