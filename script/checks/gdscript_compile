@@ -1,0 +1,22 @@
+#!/bin/bash
+# Verifies all GDScript files compile without parse errors.
+# Godot --check-only isn't available, so we run --headless --import
+# and check for "Parse Error" or "Failed to load script" in output.
+
+GODOT="/Applications/Godot.app/Contents/MacOS/godot"
+PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+if [ ! -x "$GODOT" ]; then
+    echo "Godot not found at $GODOT" >&2
+    exit 1
+fi
+
+OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" --import 2>&1)
+
+if echo "$OUTPUT" | grep -qiE "Parse Error|Failed to load script|Cannot load source code"; then
+    echo "GDScript compilation errors found:"
+    echo "$OUTPUT" | grep -iE "Parse Error|Failed to load script|Cannot load source code" | head -20
+    exit 1
+fi
+
+exit 0
