@@ -35,7 +35,7 @@ func _apply_source(entity_id: int) -> void:
 	var hs: Dictionary = _db.get_component(entity_id, &"heat_source")
 
 	@warning_ignore("integer_division")
-	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
 	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 	var value: int = hs[&"value"]
@@ -69,8 +69,16 @@ func _apply_source(entity_id: int) -> void:
 				var right_cell: int = Constants.rack_cell(rack + 1, target_slot)
 				_grid[right_cell] = mini(_grid[right_cell] + spill, Constants.UNIT)
 
-	# Floor radiation: weak heat below the source rack.
-	var floor_idx: int = Constants.floor_cell(rack)
+	# Floor only gets heat from servers near the bottom of the rack.
+	# Distance from source to floor = (SLOTS_PER_RACK - slot).
+	# Downward range = radius / 3 (same as rack propagation).
 	@warning_ignore("integer_division")
-	var floor_heat: int = value / (radius + 1)
-	_grid[floor_idx] = mini(_grid[floor_idx] + floor_heat, Constants.UNIT)
+	var down_range: int = radius / 3
+	var floor_dist: int = Constants.SLOTS_PER_RACK - slot
+	if floor_dist <= down_range:
+		var floor_idx: int = Constants.floor_cell(rack)
+		@warning_ignore("integer_division")
+		var floor_heat: int = value * (down_range + 1 - floor_dist) / (down_range + 1)
+		_grid[floor_idx] = mini(
+			_grid[floor_idx] + floor_heat, Constants.UNIT
+		)
