@@ -61,6 +61,12 @@ func has_component(entity_id: int, component: StringName) -> bool:
 	return _entities[entity_id].has(component)
 
 
+func remove_component(entity_id: int, component: StringName) -> void:
+	assert(_entities.has(entity_id),
+			"remove_component: unknown entity %d" % entity_id)
+	_entities[entity_id].erase(component)
+
+
 func get_field(entity_id: int, component: StringName, field: StringName) -> int:
 	assert(_entities.has(entity_id), "get_field: unknown entity %d" % entity_id)
 	assert(_entities[entity_id].has(component),
@@ -81,14 +87,14 @@ func set_field(entity_id: int, component: StringName, field: StringName, value: 
 func add_all(component: StringName, field: StringName, delta: int) -> void:
 	for entity_id: int in _entities:
 		var comps: Dictionary = _entities[entity_id]
-		if comps.has(component):
+		if comps.has(component) and comps[component].has(field):
 			comps[component][field] += delta
 
 
 func clamp_all(component: StringName, field: StringName, min_val: int, max_val: int) -> void:
 	for entity_id: int in _entities:
 		var comps: Dictionary = _entities[entity_id]
-		if comps.has(component):
+		if comps.has(component) and comps[component].has(field):
 			comps[component][field] = clampi(comps[component][field], min_val, max_val)
 
 

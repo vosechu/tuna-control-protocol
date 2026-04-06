@@ -16,6 +16,14 @@ func mark_dirty(entity_id: int) -> void:
 	_dirty[entity_id] = true
 
 
+# Mark every entity that has a desires component as dirty.
+# Replaces per-species filtering — any entity with desires gets evaluated.
+func mark_all_dirty() -> void:
+	var entities: Array[int] = _db.get_entities_with(&"desires")
+	for entity_id: int in entities:
+		mark_dirty(entity_id)
+
+
 # Evaluate dirty entities in priority order (highest deficit first) until the
 # time budget is exhausted. Pass a trackers dict (entity_id -> CuriosityTracker)
 # to enable novelty checks for curiosity ads.

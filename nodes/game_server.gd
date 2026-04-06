@@ -5,6 +5,8 @@ const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10
 var db: GameStateDB
 var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
+var desire_scatter: DesireScatter
+var object_state_manager: ObjectStateManager
 var nav_builder: NavGraphBuilder
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
@@ -23,6 +25,8 @@ func _ready() -> void:
 	db = GameStateDB.new()
 	heat_grid = HeatGrid.new(db)
 	desire_resolver = DesireResolver.new(db)
+	desire_scatter = DesireScatter.new(db)
+	object_state_manager = ObjectStateManager.new(db)
 	nav_builder = NavGraphBuilder.new()
 	_spawn_starter_entities()
 	_build_nav_for_objects()
@@ -46,7 +50,7 @@ func _physics_process(_delta: float) -> void:
 	heat_grid.propagate()
 	_scatter_desires()
 	_decay_commitment()
-	_mark_animals_dirty()
+	desire_resolver.mark_all_dirty()
 	desire_resolver.evaluate_budget(_curiosity_trackers)
 	_move_animals()
 	_update_ambient_states()
@@ -94,83 +98,12 @@ func _scatter_desires() -> void:
 	# Comfort and curiosity decay
 	db.add_all(&"desires", &"comfort", 5)
 	db.add_all(&"desires", &"curiosity", 3)
-	# Warmth satisfaction from nearby warm objects (clothes piles, cats, etc.)
-	_scatter_warmth_from_objects()
-	# Comfort satisfaction: animals near comfort-advertising objects get comfort reduced
-	_scatter_comfort()
+	# Satisfaction from nearby object advertisements (warmth, comfort, etc.)
+	desire_scatter.scatter_from_ads()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
 
-
-func _scatter_warmth_from_objects() -> void:
-	var animals: Array[int] = db.get_entities_with(&"desires")
-	for entity_id: int in animals:
-		if not db.has_component(entity_id, &"position"):
-			continue
-		var pos: Dictionary = db.get_component(entity_id, &"position")
-		var nearby: Array[int] = db.query_radius(pos[&"x"], pos[&"y"], Constants.ru_to_pu(4))
-		var best_warmth: int = 0
-		for other_id: int in nearby:
-			if other_id == entity_id:
-				continue
-			if not db.has_component(other_id, &"advertisements"):
-				continue
-			var ads: Dictionary = db.get_component(other_id, &"advertisements")
-			for ad: Dictionary in ads[&"list"]:
-				if ad[&"desire_type"] == &"warmth":
-					var other_pos: Dictionary = db.get_component(other_id, &"position")
-					var dist: int = absi(pos[&"x"] - other_pos[&"x"]) + absi(pos[&"y"] - other_pos[&"y"])
-					var radius_pu: int = Constants.ru_to_pu(ad[&"radius_ru"])
-					if dist <= radius_pu and ad[&"strength"] > best_warmth:
-						best_warmth = ad[&"strength"]
-		if best_warmth > 0:
-			var current: int = db.get_field(entity_id, &"desires", &"warmth")
-			@warning_ignore("integer_division")
-			var satisfaction: int = best_warmth * (1000 - current) / 1000
-			var new_warmth: int = maxi(0, current - satisfaction / 10)
-			db.set_field(entity_id, &"desires", &"warmth", new_warmth)
-
-
-func _scatter_comfort() -> void:
-	var animals: Array[int] = db.get_entities_with(&"desires")
-	for entity_id: int in animals:
-		if not db.has_component(entity_id, &"position"):
-			continue
-		if not db.has_component(entity_id, &"species"):
-			continue
-		var pos: Dictionary = db.get_component(entity_id, &"position")
-		# Check nearby objects for comfort advertisements
-		var nearby: Array[int] = db.query_radius(pos[&"x"], pos[&"y"], Constants.ru_to_pu(4))
-		var best_comfort: int = 0
-		for other_id: int in nearby:
-			if other_id == entity_id:
-				continue
-			if not db.has_component(other_id, &"advertisements"):
-				continue
-			var ads: Dictionary = db.get_component(other_id, &"advertisements")
-			for ad: Dictionary in ads[&"list"]:
-				if ad[&"desire_type"] == &"comfort":
-					var other_pos: Dictionary = db.get_component(other_id, &"position")
-					var dist: int = absi(pos[&"x"] - other_pos[&"x"]) + absi(pos[&"y"] - other_pos[&"y"])
-					var radius_pu: int = Constants.ru_to_pu(ad[&"radius_ru"])
-					if dist <= radius_pu and ad[&"strength"] > best_comfort:
-						best_comfort = ad[&"strength"]
-		# If near a comfort source, reduce the comfort desire (satisfy it)
-		if best_comfort > 0:
-			var current: int = db.get_field(entity_id, &"desires", &"comfort")
-			@warning_ignore("integer_division")
-			var satisfaction: int = best_comfort * (1000 - current) / 1000
-			var new_comfort: int = maxi(0, current - satisfaction / 10)
-			db.set_field(entity_id, &"desires", &"comfort", new_comfort)
-
-
-func _mark_animals_dirty() -> void:
-	var animals: Array[int] = db.get_entities_with(&"desires")
-	for entity_id: int in animals:
-		if not db.has_component(entity_id, &"species"):
-			continue
-		desire_resolver.mark_dirty(entity_id)
 
 
 func _move_animals() -> void:
