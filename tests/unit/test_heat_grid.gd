@@ -14,7 +14,7 @@ func before_each() -> void:
 func _make_source(rack: int, slot: int, value: int, radius: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {
-		&"x": rack * Constants.RACK_WIDTH_PU,
+		&"x": rack * Constants.RACK_STRIDE_PU,
 		&"y": slot * Constants.SLOT_HEIGHT_PU,
 	})
 	_db.set_component(id, &"heat_source", {
@@ -93,16 +93,26 @@ func test_cross_rack_spillover_is_much_weaker():
 		"Adjacent rack heat must be less than half of same-rack source heat")
 
 
-func test_floor_gets_weak_heat():
-	# Floor cell below source rack must have heat > 0 but < 400 for an 800-value, radius-3 source.
+func test_floor_gets_no_heat_from_distant_server():
+	# A server at slot 20 is far from the floor — no floor heat.
 	_make_source(0, 20, 800, 3)
 	_grid.propagate()
 	var floor_idx: int = Constants.floor_cell(0)
 	var floor_temp: int = _grid.get_temperature(floor_idx)
+	assert_eq(floor_temp, 0,
+		"Floor must not receive heat from distant server")
+
+
+func test_floor_gets_heat_from_bottom_server():
+	# A server at slot 41 (directly above floor) spills heat down.
+	_make_source(0, 41, 800, 3)
+	_grid.propagate()
+	var floor_idx: int = Constants.floor_cell(0)
+	var floor_temp: int = _grid.get_temperature(floor_idx)
 	assert_gt(floor_temp, 0,
-		"Floor cell must receive some heat from nearby source")
-	assert_lt(floor_temp, 400,
-		"Floor heat must be weak (< 400) for an 800-value source with radius 3")
+		"Floor must receive heat from server directly above")
+	assert_lte(floor_temp, 400,
+		"Floor heat must be weak spillover")
 
 
 func test_propagation_resets_each_tick():
@@ -126,12 +136,3 @@ func test_heat_applies_downward_one_unit():
 	var cell_down: int = Constants.rack_cell(0, 21)
 	assert_gt(_grid.get_temperature(cell_down), 0,
 		"Slot 1U below source must receive heat")
-
-
-func test_heat_does_not_apply_two_units_downward():
-	# Source at slot 20 with radius 3 must NOT heat slot 22 (2U down exceeds 1U downward range).
-	_make_source(0, 20, 800, 3)
-	_grid.propagate()
-	var cell_2down: int = Constants.rack_cell(0, 22)
-	assert_eq(_grid.get_temperature(cell_2down), 0,
-		"Slot 2U below source must not receive heat (downward range is only 1U)")

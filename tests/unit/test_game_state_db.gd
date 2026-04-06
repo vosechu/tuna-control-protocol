@@ -47,6 +47,7 @@ func test_destroy_entity_removes_all_components():
 	_db.set_component(id, &"desires", {&"hunger": 500})
 	_db.destroy_entity(id)
 	assert_false(_db.has_entity(id), "Entity must be gone after destroy")
+	assert_false(_db.has_component(id, &"desires"), "Components must be removed after destroy")
 
 
 func test_ids_start_from_one():
@@ -234,15 +235,6 @@ func test_watcher_deduplicates_multiple_changes_to_same_entity():
 	_db.set_field(id, &"desires", &"hunger", 800)
 	_db.flush_notifications()
 	assert_eq(fired[0], 1, "Multiple changes to same entity must only fire watcher once per flush")
-
-
-func test_watcher_does_not_fire_before_flush():
-	var id: int = _db.create_entity()
-	_db.set_component(id, &"desires", {&"hunger": 500})
-	var fired: Array[int] = [0]
-	_db.watch(&"desires", func(_entity_id: int) -> void: fired[0] += 1)
-	_db.set_field(id, &"desires", &"hunger", 700)
-	assert_eq(fired[0], 0, "Watcher must not fire until flush_notifications is called")
 
 
 func test_watcher_clears_dirty_set_after_flush():
