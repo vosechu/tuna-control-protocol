@@ -15,7 +15,7 @@ func before_each() -> void:
 
 func _make_server(rack: int, slot: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
+	var x: int = rack * Constants.RACK_STRIDE_PU
 	var y: int = slot * Constants.SLOT_HEIGHT_PU
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"heat_source", {
@@ -35,7 +35,7 @@ func _make_server(rack: int, slot: int) -> int:
 
 func _make_cat(rack: int, slot: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
+	var x: int = rack * Constants.RACK_STRIDE_PU
 	var y: int = slot * Constants.SLOT_HEIGHT_PU
 	_db.set_component(id, &"species", {
 		&"id": &"tcp_base:cat",
@@ -44,9 +44,9 @@ func _make_cat(rack: int, slot: int) -> int:
 	})
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"desires", {
-		&"warmth": 800,
-		&"comfort": 200,
-		&"curiosity": 0,
+		&"warmth": 200,
+		&"comfort": 800,
+		&"curiosity": 1000,
 	})
 	_db.set_component(id, &"personality", {
 		&"warmth_weight": 800,
@@ -79,7 +79,7 @@ func test_cold_cat_near_server_transitions_to_seeking() -> void:
 	# Scatter warmth desire based on heat at cat's position
 	var pos: Dictionary = _db.get_component(cat, &"position")
 	@warning_ignore("integer_division")
-	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
 	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 	var cell: int = Constants.rack_cell(
@@ -87,7 +87,7 @@ func test_cold_cat_near_server_transitions_to_seeking() -> void:
 		clampi(slot, 0, Constants.SLOTS_PER_RACK - 1),
 	)
 	var temp: int = _heat_grid.get_temperature(cell)
-	_db.set_field(cat, &"desires", &"warmth", 1000 - temp)
+	_db.set_field(cat, &"desires", &"warmth", temp)
 
 	_resolver.mark_dirty(cat)
 	_resolver.evaluate_budget()
@@ -122,7 +122,9 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 	var start_pos: Dictionary = _db.get_component(cat, &"position")
 	var start_y: int = start_pos[&"y"]
 
-	# Simulate movement ticks (replicating game_server._move_animals logic)
+	# NOTE: Inlines movement logic from game_server._move_animals because
+	# GameServer requires a scene tree we cannot instantiate in integration
+	# tests. If _move_animals changes, this must be updated to match.
 	for tick: int in 50:
 		var pos: Dictionary = _db.get_component(cat, &"position")
 		var target: Dictionary = _db.get_component(
@@ -174,7 +176,7 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 	_heat_grid.propagate()
 	var pos: Dictionary = _db.get_component(cat, &"position")
 	@warning_ignore("integer_division")
-	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
+	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
 	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 	var cell: int = Constants.rack_cell(
@@ -182,7 +184,7 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 		clampi(slot, 0, Constants.SLOTS_PER_RACK - 1),
 	)
 	var temp: int = _heat_grid.get_temperature(cell)
-	_db.set_field(cat, &"desires", &"warmth", 1000 - temp)
+	_db.set_field(cat, &"desires", &"warmth", temp)
 
 	_resolver.evaluate_budget()
 
@@ -198,7 +200,7 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 	)
 
 
-func test_movement_arrives_and_returns_to_idle() -> void:
+func test_movement_arrival_distance_within_speed() -> void:
 	var server: int = _make_server(2, 20)
 	var cat: int = _make_cat(2, 20)  # Same position as server
 

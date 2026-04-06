@@ -1,0 +1,216 @@
+#!/bin/bash
+# Verifies tamper-evident .gd.stamp sidecar files for test files.
+# This is the READ operation — it checks that stamps exist, no orphans,
+# and all hashes match. Used by CI and pre-commit.
+#
+# Three checks:
+#   1. Every test file has a .gd.stamp sidecar
+#   2. No orphan .gd.stamp files without a corresponding test
+#   3. All stamps match their current test file contents
+#
+# Usage: verify_tests              (check everything)
+
+set -uo pipefail
+# Note: NOT using set -e because grep returns non-zero on no-match,
+# which is expected in many checks below.
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+TESTS_DIR="$REPO_ROOT/tests"
+
+if [ ! -d "$TESTS_DIR" ]; then
+    echo "No tests directory at $TESTS_DIR" >&2
+    exit 1
+fi
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+get_test_functions() {
+    local file="$1"
+    grep -n '^func test_' "$file" | sed 's/(.*//' | sed 's/^.*func //'
+}
+
+get_function_body() {
+    local file="$1"
+    local func_name="$2"
+
+    local start_line
+    start_line=$(grep -n "^func ${func_name}(" "$file" | head -1 | cut -d: -f1)
+
+    if [ -z "$start_line" ]; then
+        echo ""
+        return
+    fi
+
+    local total_lines
+    total_lines=$(wc -l < "$file")
+
+    local end_line
+    end_line=$(tail -n +"$((start_line + 1))" "$file" | grep -n '^func \|^class \|^var \|^const \|^signal \|^enum \|^# ──' | head -1 | cut -d: -f1)
+
+    if [ -z "$end_line" ]; then
+        end_line=$((total_lines - start_line + 1))
+    else
+        end_line=$((end_line - 1))
+    fi
+
+    sed -n "${start_line},$((start_line + end_line - 1))p" "$file" \
+        | grep -v '# AI-DEV:' \
+        | sed 's/[[:space:]]*$//'
+}
+
+hash_string() {
+    echo -n "$1" | shasum -a 256 | cut -c1-8
+}
+
+hash_file() {
+    shasum -a 256 "$1" | cut -c1-8
+}
+
+# Read a value from the stamp YAML (simple key: value parsing)
+stamp_get() {
+    local stamp_file="$1"
+    local key="$2"
+    grep "^${key}:" "$stamp_file" 2>/dev/null | sed "s/^${key}: *//"
+}
+
+# Read a test hash from the stamp YAML (indented key: value)
+stamp_get_test() {
+    local stamp_file="$1"
+    local test_name="$2"
+    grep "^  ${test_name}:" "$stamp_file" 2>/dev/null | sed "s/^  ${test_name}: *//"
+}
+
+# ── Check 1: Every test file has a stamp ─────────────────────────────────────
+
+MISSING_STAMPS=()
+while IFS= read -r test_file; do
+    stamp_file="${test_file}.stamp"
+    if [ ! -f "$stamp_file" ]; then
+        MISSING_STAMPS+=("$test_file")
+    fi
+done < <(find "$TESTS_DIR" -name 'test_*.gd' -not -path '*/.godot/*' | sort)
+
+# ── Check 2: No orphan stamps ────────────────────────────────────────────────
+
+ORPHAN_STAMPS=()
+while IFS= read -r stamp_file; do
+    test_file="${stamp_file%.stamp}"
+    if [ ! -f "$test_file" ]; then
+        ORPHAN_STAMPS+=("$stamp_file")
+    fi
+done < <(find "$TESTS_DIR" -name '*.gd.stamp' -not -path '*/.godot/*' | sort)
+
+# ── Check 3: All stamps match ────────────────────────────────────────────────
+
+STALE_FILES=()
+STALE_TESTS=()
+ORPHAN_TESTS=()
+MISSING_TESTS=()
+
+while IFS= read -r test_file; do
+    stamp_file="${test_file}.stamp"
+
+    # Skip files without stamps (already caught in check 1)
+    if [ ! -f "$stamp_file" ]; then
+        continue
+    fi
+
+    # Check file hash
+    EXPECTED_FILE_HASH=$(stamp_get "$stamp_file" "file_hash")
+    ACTUAL_FILE_HASH=$(hash_file "$test_file")
+
+    if [ "$EXPECTED_FILE_HASH" != "$ACTUAL_FILE_HASH" ]; then
+        STALE_FILES+=("$test_file (stamp: $EXPECTED_FILE_HASH, actual: $ACTUAL_FILE_HASH)")
+    fi
+
+    # Check per-test hashes
+    FUNCS=$(get_test_functions "$test_file")
+
+    # Check each function in the file has a stamp entry and matches
+    while IFS= read -r func_name; do
+        [ -z "$func_name" ] && continue
+        EXPECTED_HASH=$(stamp_get_test "$stamp_file" "$func_name")
+
+        if [ -z "$EXPECTED_HASH" ]; then
+            MISSING_TESTS+=("$test_file::$func_name (no stamp entry)")
+            continue
+        fi
+
+        BODY=$(get_function_body "$test_file" "$func_name")
+        ACTUAL_HASH=$(hash_string "$BODY")
+
+        if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+            STALE_TESTS+=("$test_file::$func_name (stamp: $EXPECTED_HASH, actual: $ACTUAL_HASH)")
+        fi
+    done <<< "$FUNCS"
+
+    # Check for orphaned test entries in the stamp (test removed from file)
+    while IFS= read -r stamp_entry; do
+        [ -z "$stamp_entry" ] && continue
+        ENTRY_NAME=$(echo "$stamp_entry" | sed 's/:.*//' | sed 's/^  //')
+        if ! echo "$FUNCS" | grep -q "^${ENTRY_NAME}$"; then
+            ORPHAN_TESTS+=("$test_file::$ENTRY_NAME (in stamp but not in file)")
+        fi
+    done < <(grep '^  test_' "$stamp_file" 2>/dev/null)
+
+done < <(find "$TESTS_DIR" -name 'test_*.gd' -not -path '*/.godot/*' | sort)
+
+# ── Report ───────────────────────────────────────────────────────────────────
+
+ERRORS=0
+
+if [ ${#MISSING_STAMPS[@]} -gt 0 ]; then
+    echo "Missing stamps (run script/stamp_tests on these files):" >&2
+    for f in "${MISSING_STAMPS[@]}"; do
+        echo "  $f" >&2
+    done
+    ERRORS=$((ERRORS + ${#MISSING_STAMPS[@]}))
+fi
+
+if [ ${#ORPHAN_STAMPS[@]} -gt 0 ]; then
+    echo "Orphan stamps (delete these — no corresponding test file):" >&2
+    for f in "${ORPHAN_STAMPS[@]}"; do
+        echo "  $f" >&2
+    done
+    ERRORS=$((ERRORS + ${#ORPHAN_STAMPS[@]}))
+fi
+
+if [ ${#STALE_FILES[@]} -gt 0 ]; then
+    echo "Stale file hashes (test file changed — re-run script/stamp_tests):" >&2
+    for f in "${STALE_FILES[@]}"; do
+        echo "  $f" >&2
+    done
+    ERRORS=$((ERRORS + ${#STALE_FILES[@]}))
+fi
+
+if [ ${#STALE_TESTS[@]} -gt 0 ]; then
+    echo "Stale test hashes (test function changed — re-run script/stamp_tests):" >&2
+    for f in "${STALE_TESTS[@]}"; do
+        echo "  $f" >&2
+    done
+    ERRORS=$((ERRORS + ${#STALE_TESTS[@]}))
+fi
+
+if [ ${#MISSING_TESTS[@]} -gt 0 ]; then
+    echo "Unstamped tests (test function exists but no stamp entry):" >&2
+    for f in "${MISSING_TESTS[@]}"; do
+        echo "  $f" >&2
+    done
+    ERRORS=$((ERRORS + ${#MISSING_TESTS[@]}))
+fi
+
+if [ ${#ORPHAN_TESTS[@]} -gt 0 ]; then
+    echo "Orphan test entries (stamp entry but function removed from file):" >&2
+    for f in "${ORPHAN_TESTS[@]}"; do
+        echo "  $f" >&2
+    done
+    ERRORS=$((ERRORS + ${#ORPHAN_TESTS[@]}))
+fi
+
+if [ $ERRORS -gt 0 ]; then
+    echo "" >&2
+    echo "$ERRORS issue(s) found. See .claude/rules/llm-test-verification.md for the verification process." >&2
+    exit 1
+fi
+
+exit 0

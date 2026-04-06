@@ -19,7 +19,7 @@ func _make_animal(x: int, y: int, warmth_weight: int) -> int:
 		&"id": &"tcp_base:cat", &"variant": &"cat01", &"name": &"Test",
 	})
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"desires", {&"warmth": 800, &"comfort": 200, &"curiosity": 0})
+	_db.set_component(id, &"desires", {&"warmth": 200, &"comfort": 800, &"curiosity": 1000})
 	_db.set_component(id, &"personality", {
 		&"warmth_weight": warmth_weight, &"comfort_weight": 600, &"curiosity_weight": 100,
 	})
@@ -44,6 +44,9 @@ func _make_ad_object(x: int, y: int, desire_type: StringName, strength: int, rad
 	return id
 
 
+# NOTE: Reimplements commitment decay from game_server._decay_commitment
+# because GameServer requires a scene tree we cannot instantiate in
+# integration tests. If _decay_commitment changes, this must be updated.
 func _decay_commitment_once(entity_id: int) -> void:
 	var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
 	var commitment: int = ai[&"commitment_score"]

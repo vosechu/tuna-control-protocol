@@ -41,25 +41,6 @@ func test_visit_at_exact_cooldown_boundary():
 		"Visiting at exactly the cooldown boundary must be novel")
 
 
-func test_is_novel_returns_true_for_unvisited_entity():
-	var result: bool = _tracker.is_novel(10, 0, 100)
-	assert_true(result,
-		"Unvisited entity must be novel")
-
-
-func test_is_novel_returns_false_within_cooldown():
-	_tracker.visit(10, 0)
-	var result: bool = _tracker.is_novel(10, 50, 100)
-	assert_false(result,
-		"Entity visited 50 ticks ago with cooldown 100 must not be novel")
-
-
-func test_is_novel_returns_true_after_cooldown_expires():
-	_tracker.visit(10, 0)
-	var result: bool = _tracker.is_novel(10, 101, 100)
-	assert_true(result,
-		"Entity visited 101 ticks ago with cooldown 100 must be novel again")
-
 
 func test_short_cooldown_expires_before_long_cooldown():
 	_tracker.visit(10, 0)

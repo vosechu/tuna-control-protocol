@@ -10,7 +10,7 @@ func test_ferret_visits_multiple_racks_over_time():
 	var ferret_id: int = db.create_entity()
 	db.set_component(ferret_id, &"species", {&"id": &"tcp_base:ferret"})
 	db.set_component(ferret_id, &"position", {&"x": 0, &"y": 0})
-	db.set_component(ferret_id, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 800})
+	db.set_component(ferret_id, &"desires", {&"warmth": 800, &"comfort": 800, &"curiosity": 200})
 	db.set_component(ferret_id, &"personality", {
 		&"warmth_weight": 400, &"comfort_weight": 600, &"curiosity_weight": 900,
 	})
@@ -32,7 +32,7 @@ func test_ferret_visits_multiple_racks_over_time():
 		db.set_component(rack_id, &"position", {&"x": x, &"y": 0})
 		db.set_component(rack_id, &"advertisements", {&"list": [
 			{&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 30,
-			 &"novelty_duration": 30, &"novelty_cooldown": 100},
+				&"novelty_duration": 30, &"novelty_cooldown": 100},
 		]})
 		db.update_spatial(rack_id, x, 0)
 		rack_ids.append(rack_id)

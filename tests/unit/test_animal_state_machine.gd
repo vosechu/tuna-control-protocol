@@ -27,12 +27,17 @@ func test_cannot_transition_before_min_duration():
 		"State must remain IDLE after blocked transition")
 
 
-func test_transitions_when_score_exceeds_commitment_plus_threshold():
+func test_transitions_when_score_meets_or_exceeds_threshold():
 	# Advance past min_duration for IDLE (3.0 sec)
 	_asm.tick(3.1)
-	var transitioned: bool = _asm.try_transition(&"GROOMING", Constants.SWITCH_THRESHOLD + 1)
-	assert_true(transitioned,
-		"Should transition when score > commitment_score + SWITCH_THRESHOLD")
+	# Score one below threshold must be blocked
+	var below: bool = _asm.try_transition(&"GROOMING", Constants.SWITCH_THRESHOLD - 1)
+	assert_false(below,
+		"Score one below commitment + SWITCH_THRESHOLD must be blocked")
+	# Score exactly at threshold must succeed (guard uses strict less-than)
+	var exact: bool = _asm.try_transition(&"GROOMING", Constants.SWITCH_THRESHOLD)
+	assert_true(exact,
+		"Score exactly at commitment + SWITCH_THRESHOLD must be allowed (guard is <, not <=)")
 	assert_eq(_asm.state, &"GROOMING",
 		"State must update to GROOMING after successful transition")
 
