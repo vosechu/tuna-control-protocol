@@ -1,89 +1,190 @@
 # LLM Test Verification
 
-How to build confidence that an LLM has produced good tests, and how to protect confirmed tests from being destroyed later.
+> **For agentic workers:** This is a mandatory checklist for every test you write. Follow each step in order. Do not skip steps. Do not mark a step complete until you have actually performed it and confirmed the result. The final step generates tamper-evident hashes — you cannot stamp tests without completing the full process.
 
-## 1. Generating New Tests (For New or Existing Code)
+**Goal:** Build confidence that LLM-produced tests actually test what they claim, catch regressions, and are protected from future modification.
 
-When adding tests, start from full branch coverage (every side of every if/else and switch) and condense from there:
+**Trust chain:** Checklist runs → each step produces checkable artifacts → stamp script seals the result → verify script checks hashes → pre-commit hook enforces.
 
-1. **Identify all public methods** in the module/class
-2. **Add at least one test per public method** for the happy path
-3. **Add one test for each side of each branch** (if/else, switch cases, early returns, error paths)
-4. **Review for duplication** — some of those test cases will be redundant (e.g., two branches that exercise the same assertion). Remove the duplicates.
-5. **Run coverage** to confirm you haven't missed anything obvious
+**Run tests:** `script/checks/gut_tests`
+**Stamp tests:** `script/stamp_tests <test_file>` (computes hashes, writes `.gd.stamp` sidecar)
+**Verify tests:** `script/checks/verify_tests` (checks all stamps exist, no orphans, all hashes match — used by CI and pre-commit)
+**Stamp files:** `*.gd.stamp` sidecar files alongside each test file
 
-The key is starting from the full coverage case and pruning down, not starting from zero and hoping you covered enough. LLMs tend to write 3 tests and call it done — push for completeness first, then simplify.
+### Task structure
 
-## 2. (Expanded) Red-Green-Refactor
+Create tasks using this pattern. Phase 1 produces the candidate list; each candidate becomes its own task; then two tasks to close out.
 
-LLMs will happily write a failing test, add code that renders the test pointless, then declare success. This is unacceptable; we need a verification cycle.
+1. **Identify test candidates for [module]** — Phase 1. Produces a numbered list of test function names.
+2. **Red-green-refactor: [test_function_name]** — Phase 2. One task per test candidate. The full Steps 5-13 cycle for a single test.
+3. *(repeat task 2 for each candidate)*
+4. **Quality + QA review for [module]** — Phases 3 + 4 combined. Review all tests, dispatch QA agent, address issues.
+5. **Stamp tests for [module]** — Phase 5. Run `script/stamp_tests`, then `script/checks/verify_tests`.
 
-When writing tests, follow this expanded red-green-refactor cycle to confirm both the test and the code:
+Do not create all tasks upfront. Create task 1 first. After task 1 completes, create one task per candidate plus the two closing tasks.
 
-1. **Add test** — Write a failing test for the behavior you want
-2. **Red** — Run the test, confirm it fails (this proves the test is actually testing something)
-3. **Add code** — Write the minimum code to make the test pass
-4. **Green** — Run the test, confirm it passes
-5. **Remove code** — Delete the code you just wrote
-6. **Red** — Run the test, confirm it fails again (this proves the test catches regressions). Try to make _exactly_ one test fail (this proves that you've really disabled the exact code and not something big and fundamental that makes _all_ tests fail)
-7. **Re-add code** — Put the code back
-8. **Green** — Run the test, confirm it passes again
-9. **Refactor** — Clean up the code while keeping the test green
+---
 
-Steps 5-8 are the confirmation cycle. They prove the test is tightly coupled to the behavior, not accidentally passing.
+## Phase 1: Identify Test Candidates
 
-### Mutation testing as a faster alternative to steps 5-8
+For the code you are writing or modifying, determine what tests are needed.
 
-Steps 5-8 are the right thing to do but they're slow. Mutation testing tools automate exactly that cycle — they introduce small faults (mutants) into your production code and check whether your tests catch them. A surviving mutant means a test isn't actually verifying what it claims to.
+- [ ] **Step 1: Identify all public methods** in the module/class being implemented or modified.
 
-If the project's build config includes a mutation testing tool (check for stryker.conf.js, pom.xml pitest plugin, mutmut in pyproject.toml, etc.), **replace steps 5-8** with a targeted mutation run against the production code you just wrote (not the test file). This gives you the same confidence (does the test actually catch regressions?) without the manual delete-and-restore cycle.
+- [ ] **Step 2: Map branches to test cases.** For each public method:
+  - One test for the happy path
+  - One test for each side of each branch (if/else, match cases, early returns, error paths, guard clauses)
+  - List these as concrete test function names with descriptive behavior names (e.g., `test_occupancy_rejects_when_weight_exceeds_capacity`)
 
-This is not a new step — it's a faster way to do a step you're already doing.
+- [ ] **Step 3: Prune duplicates.** Review the list — some branches exercise the same assertion. Remove redundant cases. The goal is full branch coverage with no waste, not maximum test count.
 
-**Tools by language:**
+- [ ] **Step 4: Cross-reference existing tests.** Check if any of these cases are already covered by tests with AI-DEV markers (verified tests). Do not re-test what is already verified. Do not modify verified tests.
 
-| Language | Tool | Notes |
-|----------|------|-------|
-| Java/JVM | [PIT](https://pitest.org/) | Gold standard. Maven/Gradle integration. |
-| JS/TS | [Stryker](https://stryker-mutator.io/) | Supports Jest, Mocha, Vitest, etc. |
-| Ruby | [mutant](https://github.com/mbj/mutant) | Works with RSpec and Minitest. |
-| Python | [mutmut](https://github.com/boxed/mutmut) | Simpler alternative: [Cosmic Ray](https://cosmic-ray.readthedocs.io/). |
-| Go | [gremlins](https://github.com/go-gremlins/gremlins) | Younger ecosystem — evaluate before adopting. |
-| Elixir | [mutation](https://github.com/JordiPolo/mutation) | Lightly maintained — evaluate before adopting. |
+## Phase 2: Red-Green-Refactor (per test)
 
-## 3. Check That the Test Names Match Test Contents
+For EACH test identified in Phase 1, run this cycle. Do not batch — one test at a time.
 
-LLMs love to write a test named `it('validates input correctly')` that doesn't actually test validation. The test name is a contract — if the name says it tests X, the assertions must verify X.
+- [ ] **Step 5: Write the failing test.** Write a single test function. The test name MUST describe the specific behavior being asserted, not the method name. A reader who sees only the test name should correctly predict what the test does.
 
-When reviewing or writing tests, check that:
-- The test name describes the specific behavior being asserted
-- The assertions actually verify what the name claims
-- A reader who only sees the test name would correctly predict what the test does
+- [ ] **Step 6: Red — confirm failure.** Run: `script/checks/gut_tests`. The new test MUST fail. If it passes, the test is not testing new behavior — investigate why before proceeding.
 
-## 4. AI-DEV Markers in Tests
+- [ ] **Step 7: Write the minimum implementation.** Write just enough production code to make the test pass. No more.
 
-Once a test has passed the full red-green-refactor cycle (steps 1-9 above, or a mutation testing run that killed all mutants), add an AI-DEV marker **inside each test** (not just at the file level):
+- [ ] **Step 8: Green — confirm pass.** Run: `script/checks/gut_tests`. The new test MUST pass. All previously passing tests MUST still pass.
 
-```gdscript
-func test_calculates_total_correctly():
-	# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is because you removed or broke code.
-	assert_eq(calculate_total([1, 2, 3]), 6)
+- [ ] **Step 9: Mutate the production code.** Make a targeted change to the specific production code the test exercises. The goal is to prove the test actually catches regressions. Good mutations:
+  - Flip an operator (`+` to `-`, `<` to `>`, `>=` to `<`)
+  - Change a return value (`true` to `false`, `0` to `1`)
+  - Comment out a key line in the function under test
+
+  For **new code** (Steps 5-8 just written): delete or comment out the code you wrote in Step 7.
+  For **existing code** (verifying tests that already exist): mutate the specific function the test covers. Do NOT delete the whole function if other tests depend on it — make a surgical change that only the test under verification should catch.
+
+- [ ] **Step 10: Red — confirm the test catches the mutation.** Run: `script/checks/gut_tests`. Confirm:
+  - The test under verification fails (proves it depends on the production code)
+  - Ideally exactly ONE test fails (proves the mutation was targeted). If multiple tests fail, that's okay — it means multiple tests cover this code path. But if ALL tests fail, the mutation was too broad — make it more surgical.
+
+- [ ] **Step 11: Restore the production code.** Revert the mutation exactly.
+
+- [ ] **Step 12: Green — confirm everything passes again.** Run: `script/checks/gut_tests`. All tests pass. If they don't, the restoration was incomplete.
+
+- [ ] **Step 13: Refactor.** Clean up the production code while keeping all tests green. Run tests after refactoring. (Skip for existing code verification — nothing to refactor.)
+
+**Repeat Steps 5-13 for each test identified in Phase 1.**
+
+## Phase 3: Test Quality Review
+
+After all tests from Phase 2 are green, review the complete test file.
+
+- [ ] **Step 14: Check test names match assertions.** For each test: does the name describe the behavior? Do the assertions verify what the name claims? LLMs refactor tests and forget to update names.
+
+- [ ] **Step 15: Check for trivially passing tests.** Look for:
+  - Tests that assert on mock return values
+  - Tests that verify `true == true`
+  - Tests that only check setup ran (asserting a mock was called without checking the result)
+  - Tests where removing all asserts would still "pass"
+
+- [ ] **Step 16: Check for duplicate tests in disguise.** Different names but same assertions exercising the same code path.
+
+- [ ] **Step 17: Check tests test code, not mocks.** A test that mocks everything and asserts the mock was called is testing your test setup, not your code.
+
+The marker MUST be inside each individual test function, not at the file level.
+
+## Phase 4: QA Review
+
+- [ ] **Step 18: QA agent review.** Dispatch the QA agent (game-qa) to review the tests. Provide it with:
+  - The production code being tested
+  - The complete test file
+  - The list of test candidates from Phase 1
+
+  The QA agent checks:
+  - Are there missing edge cases?
+  - Do the tests cover the failure modes that would ship bugs?
+  - Are the tests resilient to implementation changes (testing behavior, not implementation)?
+
+  Address any issues the QA agent raises by returning to Phase 2 for new tests or Phase 3 for fixes.
+
+## Phase 5: Stamp Verification Hashes
+
+Only after ALL previous phases are complete.
+
+- [ ] **Step 19: Run the stamp script.**
+
+```bash
+script/stamp_tests tests/unit/test_your_file.gd
 ```
 
-The marker must be inside each individual test so that even LLMs with small context windows see it when working on a specific test.
+`script/stamp_tests` is a simple write operation:
+1. Reads the test file
+2. Computes a hash of the full file
+3. Computes a hash of each test function body
+4. Writes both to the sidecar `.gd.stamp` file alongside the test (e.g., `test_desire_resolver.gd.stamp`)
 
-## 5. Confirmed Tests Must Not Be Modified
+The stamp script does NOT run tests or verify anything. The verification already happened through Phases 1-4 of this checklist. The stamp seals the result.
 
-LLMs **MUST NOT** modify tests that contain AI-DEV markers. If a confirmed test is failing, the LLM must fix the production code, not the test. The test is the source of truth.
+- [ ] **Step 20: Run the verify script to confirm the stamp is valid.**
 
-Consider adding a pre-commit check to `script/checks/` to block modifications to tests that contain AI-DEV markers.
+```bash
+script/checks/verify_tests
+```
 
-## 6. Post-Hoc Test Review
+This checks three things:
+1. Every test file has a `.gd.stamp` sidecar
+2. No orphan `.gd.stamp` files without a corresponding test
+3. All file hashes and per-test hashes in stamps match the current file contents
 
-After generating tests, re-read the entire test file and check each test against the following criteria (do not skip tests you just wrote):
+This step should pass immediately after `script/stamp_tests` — it's a sanity check that the stamp wrote correctly.
 
-1. **Do the test names still match the assertions?** LLMs refactor tests and forget to update names.
-2. **Are any tests trivially passing?** Look for tests that assert on mock return values, test that `true === true`, or only verify that setup ran (e.g., asserting a mock was called without checking the result of the call). (Mutation testing tools catch this automatically — if you have one set up, run it instead of eyeballing.)
-3. **Are any tests duplicates in disguise?** Different names, same assertions, same code path exercised.
-4. **Did coverage actually improve?** Run the coverage report before and after. If it didn't move, the tests aren't testing real code paths.
-5. **Are the tests testing the code or the mocks?** A test that mocks everything and asserts the mock was called is testing your test setup, not your code.
+---
+
+## Rules for Verified Tests
+
+### Verified tests MUST NOT be modified
+
+If a verified test is failing, fix the production code, not the test. The test is the source of truth.
+
+If a test genuinely needs to change (API change, behavior change), the old hash must be invalidated and the full Phase 2-5 cycle must be re-run for the modified test. There is no shortcut.
+
+### Pre-commit and CI enforcement
+
+`script/checks/verify_tests` runs in both the pre-commit hook and CI (`script/validate`). It performs the three checks (stamps exist, no orphans, hashes match). If any check fails, the commit is blocked with a message naming the specific files/tests that need attention and whether to run `script/stamp_tests` or delete an orphan stamp.
+
+### Stamp file format
+
+Each test file gets a sidecar stamp file alongside it:
+
+```
+tests/unit/test_desire_resolver.gd
+tests/unit/test_desire_resolver.gd.stamp
+```
+
+Contents of the `.gd.stamp` file:
+
+```yaml
+# AI-DEV: AI **MUST NOT** edit this file. It is generated by the verification
+# process defined in .claude/rules/llm-test-verification.md. If a stamp is
+# invalid, re-run the full verification process — do not manually update hashes.
+file_hash: a1b2c3d4
+verified_at: 2026-04-05T14:30:00Z
+tests:
+  test_food_outscores_warmth_when_hungry: e5f6a7b8
+  test_distance_sensitivity_affects_scoring: c9d0e1f2
+```
+
+### What `script/checks/verify_tests` checks
+
+Three things, in order:
+
+1. **Every test file has a stamp.** Globs for `tests/**/test_*.gd`, checks each has a corresponding `.gd.stamp`. Missing stamps are listed by name.
+2. **No orphan stamps.** Globs for `tests/**/*.gd.stamp`, checks each has a corresponding `.gd` file. Orphan stamps are listed by name.
+3. **All stamps match.** For each stamp file: recomputes the file hash and per-test-function hashes against the current `.gd` file. Stale hashes are listed by test name.
+
+Exits non-zero if any check fails. Output names every failing file/test so the developer knows exactly what to re-stamp.
+
+### Handling stale stamps
+
+- **Test body changed, stamp not updated:** `verify_tests` fails check 3. Re-run `script/stamp_tests` for that file.
+- **Test function renamed:** Old entry in stamp has no matching function (check 3 fails), new function has no hash (check 3 fails). Re-stamp the file.
+- **Test file deleted:** Orphan stamp detected (check 2). Delete the `.gd.stamp` file.
+- **New test file added:** Missing stamp detected (check 1). Run `script/stamp_tests` for the new file.
+- **Helper/fixture changed:** Not tracked in v1. Known gap — test dependencies are a v2 concern.
