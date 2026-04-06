@@ -59,7 +59,24 @@ nodes/                    # Engine scenes (framework, not content)
 - Sound variants use `_01`, `_02` suffixes for random selection pools.
 - Config files named after the thing they configure, not the system that reads them.
 
+### Audio Format & Import Standards
+
+- **Format:** All WAVs must be 16-bit 48kHz. Normalize to -1 dBFS peak using `sox input.wav -b 16 -r 48000 output.wav gain -n -1`.
+- **Import settings:** `.import` files must have `compress/mode=2` (QOA) and `edit/loop_mode=0`. Looping is handled in code via restart-on-finish, not via import settings.
+- **Credits:** Every imported sound gets an entry in `../game_assets/Credits.md` with author name and source URL.
+- **Archive:** Original files (pre-normalization) are kept in `../game_assets/`.
+- **Tools:** `sox` (install via `brew install sox`) for normalization and format conversion.
+
 ---
+
+## Asset Trackers
+
+Living lists of what exists, what's needed, and what's placeholder:
+
+- **Art/sprites:** [`docs/art-asset-tracker.md`](../../docs/art-asset-tracker.md)
+- **Sound:** [`docs/sound-asset-tracker.md`](../../docs/sound-asset-tracker.md)
+
+The lists below are the original prototype targets. The tracker docs above are the up-to-date working lists.
 
 ## Minimum Prototype Asset List
 
