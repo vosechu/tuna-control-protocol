@@ -61,37 +61,46 @@ The 3 integration + 4 scenario failures are downstream cascades from clusters 2-
 
 - [ ] **Step 4: Commit.** `fix(test): restore test_constants.gd to 7px/U scale (recovered from stash)`
 
-## Phase 2 — Fix the DesireResolver regression cluster 2 reveals
+## Phase 2 — Fix the half-done desire-semantics flip cluster 2 reveals
 
-- [ ] **Step 1: Reproduce locally.** Run unit tests, focus on the failing names:
-  - `test_warm_cat_scores_server_very_low` — warm cat (warmth=900) scores warm server at **360**, expected **<50**
-  - `test_evaluate_budget_transitions_cold_cat_to_seeking` — cold cat near warm server lands in **`WANDERING`**, expected **`SEEKING`**
-  - `test_evaluate_budget_sets_target_entity_id` — target entity is **`-1`**, expected the server's id
-  - `test_evaluate_budget_does_not_transition_if_score_below_threshold` — satisfied cat reaches **`GOAL_DIRECTED`**, expected **`AMBIENT`**
-  - `test_pop_highest_deficit_picks_most_desperate_first` — warm cat (900) ends up `GOAL_DIRECTED`, scored too low
-  - `test_mark_dirty_deduplicates`, `test_mark_dirty_same_entity_twice_evaluates_once` — same WANDERING-vs-SEEKING symptom
-  - `test_satisfied_cat_scores_curiosity_at_zero` — curiosity=1000 scores 30, expected 0
+**Actual root cause (discovered 2026-04-07):** Cluster 2 + cluster 3 are not a WANDERING/scatter interaction bug. They are a **half-done semantic flip**. Test files (`test_desire_resolver.gd`, helpers, defaults) and the starter spawn in `nodes/game_server.gd:_spawn_starter_entities` are all written in the **satisfaction model** (`0 = desperate/cold/lonely`, `1000 = satisfied/warm/socialized`). But the production scoring code (`desire_resolver.gd`, `desire_scatter.gd`) and the heat→warmth mapping (`game_server.gd:_scatter_desires`) are still in the **deficit model** from `48bf66f` (`0 = satisfied`, `1000 = desperate`). Someone started flipping the test side and never finished the production side. Commit `61b2e51`'s message acknowledges the failures but mis-blamed them on WANDERING staleness.
 
-- [ ] **Step 2: Diagnose root cause(s).** Two interacting changes meet here:
-  - WANDERING state was added in `e584381` ("WANDERING state, warmth from objects, STARTLED recovery") so animals with high unmet desires wander to find resources when no advertisement scores well.
-  - Object-interactions scaffolding in `8245d85` extracted `DesireScatter` and `ObjectStateManager` — passive warmth is now scattered from object advertisements, action ads are excluded.
-  
-  The two were never reconciled. Hypotheses to investigate before fixing:
-  - WANDERING transition fires *before* the SEEKING evaluation considers scattered ads, so cats wander instead of seeking.
-  - The scoring formula now has a non-zero floor for satisfied desires (~30 for curiosity=1000, ~360 for warmth=900). Likely a deficit math change in `desire_resolver.gd` or `desire_scatter.gd` that no longer hits zero when deficit is zero.
-  - Target entity id of `-1` suggests the resolver picks WANDERING (which has no target) but the test expects SEEKING toward a specific server.
-  
-  **Do not skip diagnosis.** These three symptoms might be one bug or three. Use `superpowers:systematic-debugging`.
+The two models are mathematically inverses; production must match the test/spawn model.
 
-- [ ] **Step 3: Write the smallest failing test that pins the bug** (if the existing tests aren't surgical enough).
+- [x] **Step 1: Flip `engine/desires/desire_resolver.gd` to satisfaction model.**
+  - `score_ad`: `var deficit: int = 1000 - desires.get(desire_type, 500)` (was `desires.get(desire_type, 500)`)
+  - `pop_highest_deficit`: track `min_val` instead of `max_val` (lowest satisfaction = highest deficit)
+  - WANDER trigger: compute `worst_deficit = 1000 - min(satisfaction)`, threshold check unchanged
 
-- [ ] **Step 4: Fix.** Touch only `engine/desires/desire_resolver.gd` and/or `engine/desires/desire_scatter.gd`. Don't refactor.
+- [x] **Step 2: Flip `engine/desires/desire_scatter.gd` to satisfaction model.**
+  - `gain = best_strength * (1000 - current) / 1000` (headroom remaining)
+  - `new_val = mini(1000, current + gain / 10)` (was `maxi(0, current - satisfaction / 10)`)
 
-- [ ] **Step 5: Re-stamp any test files whose body content changed.** `test_desire_resolver.gd` and `test_curiosity_tracker.gd` are stamped — if the fix requires touching them, re-stamp.
+- [x] **Step 3: Flip `nodes/game_server.gd:_scatter_desires` to satisfaction model.**
+  - Heat→warmth: `set_field(warmth, temp)` (was `set_field(warmth, 1000 - temp)`)
+  - Decay direction: `add_all(comfort, -5)` and `add_all(curiosity, -3)` (was positive — was *accumulating* deficit, now correctly *decaying* satisfaction)
 
-- [ ] **Step 6: Confirm cluster 2 + cluster 3 are gone.** All unit tests green. Then run integration + scenario suites — most of the 3+4 cascade failures should clear too. Diagnose any leftovers individually.
+- [x] **Step 4: Test cleanup before re-stamp.**
+  - Added public `dirty_count()` query to DesireResolver (test observability hook).
+  - Renamed `_pop_highest_deficit` → `pop_highest_deficit` (private→public, it's a pure query).
+  - Merged `test_mark_dirty_deduplicates` and `test_mark_dirty_same_entity_twice_evaluates_once` into one `test_mark_dirty_dedupes_and_evaluate_drains` that asserts via `dirty_count()` directly — no longer entangled with the scoring path.
+  - Merged `test_evaluate_budget_transitions_cold_cat_to_seeking` and `test_evaluate_budget_sets_target_entity_id` into one `test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server`.
+  - Rewrote `test_evaluate_budget_with_trackers_transitions_ferret` → `test_evaluate_budget_honors_trackers_dict` to assert non-transition (recently-visited rack scores 0). Decouples from the SEEKING transition branch.
+  - Rewrote `test_pop_highest_deficit_picks_most_desperate_first` to call `pop_highest_deficit()` directly — pure ordering assertion, no scoring side effects.
 
-- [ ] **Step 7: Commit.** `fix(desires): reconcile WANDERING state with object scatter scoring`
+- [x] **Step 5: Per-test mutation verification.** All 6 targeted mutations on the rewritten/merged tests caught exactly the one test under verification:
+  - `test_warm_cat_scores_server_very_low`: `deficit * 2`
+  - `test_satisfied_cat_scores_curiosity_at_zero`: `if deficit == 0: deficit = 100`
+  - `test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server`: comment out the transition branch
+  - `test_mark_dirty_dedupes_and_evaluate_drains`: `dirty_count() = size + 1`
+  - `test_pop_highest_deficit_picks_most_desperate_first`: flip min→max in pop loop
+  - `test_evaluate_budget_honors_trackers_dict`: `var tracker = null` (ignore forwarding)
+
+- [x] **Step 6: Re-stamp `tests/unit/test_desire_resolver.gd`.**
+
+- [x] **Step 7: Confirm all green.** 113 unit + 16 integration + 8 scenario = 137 tests passing.
+
+- [ ] **Step 8: Commit.** `fix(desires): finish satisfaction-model semantics flip`
 
 ## Phase 3 — Pause and decide
 

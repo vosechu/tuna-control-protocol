@@ -56,16 +56,17 @@ func scatter_from_ads() -> void:
 				if strength > best.get(dtype, 0):
 					best[dtype] = strength
 		# Apply best satisfaction per desire type with diminishing returns.
-		# Desire scale: 0 = satisfied, 1000 = desperate.
-		# satisfaction = best_strength * (1000 - current) / 1000
-		# new_desire = max(0, current - satisfaction / 10)
+		# Desire scale: 0 = desperate (cold/hungry/lonely), 1000 = satisfied.
+		# gap = 1000 - current (headroom remaining to fully satisfied)
+		# gain = best_strength * gap / 1000
+		# new_desire = min(1000, current + gain / 10)
 		var desires: Dictionary = _db.get_component(entity_id, &"desires")
 		for dtype: StringName in best:
 			if not desires.has(dtype):
 				continue
 			var current: int = desires[dtype]
 			@warning_ignore("integer_division")
-			var satisfaction: int = best[dtype] * (1000 - current) / 1000
+			var gain: int = best[dtype] * (1000 - current) / 1000
 			@warning_ignore("integer_division")
-			var new_val: int = maxi(0, current - satisfaction / 10)
+			var new_val: int = mini(1000, current + gain / 10)
 			_db.set_field(entity_id, &"desires", dtype, new_val)

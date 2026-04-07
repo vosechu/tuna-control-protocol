@@ -91,13 +91,12 @@ func _scatter_desires() -> void:
 				clampi(slot, 0, Constants.SLOTS_PER_RACK - 1)
 			)
 		var temp: int = heat_grid.get_temperature(cell)
-		# Warmth desire: 0 = warm/satisfied, 1000 = cold/desperate
-		# Temperature: 0 = cold, 1000 = hot
-		# So warmth desire = 1000 - temperature
-		db.set_field(entity_id, &"desires", &"warmth", 1000 - temp)
-	# Comfort and curiosity decay
-	db.add_all(&"desires", &"comfort", 5)
-	db.add_all(&"desires", &"curiosity", 3)
+		# Warmth desire is satisfaction: 0 = cold/desperate, 1000 = warm/satisfied.
+		# Temperature: 0 = cold, 1000 = hot. They match directly.
+		db.set_field(entity_id, &"desires", &"warmth", temp)
+	# Comfort and curiosity satisfaction decay over time (positive values drop).
+	db.add_all(&"desires", &"comfort", -5)
+	db.add_all(&"desires", &"curiosity", -3)
 	# Satisfaction from nearby object advertisements (warmth, comfort, etc.)
 	desire_scatter.scatter_from_ads()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
