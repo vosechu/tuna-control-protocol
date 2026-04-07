@@ -179,6 +179,8 @@ This extraction was attempted twice in the same session and failed both times. T
 
 **What happened:** An agent was dispatched in an isolated git worktree (`isolation: "worktree"`) to perform the extraction. The worktree was created from an older commit (`39d969e`), not from current `main` (which had moved to `3c1bd18` plus uncommitted work). The agent extracted code, ran tests against the old codebase, and reported "all 123 tests pass."
 
+> **2026-04-07 note:** The forensic worktree (`agent-a2eea031` at `3c1bd18`) referenced below was removed during Phase 4 cleanup. The lessons in this section are still accurate, but the worktree itself no longer exists on disk. If you need to inspect the failed-extraction state, the underlying commit (`3c1bd18`) is still in the reflog until Phase 5's LFS migration rewrites history.
+
 When I copied files from the worktree into `main`, the worktree's stale `desire_resolver.gd` overwrote the newer version in main. 15 tests immediately failed because the worktree's version had different scoring math than main's.
 
 **Lesson:** Never use `isolation: "worktree"` for extractions or refactors that touch files which have evolved on main. Worktrees are safe for *exploratory* work where the agent's output is throwaway. They are dangerous when the agent's output is meant to be merged back, because the merge has no awareness that the worktree's base is stale.
