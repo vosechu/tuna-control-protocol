@@ -375,6 +375,40 @@ The gap is context-awareness. Anthropic's classifier sees full session context a
 4. **Phase 2 brainstorm** when ready: revisit open questions with dogfooding data.
 5. **Phase 2 plan** via `writing-plans`: extend `script/hooks/classify` with Haiku fallback, add safety checks, measure cost.
 
+## Phase 1 Dogfood Findings (2026-04-07)
+
+Recorded after the smoke-test pass on `feature/auto-mode-phase1`. Both items are observations, not blockers; Phase 1 still meets its exit criteria.
+
+### Finding 1 — Hook fires before Layer 0 deny on `git push`
+
+Expected: `git push origin main` is blocked by `permissions.deny` (Layer 0) before the PreToolUse hook runs.
+Observed: the hook (`script/hooks/classify`) caught and blocked it first. The user saw Layer 2 stderr output, not a Claude Code permission-deny message.
+
+Net effect is still "blocked," so the belt-and-suspenders held. But Layer 0 is currently unproven end-to-end — if the hook is ever disabled or fails to start, we are relying on a layer we have not observed working in this Claude Code version. The architecture diagram in this spec (Layer 0 → Layer 1 → Layer 2) describes the *intent*; the *runtime* order in the installed Claude Code may resolve the hook before the deny rule, at least for `Bash`.
+
+**Verification when convenient:** Temporarily comment out the `git push` regex in `script/hooks/classify`, run `git push` from inside Claude, confirm you see a permission-deny message in the Claude UI (different visual format than hook stderr). Restore the regex.
+
+### Finding 2 — `rm -rf` in safe zones is not auto-approved, only un-blocked
+
+Expected (per the plan): `rm -rf .claude/worktrees/stale-test` runs silently.
+Observed: hook returned `exit 0` (not blocked), but Claude Code still prompted the user for approval because `Bash(rm *)` and `Bash(rm -rf *)` are not in `permissions.allow`.
+
+This is the correct semantics of the three-layer model: hook `exit 0` removes a block, it does not grant authorization. Without an allowlist entry, Claude Code falls through to "ask." The carve-out is doing what it advertises (it stops the hook from saying "no") but it cannot upgrade an unallowlisted command to "yes."
+
+**Two ways to make safe-zone deletes silent if we want them silent:**
+1. Add narrowly scoped allow entries: `Bash(rm -rf .claude/worktrees/*)`, `Bash(rm -rf /tmp/*)`, `Bash(rm -rf build/*)`, `Bash(rm -rf dist/*)`, `Bash(rm -rf .godot/*)`. Hook still functions as second-line defense.
+2. Leave as-is and accept the prompt. `rm -rf` is destructive enough that a confirmation tap is reasonable even in supposedly-safe zones.
+
+Defer this decision to a follow-up — it's a UX preference, not a correctness issue.
+
+### Phase 1 Exit Criteria — Met
+
+- All four runtime smoke tests resolved correctly (allow path silent, deny patterns blocked, safe-zone unblocked).
+- No false-positive blocks of legitimate work observed during dogfooding.
+- Findings filed in this section.
+
+---
+
 ## References
 
 - [Auto mode for Claude Code (Anthropic blog)](https://claude.com/blog/auto-mode)
