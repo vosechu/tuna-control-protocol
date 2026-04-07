@@ -16,6 +16,11 @@ func mark_dirty(entity_id: int) -> void:
 	_dirty[entity_id] = true
 
 
+# Number of unique entities currently dirty. Exposed for test observability.
+func dirty_count() -> int:
+	return _dirty.size()
+
+
 # Mark every entity that has a desires component as dirty.
 # Replaces per-species filtering — any entity with desires gets evaluated.
 func mark_all_dirty() -> void:
@@ -32,7 +37,7 @@ func evaluate_budget(trackers: Dictionary = {}) -> void:
 	while _dirty.size() > 0:
 		if Time.get_ticks_usec() - start >= Constants.EVAL_TIME_BUDGET_USEC:
 			break
-		var id: int = _pop_highest_deficit()
+		var id: int = pop_highest_deficit()
 		if id == Constants.INVALID_ID:
 			break
 		_evaluate_one(id, trackers)
@@ -63,8 +68,9 @@ func score_ad(
 	var weight_key: StringName = StringName(String(desire_type) + "_weight")
 	var desire_weight: int = personality.get(weight_key, 500)
 
-	# Desire value IS the deficit: 0 = fully satisfied, 1000 = desperate.
-	var deficit: int = desires.get(desire_type, 500)
+	# Desire value is satisfaction: 0 = desperate (cold/hungry/lonely),
+	# 1000 = fully satisfied. Deficit is the complement.
+	var deficit: int = 1000 - desires.get(desire_type, 500)
 	var strength: int = ad[&"strength"]
 
 	var animal_pos: Dictionary = _db.get_component(animal_id, &"position")
@@ -134,12 +140,15 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 			&"entity_id": best_target_id,
 		})
 	elif ai_state[&"meta_state"] == &"AMBIENT" and commitment == 0:
-		# No good ad in range — wander if any desire is high enough
+		# No good ad in range — wander if any desire is low enough (deprived).
+		# Desire value is satisfaction: 0 = desperate, 1000 = satisfied.
+		# Worst deficit = 1000 - min(satisfaction).
 		var desires: Dictionary = _db.get_component(entity_id, &"desires")
-		var worst_deficit: int = 0
+		var min_satisfaction: int = 1000
 		for key: StringName in desires:
-			if desires[key] > worst_deficit:
-				worst_deficit = desires[key]
+			if desires[key] < min_satisfaction:
+				min_satisfaction = desires[key]
+		var worst_deficit: int = 1000 - min_satisfaction
 		if worst_deficit >= WANDER_THRESHOLD:
 			var wander_pos: Dictionary = _random_floor_position()
 			_db.set_component(entity_id, &"ai_state", {
@@ -157,7 +166,7 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 # Returns and removes the dirty entity with the highest desire deficit.
 # Skips entities that no longer exist or lack a desires component.
 # Returns INVALID_ID if the dirty set is empty or all entities are stale.
-func _pop_highest_deficit() -> int:
+func pop_highest_deficit() -> int:
 	var best_id: int = Constants.INVALID_ID
 	var best_deficit: int = -1
 
@@ -168,14 +177,16 @@ func _pop_highest_deficit() -> int:
 			stale.append(entity_id)
 			continue
 		var desires: Dictionary = _db.get_component(entity_id, &"desires")
-		# Find the maximum desire value (highest deficit) across all desire types.
-		var max_val: int = 0
+		# Desire value is satisfaction (0 = desperate, 1000 = satisfied).
+		# Highest deficit = lowest satisfaction across all desire types.
+		var min_val: int = 1000
 		for key: StringName in desires:
 			var val: int = desires[key]
-			if val > max_val:
-				max_val = val
-		if max_val > best_deficit:
-			best_deficit = max_val
+			if val < min_val:
+				min_val = val
+		var deficit: int = 1000 - min_val
+		if deficit > best_deficit:
+			best_deficit = deficit
 			best_id = entity_id
 
 	# Remove stale entities

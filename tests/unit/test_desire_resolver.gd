@@ -121,25 +121,20 @@ func test_score_decreases_with_distance():
 
 # ── evaluate_budget: state transitions ───────────────────────────────────────
 
-func test_evaluate_budget_transitions_cold_cat_to_seeking():
-	# Cat at origin, cold (warmth=100). Server at same position.
+func test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server():
+	# Cat at origin, cold (warmth=100). Server at same position. After
+	# evaluate_budget the cat must be GOAL_DIRECTED/SEEKING with the
+	# server as its target. State + target are coupled — one test.
 	var cat_id: int = _make_cat(0, 0, 100)
 	var server_id: int = _make_warm_server(0, 0)
 	_resolver.mark_dirty(cat_id)
 	_resolver.evaluate_budget()
 	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
+	var target: Dictionary = _db.get_component(cat_id, &"target")
 	assert_eq(ai_state[&"meta_state"], &"GOAL_DIRECTED",
 		"Cold cat near warm server must transition to GOAL_DIRECTED, got %s" % ai_state[&"meta_state"])
 	assert_eq(ai_state[&"state"], &"SEEKING",
 		"Cold cat near warm server must transition to SEEKING, got %s" % ai_state[&"state"])
-
-
-func test_evaluate_budget_sets_target_entity_id():
-	var cat_id: int = _make_cat(0, 0, 100)
-	var server_id: int = _make_warm_server(0, 0)
-	_resolver.mark_dirty(cat_id)
-	_resolver.evaluate_budget()
-	var target: Dictionary = _db.get_component(cat_id, &"target")
 	assert_eq(target[&"entity_id"], server_id,
 		"Target entity_id must be the server id (%d), got %d" % [server_id, target[&"entity_id"]])
 
@@ -173,78 +168,45 @@ func test_evaluate_budget_does_not_transition_if_score_below_commitment_plus_thr
 		"Commitment score must remain 900 when no better option found, got %d" % ai_state[&"commitment_score"])
 
 
-# ── mark_dirty: deduplication ─────────────────────────────────────────────────
+# ── dirty set management ──────────────────────────────────────────────────────
 
-func test_mark_dirty_deduplicates():
-	# Marking the same entity dirty multiple times must result in a single
-	# evaluation — the entity transitions once, and a second evaluate_budget
-	# call finds no dirty entities left.
+func test_mark_dirty_dedupes_and_evaluate_drains():
+	# Two properties of the dirty set, exercised in one flow so a
+	# mutation to dirty_count() shows up as a single test failure:
+	#   1. mark_dirty is idempotent — 3 calls → 1 entry
+	#   2. evaluate_budget drains the set — post-call → 0 entries
 	var cat_id: int = _make_cat(0, 0, 100)
-	var _server_id: int = _make_warm_server(0, 0)
+	_make_warm_server(0, 0)  # so evaluate_one has something to score
 	_resolver.mark_dirty(cat_id)
 	_resolver.mark_dirty(cat_id)
 	_resolver.mark_dirty(cat_id)
+	assert_eq(_resolver.dirty_count(), 1,
+		"mark_dirty must dedupe — 3× on same entity should leave dirty_count() == 1")
 	_resolver.evaluate_budget()
-	# Cat should have transitioned exactly once to SEEKING
-	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
-	assert_eq(ai_state[&"state"], &"SEEKING",
-		"Cat must transition to SEEKING after evaluation")
-	# Second evaluate_budget should be a no-op — dirty set was drained
-	# Reset state to IDLE so we can detect if a second evaluation happens
-	_db.set_component(cat_id, &"ai_state", {
-		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
-	})
-	_resolver.evaluate_budget()
-	var ai_state_after: Dictionary = _db.get_component(cat_id, &"ai_state")
-	assert_eq(ai_state_after[&"state"], &"IDLE",
-		"Second evaluate_budget must be a no-op — dirty set should be empty after first call")
-
-
-func test_mark_dirty_same_entity_twice_evaluates_once():
-	# Count evaluations indirectly: after marking dirty twice and evaluating,
-	# the entity should have been transitioned exactly once.
-	var cat_id: int = _make_cat(0, 0, 100)
-	var _server_id: int = _make_warm_server(0, 0)
-	_resolver.mark_dirty(cat_id)
-	_resolver.mark_dirty(cat_id)
-	_resolver.evaluate_budget()
-	# After evaluation, dirty list is drained; calling again is a no-op
-	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
-	assert_eq(ai_state[&"state"], &"SEEKING",
-		"Cat should be SEEKING after evaluation, not evaluated twice or stuck")
+	assert_eq(_resolver.dirty_count(), 0,
+		"evaluate_budget must drain the dirty set")
 
 
 # ── _pop_highest_deficit: priority ordering ───────────────────────────────────
 
 func test_pop_highest_deficit_picks_most_desperate_first():
-	# Three cats with different warmth levels; most deprived should be evaluated first
-	var cold_cat_id: int = _make_cat(0, 0, 50)   # most deprived
+	# pop_highest_deficit returns the dirty entity whose lowest desire
+	# satisfaction is the smallest (i.e. highest deficit). Tested directly
+	# against pop_highest_deficit — no scoring, no server, no evaluation.
+	var cold_cat_id: int = _make_cat(0, 0, 50)   # warmth 50 = most desperate
 	var mild_cat_id: int = _make_cat(0, 0, 500)
-	var warm_cat_id: int = _make_cat(0, 0, 900)  # most satisfied
-
-	# Place a server so something happens when cats are evaluated
-	var server_id: int = _make_warm_server(0, 0)
-
+	var warm_cat_id: int = _make_cat(0, 0, 900)  # warmth 900 = least desperate
 	_resolver.mark_dirty(mild_cat_id)
 	_resolver.mark_dirty(cold_cat_id)
 	_resolver.mark_dirty(warm_cat_id)
-
-	# The cold cat (950) has highest warmth deficit and should be evaluated first.
-	# We verify this by running only enough budget for 1 entity and checking which transitioned.
-	# Since we can't directly limit to 1, we check the cold cat transitions when all run.
-	_resolver.evaluate_budget()
-
-	var cold_state: Dictionary = _db.get_component(cold_cat_id, &"ai_state")
-	var mild_state: Dictionary = _db.get_component(mild_cat_id, &"ai_state")
-	var warm_state: Dictionary = _db.get_component(warm_cat_id, &"ai_state")
-
-	assert_eq(cold_state[&"meta_state"], &"GOAL_DIRECTED",
-		"Most deprived cat (warmth=50) must transition to GOAL_DIRECTED")
-	# Mild cat (500) at origin with warmth server at origin — score should exceed threshold too
-	# since deficit*weight*strength is ~200+ at 500 warmth with default weight 500
-	# warm cat (900) — score will be very low, stays AMBIENT
-	assert_eq(warm_state[&"meta_state"], &"AMBIENT",
-		"Warm cat (warmth=900) should remain AMBIENT, scored too low")
+	assert_eq(_resolver.pop_highest_deficit(), cold_cat_id,
+		"Cold cat (warmth=50) must be popped first — highest deficit")
+	assert_eq(_resolver.pop_highest_deficit(), mild_cat_id,
+		"Mild cat (warmth=500) must be popped second")
+	assert_eq(_resolver.pop_highest_deficit(), warm_cat_id,
+		"Warm cat (warmth=900) must be popped last — lowest deficit")
+	assert_eq(_resolver.pop_highest_deficit(), Constants.INVALID_ID,
+		"After draining, pop must return INVALID_ID")
 
 
 # ── Curiosity + CuriosityTracker integration ─────────────────────────────────
@@ -301,14 +263,22 @@ func test_satisfied_cat_scores_curiosity_at_zero():
 		"Cat with curiosity=1000 (satisfied) scores 0 — zero deficit")
 
 
-func test_evaluate_budget_with_trackers_transitions_ferret():
+func test_evaluate_budget_honors_trackers_dict():
+	# Verifies evaluate_budget threads the trackers dict through to
+	# score_ad. A ferret next to a recently-visited curiosity source
+	# must NOT transition — proving the tracker was consulted and
+	# scored the ad at 0. This test deliberately asserts on the
+	# non-transition path so it does not duplicate the "SEEKING
+	# transition" coverage from test_evaluate_budget_transitions_...
 	var ferret_id: int = _make_ferret(0, 0, 200)
 	var rack_id: int = _make_curiosity_source(0, 0, 300, 8, 30, 100)
-	var trackers: Dictionary = {ferret_id: CuriosityTracker.new()}
+	var tracker: CuriosityTracker = CuriosityTracker.new()
+	tracker.visit(rack_id, 0)  # mark rack as recently visited
+	var trackers: Dictionary = {ferret_id: tracker}
 	_resolver.mark_dirty(ferret_id)
 	_resolver.evaluate_budget(trackers)
 	var ai_state: Dictionary = _db.get_component(ferret_id, &"ai_state")
-	assert_eq(ai_state[&"state"], &"SEEKING",
-		"Curious ferret near curiosity source must transition to SEEKING")
+	assert_ne(ai_state[&"state"], &"SEEKING",
+		"Ferret must not transition to SEEKING — recently-visited rack scored 0 by tracker")
 
 
