@@ -290,7 +290,7 @@ func test_hungry_cat_targets_open_can() -> void:
 
 func test_fed_cat_ignores_open_can() -> void:
 	# Cat with food=950 (satisfied) near an open tuna can
-	var _can_id: int = _make_open_can(0, 1000)
+	_make_open_can(0, 1000)
 	var cat_id: int = _make_cat(0, 2000, 950)
 
 	_resolver.mark_dirty(cat_id)
@@ -306,7 +306,7 @@ func test_fed_cat_ignores_open_can() -> void:
 func test_food_not_scattered_passively() -> void:
 	# Food desire must not increase from passive scatter;
 	# it is action-only (in _ACTION_ONLY_DESIRES).
-	var _can_id: int = _make_open_can(0, 1000)
+	_make_open_can(0, 1000)
 	var cat_id: int = _make_cat(0, 1000, 200)
 
 	# Manually replicate the scatter logic from GameServer.

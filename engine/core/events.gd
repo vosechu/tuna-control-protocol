@@ -1,14 +1,5 @@
 @warning_ignore("unused_signal")
-extends Node
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	# Cmd+W (Mac) and Cmd+Q (Mac) to quit
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_W and event.is_command_or_control_pressed():
-			get_tree().quit()
-		if event.keycode == KEY_Q and event.is_command_or_control_pressed():
-			get_tree().quit()
+extends RefCounted
 
 
 # Object lifecycle — emitted by GameServer systems, consumed by GameClient systems

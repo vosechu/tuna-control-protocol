@@ -79,7 +79,9 @@ func remove_rack_slot(rack: int, slot: int) -> void:
 	_slot_nodes.erase(key)
 
 
-func get_path_points(species_id: StringName, from_pos: Vector2, to_pos: Vector2) -> PackedVector2Array:
+func get_path_points(
+	species_id: StringName, from_pos: Vector2, to_pos: Vector2
+) -> PackedVector2Array:
 	var astar: AStar2D = _astars.get(species_id, null)
 	if astar == null:
 		return PackedVector2Array()

@@ -89,21 +89,21 @@ func test_arm_scores_sealed_can() -> void:
 	var arm_y: int = 1000
 	var can_x: int = arm_x
 	var can_y: int = arm_y
-	var _arm_id: int = _make_arm(arm_x, arm_y)
+	var arm_id: int = _make_arm(arm_x, arm_y)
 	var can_id: int = _make_sealed_can(can_x, can_y)
 
-	_resolver.mark_dirty(_arm_id)
+	_resolver.mark_dirty(arm_id)
 	_resolver.evaluate_budget()
 
 	var ai: Dictionary = _db.get_component(
-		_arm_id, &"ai_state",
+		arm_id, &"ai_state",
 	)
 	assert_eq(
 		ai[&"state"], &"SEEKING",
 		"Arm should SEEK sealed can within reach",
 	)
 	var target: Dictionary = _db.get_component(
-		_arm_id, &"target",
+		arm_id, &"target",
 	)
 	assert_eq(
 		target[&"entity_id"], can_id,

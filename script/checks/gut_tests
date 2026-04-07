@@ -1,7 +1,17 @@
 #!/bin/bash
-# Runs all GUT unit and integration tests.
-# Usage: script/checks/gut_tests              (all test dirs)
-#        script/checks/gut_tests unit          (only unit tests)
+# Runs GUT tests. On failure, prints the FULL Godot output so failing test
+# names, assertion messages, and file:line locations are visible — the agent
+# cannot diagnose failures from a grep'd summary.
+#
+# Usage:
+#   script/checks/gut_tests                    # all test dirs
+#   script/checks/gut_tests unit                # only unit tests
+#   script/checks/gut_tests -f tests/unit/test_foo.gd   # single file
+#   script/checks/gut_tests --failing-only      # only failing test lines
+#   script/checks/gut_tests --no-color          # strip ANSI escape codes
+#
+# Flags can be combined. Positional suite filter (unit/scene/integration/
+# scenario) is ignored when -f is used.
 
 GODOT="/Applications/Godot.app/Contents/MacOS/godot"
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,10 +21,77 @@ if [ ! -x "$GODOT" ]; then
     exit 1
 fi
 
-FILTER="${1:-}"
-FAILED=0
+FILTER=""
+SINGLE_FILE=""
+FAILING_ONLY=0
+NO_COLOR=0
 
-run_tests() {
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -f|--file)
+            SINGLE_FILE="$2"
+            shift 2
+            ;;
+        --failing-only)
+            FAILING_ONLY=1
+            shift
+            ;;
+        --no-color)
+            NO_COLOR=1
+            shift
+            ;;
+        unit|scene|integration|scenario)
+            FILTER="$1"
+            shift
+            ;;
+        -h|--help)
+            sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            echo "Run 'script/checks/gut_tests --help' for usage." >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Strip ANSI escape codes when requested. Not needed when the caller greps
+# with --failing-only unless they also want clean output.
+strip_ansi() {
+    sed 's/\x1b\[[0-9;]*m//g'
+}
+
+# Best-effort "failing only" filter. GUT emits failing tests as indented
+# "- test_foo" lines under a "Failing tests:" section. This regex is
+# conservative — on doubt it keeps more than less, because swallowing
+# information is the original bug we are fixing.
+failing_filter() {
+    awk '
+        /^\s*Failing tests:/        { in_fail=1; print; next }
+        /^\s*Passing tests:/        { in_fail=0 }
+        /^\s*Tests finished/        { in_fail=0 }
+        /^\s*- test_/               { print; next }
+        /FAILED|Failed:|Error:/     { print; next }
+        in_fail                     { print }
+    '
+}
+
+# Run Godot and emit output with the requested filters applied.
+# Always prints the full output on failure unless --failing-only is set.
+present_output() {
+    local output="$1"
+    if [ "$NO_COLOR" = "1" ]; then
+        output=$(printf '%s' "$output" | strip_ansi)
+    fi
+    if [ "$FAILING_ONLY" = "1" ]; then
+        printf '%s' "$output" | failing_filter
+    else
+        printf '%s\n' "$output"
+    fi
+}
+
+run_tests_dir() {
     local dir="$1"
     local name="$2"
 
@@ -27,32 +104,66 @@ run_tests() {
         return 0
     fi
 
-    OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" -s addons/gut/gut_cmdln.gd -gdir="res://$dir" -gexit 2>&1)
-    STATUS=$?
+    local OUTPUT
+    OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" \
+        -s addons/gut/gut_cmdln.gd -gdir="res://$dir" -gexit 2>&1)
 
-    if echo "$OUTPUT" | grep -q "All tests passed"; then
+    if printf '%s' "$OUTPUT" | grep -q "All tests passed"; then
         return 0
-    else
-        echo "FAIL: $name tests"
-        echo "$OUTPUT" | grep -E "(FAILED|ERROR|Failing)" | head -10
-        return 1
     fi
+
+    echo ""
+    echo "===== FAIL: $name tests ====="
+    present_output "$OUTPUT"
+    return 1
 }
 
-if [ -z "$FILTER" ] || [ "$FILTER" = "unit" ]; then
-    run_tests "tests/unit" "Unit" || FAILED=$((FAILED + 1))
-fi
+run_tests_file() {
+    local file="$1"
 
-if [ -z "$FILTER" ] || [ "$FILTER" = "scene" ]; then
-    run_tests "tests/scene" "Scene" || FAILED=$((FAILED + 1))
-fi
+    # Normalize: strip leading ./ or res:// if present so -gtest gets a clean path
+    file="${file#./}"
+    file="${file#res://}"
 
-if [ -z "$FILTER" ] || [ "$FILTER" = "integration" ]; then
-    run_tests "tests/integration" "Integration" || FAILED=$((FAILED + 1))
-fi
+    if [ ! -f "$PROJECT_ROOT/$file" ]; then
+        echo "Test file not found: $file" >&2
+        return 1
+    fi
 
-if [ -z "$FILTER" ] || [ "$FILTER" = "scenario" ]; then
-    run_tests "tests/scenario" "Scenario" || FAILED=$((FAILED + 1))
+    local OUTPUT
+    OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" \
+        -s addons/gut/gut_cmdln.gd -gtest="res://$file" -gexit 2>&1)
+
+    if printf '%s' "$OUTPUT" | grep -q "All tests passed"; then
+        # Still show the output in single-file mode — the user asked for
+        # this specific file and probably wants to see what ran.
+        present_output "$OUTPUT"
+        return 0
+    fi
+
+    echo ""
+    echo "===== FAIL: $file ====="
+    present_output "$OUTPUT"
+    return 1
+}
+
+FAILED=0
+
+if [ -n "$SINGLE_FILE" ]; then
+    run_tests_file "$SINGLE_FILE" || FAILED=$((FAILED + 1))
+else
+    if [ -z "$FILTER" ] || [ "$FILTER" = "unit" ]; then
+        run_tests_dir "tests/unit" "Unit" || FAILED=$((FAILED + 1))
+    fi
+    if [ -z "$FILTER" ] || [ "$FILTER" = "scene" ]; then
+        run_tests_dir "tests/scene" "Scene" || FAILED=$((FAILED + 1))
+    fi
+    if [ -z "$FILTER" ] || [ "$FILTER" = "integration" ]; then
+        run_tests_dir "tests/integration" "Integration" || FAILED=$((FAILED + 1))
+    fi
+    if [ -z "$FILTER" ] || [ "$FILTER" = "scenario" ]; then
+        run_tests_dir "tests/scenario" "Scenario" || FAILED=$((FAILED + 1))
+    fi
 fi
 
 if [ $FAILED -gt 0 ]; then

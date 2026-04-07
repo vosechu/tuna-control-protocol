@@ -106,7 +106,7 @@ func test_cat_ignores_curiosity_ads():
 		&"entity_id": Constants.INVALID_ID,
 	})
 	_db.update_spatial(cat_id, 0, 2000)
-	var _rack_id: int = _make_rack(0, 0)
+	_make_rack(0, 0)
 	_resolver.mark_dirty(cat_id)
 	_resolver.evaluate_budget()
 	var ai: Dictionary = _db.get_component(cat_id, &"ai_state")

@@ -4,10 +4,24 @@
 
 FILE=$(jq -r '.tool_input.file_path' 2>/dev/null)
 
-# Skip files that have no checks (docs, images, audio, imports)
+# Skip files that have no checks (docs, images, audio, imports).
 case "$FILE" in
   *.md|*.txt|*.png|*.wav|*.ogg|*.import|*.uid) exit 0 ;;
 esac
 
+# Skip tooling, Claude config, and scratch files — they aren't game source
+# and running the project validator on them produces noise that masks real
+# classifier errors in the Claude Code UI.
+case "$FILE" in
+  */script/*) exit 0 ;;       # shell scripts, hooks, CI tooling
+  */.claude/*) exit 0 ;;      # Claude Code settings, hooks, logs
+  /tmp/*) exit 0 ;;           # scratch files outside the project
+esac
+
 cd "$(dirname "$0")/../.." || exit 1
-exec bash script/validate
+# Run validate. On failure, exit 2 so Claude Code surfaces the output to the
+# model as a system reminder (exit 1 is advisory and only shown in the UI).
+if ! bash script/validate; then
+    exit 2
+fi
+exit 0

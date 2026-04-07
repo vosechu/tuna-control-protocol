@@ -24,7 +24,7 @@ var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
 var _clearing_objects: Dictionary = {}
 var _starter_sprites: Array[Sprite2D] = []
 
-@onready var game_server: Node = get_node("../GameServer")
+@onready var game_server: Node = %GameServer
 
 
 func _ready() -> void:
@@ -123,25 +123,25 @@ func _register_starter_sprites() -> void:
 
 
 func _setup_heat_overlay() -> void:
-	var overlay_script: GDScript = preload("res://nodes/heat_overlay.gd")
+	var HeatOverlayScript: GDScript = preload("res://nodes/heat_overlay.gd")
 	# Remove the empty placeholder node and replace with a scripted one
 	var old_overlay: Node2D = $World/HeatOverlay
 	old_overlay.queue_free()
 	var overlay: Node2D = Node2D.new()
 	overlay.name = "HeatOverlay"
-	overlay.set_script(overlay_script)
+	overlay.set_script(HeatOverlayScript)
 	$World.add_child(overlay)
 	overlay.initialize(game_server.db, game_server.heat_grid)
 
 
 func _setup_sound_manager() -> void:
-	var sm_script: GDScript = preload("res://nodes/sound_manager.gd")
+	var SoundManagerScript: GDScript = preload("res://nodes/sound_manager.gd")
 	# Replace the empty placeholder node with a scripted one
 	var old_sm: Node = $SoundManager
 	old_sm.queue_free()
 	var sm: Node = Node.new()
 	sm.name = "SoundManager"
-	sm.set_script(sm_script)
+	sm.set_script(SoundManagerScript)
 	add_child(sm)
 	sm.initialize(game_server.db)
 	# Register cat entities with the sound manager
@@ -163,18 +163,27 @@ func _spawn_animal_nodes() -> void:
 
 
 func _setup_placement_ui() -> void:
-	var ui_script: GDScript = preload(
+	var PlacementUIScript: GDScript = preload(
 		"res://nodes/placement_ui.gd"
 	)
 	var old_ui: Control = $PlacementUI
 	old_ui.queue_free()
 	_placement_ui_node = Control.new()
 	_placement_ui_node.name = "PlacementUI"
-	_placement_ui_node.set_script(ui_script)
+	_placement_ui_node.set_script(PlacementUIScript)
 	add_child(_placement_ui_node)
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Cmd+W / Cmd+Q (Mac) or Ctrl+W / Ctrl+Q to quit
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_W and event.is_command_or_control_pressed():
+			get_tree().quit()
+			return
+		if event.keycode == KEY_Q and event.is_command_or_control_pressed():
+			get_tree().quit()
+			return
+
 	if not event is InputEventMouseButton:
 		return
 	if not event.pressed:
