@@ -1,4 +1,35 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git stash)",
+      "Bash(git stash *)",
+      "Bash(git checkout)",
+      "Bash(git checkout *)",
+      "Bash(git reset --hard)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -f *)",
+      "Bash(git clean -fd *)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(sudo *)",
+      "Bash(brew install *)",
+      "Bash(npm install -g *)",
+      "Bash(pip install *)",
+      "Bash(curl)",
+      "Bash(curl *)",
+      "Bash(wget)",
+      "Bash(wget *)",
+      "Write(**/.env)",
+      "Write(**/.env.*)",
+      "Write(**/export_credentials.cfg)",
+      "Write(~/.ssh/**)",
+      "Write(**/.ssh/**)",
+      "Write(~/.aws/**)",
+      "Write(**/.aws/**)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
