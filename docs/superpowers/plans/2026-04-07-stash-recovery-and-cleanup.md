@@ -247,6 +247,7 @@ This is the same root pattern as `stash@{1}`'s 232 truncated binary stubs. Fixin
 - **Implementing PERFORMING state and action execution.** Captured in `2026-04-05-object-interactions.md` Task 3 (which has a status banner pointing here for context).
 - **Test verification system pre-commit + CI integration.** Captured in `2026-04-06-test-verification-system-design.md`'s remaining work section.
 - **Updating the 4 inlining test files** (`test_object_state.gd`, `test_desire_scatter.gd`, `test_performing.gd`, `test_tick_loop.gd`) to call extracted classes instead of inlining production logic. Captured in `2026-04-06-game-server-extraction-design.md`.
+- **`Constants.to_world` / `Constants.from_world` use float math.** `to_world` does `float(v) / float(POSITION_SCALE)`; `from_world` does `roundi(v * float(POSITION_SCALE))`. These are the integer↔rendering boundary and a float is unavoidable on the render side, but the internal division in `to_world` can drift if the caller immediately feeds it back into math that expects integer semantics. Per `.claude/rules/design-philosophy.md` ("Integer-Float Boundary"), this is the correct *location* for the conversion — but it's worth auditing whether every caller actually needs a float, or if some should be using integer PU math throughout. Noted 2026-04-07 during Phase 1 mutation verification. Not a recovery-scope fix.
 
 These are real follow-ups but they are *forward* work, not recovery work. They should be picked up after this plan is closed.
 
