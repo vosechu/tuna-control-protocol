@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# PreToolUse classifier — homegrown Auto mode, regex layer.
+# stdin: JSON {session_id, tool_name, tool_input, cwd, ...}
+# exit 0 = allow, exit 2 = block (stderr fed back to Claude)
+#
+# Spec: docs/superpowers/specs/2026-04-06-local-auto-mode-hook-design.md
+# Layer 2 of three. Layers 0 and 1 live in .claude/settings.json.
+
+set -euo pipefail
+payload=$(cat)
+tool=$(jq -r '.tool_name' <<<"$payload")
+cmd=$(jq -r '.tool_input.command // .tool_input.file_path // ""' <<<"$payload")
+
+block() { echo "BLOCKED by local classifier: $1" >&2; exit 2; }
+
+case "$tool:$cmd" in
+  # Mass / recursive deletion
+  Bash:*"rm -rf /"*|Bash:*"rm -rf ~"*|Bash:*"rm -rf \$HOME"*) block "rm -rf of home/root" ;;
+  Bash:*"rm -rf"*)
+    grep -qE 'rm -rf (\.claude/worktrees/|/tmp/|build/|dist/|\.godot/)' <<<"$cmd" \
+      || block "recursive delete outside safe zones (.claude/worktrees/, /tmp/, build/, dist/, .godot/)" ;;
+
+  # Remote code execution
+  Bash:*"curl"*"|"*"sh"*|Bash:*"wget"*"|"*"sh"*|Bash:*"curl"*"|"*"bash"*) block "curl|sh pattern" ;;
+  Bash:*"eval \"\$("*|Bash:*"base64 -d"*"|"*"sh"*) block "dynamic code execution" ;;
+
+  # Destructive / shared-state git (belt-and-suspenders with Layer 0)
+  Bash:*"git push"*) block "git push — run manually with ! prefix" ;;
+  Bash:*"git stash"*) [[ "$cmd" =~ "git stash list" ]] || block "git stash hides work silently" ;;
+  Bash:*"git checkout"*) block "git checkout — use git switch, or run manually with ! prefix" ;;
+  Bash:*"git reset --hard"*) block "hard reset destroys uncommitted work" ;;
+  Bash:*"git clean -f"*) block "git clean -f destroys untracked work" ;;
+
+  # Secret writes / exfil
+  Write:*.env|Write:*.ssh/*|Write:*.aws/*|Edit:*.env) block "writing to secret file" ;;
+  Bash:*".env"*"curl"*|Bash:*"cat"*".ssh/"*"curl"*) block "possible secret exfil" ;;
+
+  # System state
+  Bash:*"sudo "*) block "sudo" ;;
+  Bash:*"brew install"*|Bash:*"npm install -g"*|Bash:*"pip install"*) block "global package install" ;;
+esac
+
+exit 0
