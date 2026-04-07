@@ -1,3 +1,4 @@
+# gdlint:ignore = max-public-methods
 extends GutTest
 
 var _db: GameStateDB
@@ -68,12 +69,18 @@ func test_set_and_get_component():
 func test_has_component_returns_true_after_set():
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"desires", {&"hunger": 500})
-	assert_true(_db.has_component(id, &"desires"), "has_component must return true after set_component")
+	assert_true(
+		_db.has_component(id, &"desires"),
+		"has_component must return true after set_component",
+	)
 
 
 func test_has_component_returns_false_for_missing():
 	var id: int = _db.create_entity()
-	assert_false(_db.has_component(id, &"desires"), "has_component must return false when component not set")
+	assert_false(
+		_db.has_component(id, &"desires"),
+		"has_component must return false when component not set",
+	)
 
 
 func test_set_component_duplicates_data():
@@ -89,7 +96,11 @@ func test_set_component_duplicates_data():
 func test_get_field_returns_stored_value():
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"desires", {&"hunger": 750})
-	assert_eq(_db.get_field(id, &"desires", &"hunger"), 750, "get_field must return the stored integer value")
+	assert_eq(
+		_db.get_field(id, &"desires", &"hunger"),
+		750,
+		"get_field must return the stored integer value",
+	)
 
 
 func test_set_field_updates_value():
@@ -147,7 +158,11 @@ func test_clamp_all_clamps_values_within_range():
 	_db.clamp_all(&"desires", &"hunger", 0, 1000)
 	assert_eq(_db.get_field(id_a, &"desires", &"hunger"), 1000, "clamp_all must cap at max")
 	assert_eq(_db.get_field(id_b, &"desires", &"hunger"), 0, "clamp_all must floor at min")
-	assert_eq(_db.get_field(id_c, &"desires", &"hunger"), 500, "clamp_all must leave in-range values unchanged")
+	assert_eq(
+		_db.get_field(id_c, &"desires", &"hunger"),
+		500,
+		"clamp_all must leave in-range values unchanged",
+	)
 
 
 # ── Working set queries ───────────────────────────────────────────────────────
@@ -170,7 +185,11 @@ func test_get_entities_with_returns_empty_when_none_match():
 	_db.create_entity()
 	_db.create_entity()
 	var result: Array[int] = _db.get_entities_with(&"desires")
-	assert_eq(result.size(), 0, "get_entities_with must return empty array when no entities have component")
+	assert_eq(
+		result.size(),
+		0,
+		"get_entities_with must return empty array when no entities have component",
+	)
 
 
 func test_get_entities_with_excludes_destroyed_entities():
@@ -305,7 +324,10 @@ func test_query_radius_uses_manhattan_distance():
 	var id: int = _db.create_entity()
 	_db.update_spatial(id, 4, 3)
 	var result: Array[int] = _db.query_radius(0, 0, 6)
-	assert_false(id in result, "query_radius uses Manhattan distance; (4,3) has Manhattan 7, exceeds radius 6")
+	assert_false(
+		id in result,
+		"query_radius uses Manhattan distance; (4,3) has Manhattan 7, exceeds radius 6",
+	)
 
 
 func test_remove_spatial_removes_entity_from_queries():

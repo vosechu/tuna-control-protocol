@@ -1,24 +1,83 @@
 #!/usr/bin/env bash
-# PreToolUse classifier — homegrown Auto mode, regex layer.
-# stdin: JSON {session_id, tool_name, tool_input, cwd, ...}
-# exit 0 = allow, exit 2 = block (stderr fed back to Claude)
+# PreToolUse classifier — local Auto mode, regex layer.
+# stdin: JSON {session_id, tool_name, tool_input, tool_use_id, cwd, ...}
+# exit 0 = allow, exit 2 = block (stderr fed back to Claude).
+# Also appends one event line per invocation to .claude/tool_events.log.
 #
 # Spec: docs/superpowers/specs/2026-04-06-local-auto-mode-hook-design.md
 # Layer 2 of three. Layers 0 and 1 live in .claude/settings.json.
 
-set -euo pipefail
+# Deliberately NOT using `set -e` — logging is observability-only and must
+# never fail the hook. The only non-zero exit is exit 2 from block(), which
+# is reserved for intentional denials. Any other failure (log write error,
+# jq quirk, mkdir refused) silently degrades to "allow and don't log."
+set -uo pipefail
 payload=$(cat)
-tool=$(jq -r '.tool_name' <<<"$payload")
-cmd=$(jq -r '.tool_input.command // .tool_input.file_path // ""' <<<"$payload")
+tool=$(jq -r '.tool_name' <<<"$payload" 2>/dev/null || echo "-")
+cmd=$(jq -r '.tool_input.command // .tool_input.file_path // ""' <<<"$payload" 2>/dev/null || echo "")
+tool_use_id=$(jq -r '.tool_use_id // "-"' <<<"$payload" 2>/dev/null || echo "-")
+session_cwd=$(jq -r '.cwd // "."' <<<"$payload" 2>/dev/null || echo ".")
 
-block() { echo "BLOCKED by local classifier: $1" >&2; exit 2; }
+# ── Audit logging ────────────────────────────────────────────────────────────
+# TSV schema: ts \t event \t tool_use_id \t tool \t reason \t command
+# Command is last so newlines/tabs inside it can't shift column boundaries,
+# but we still sanitize both reason and command as a belt-and-suspenders.
+# Log is pinned to the session cwd so it always lands in the project's
+# .claude/ dir regardless of what directory the hook was exec'd from.
+# Every filesystem operation is wrapped in "|| true" so a log write failure
+# never propagates to the hook exit code.
+EVENT_LOG="$session_cwd/.claude/tool_events.log"
+mkdir -p "$(dirname "$EVENT_LOG")" 2>/dev/null || true
+
+sanitize() {
+  # Escape backslash first so later escapes aren't double-expanded.
+  local s="${1:-}"
+  s="${s//\\/\\\\}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
+log_event() {
+  local event="$1" reason="${2:-}"
+  {
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      "$event" \
+      "$tool_use_id" \
+      "$tool" \
+      "$(sanitize "$reason")" \
+      "$(sanitize "$cmd")" \
+      >> "$EVENT_LOG"
+  } 2>/dev/null || true
+}
+
+block() {
+  log_event "pre_deny" "$1"
+  echo "BLOCKED by local classifier: $1" >&2
+  exit 2
+}
 
 case "$tool:$cmd" in
   # Mass / recursive deletion
-  Bash:*"rm -rf /"*|Bash:*"rm -rf ~"*|Bash:*"rm -rf \$HOME"*) block "rm -rf of home/root" ;;
   Bash:*"rm -rf"*)
-    grep -qE 'rm -rf (\.claude/worktrees/|/tmp/|build/|dist/|\.godot/)' <<<"$cmd" \
-      || block "recursive delete outside safe zones (.claude/worktrees/, /tmp/, build/, dist/, .godot/)" ;;
+    # Catastrophic absolute targets: bare /, named system dirs under /.
+    # Hard-block, no approval path.
+    if grep -qE 'rm -rf /($| |(bin|boot|etc|home|lib|opt|private|root|sbin|System|usr|Users|var)(/|$|[[:space:]]))' <<<"$cmd"; then
+      block "rm -rf of root or system directory"
+    fi
+    # Catastrophic home targets: ~, ~/, $HOME, $HOME/.
+    if grep -qE 'rm -rf (~|\$HOME)(/|$|[[:space:]])' <<<"$cmd"; then
+      block "rm -rf of home directory"
+    fi
+    # Safe zones: let the classifier pass. Claude Code still prompts
+    # because Layer 1 has no rm allow entries — that's the desired UX
+    # for destructive ops (user confirms).
+    if ! grep -qE 'rm -rf (\.claude/worktrees/|/tmp/|tmp/|build/|dist/|\.godot/)' <<<"$cmd"; then
+      block "recursive delete outside safe zones (.claude/worktrees/, /tmp/, tmp/, build/, dist/, .godot/)"
+    fi
+    ;;
 
   # Remote code execution
   Bash:*"curl"*"|"*"sh"*|Bash:*"wget"*"|"*"sh"*|Bash:*"curl"*"|"*"bash"*) block "curl|sh pattern" ;;
@@ -26,7 +85,17 @@ case "$tool:$cmd" in
 
   # Destructive / shared-state git (belt-and-suspenders with Layer 0)
   Bash:*"git push"*) block "git push — run manually with ! prefix" ;;
-  Bash:*"git stash"*) [[ "$cmd" =~ "git stash list" ]] || block "git stash hides work silently" ;;
+  Bash:*"git stash"*)
+    # Only act if "git stash" is the leading command in the invocation.
+    # Embedded in a quoted argument (e.g., a commit message body that
+    # mentions "git stash"), it's data, not an action. Known limitation:
+    # "foo && git stash" in the second position is not caught here —
+    # Layer 0 deny in settings.json is the authoritative guard for that.
+    if grep -qE '^[[:space:]]*git stash([[:space:]]|$)' <<<"$cmd" \
+       && ! grep -qE '^[[:space:]]*git stash (list|show)([[:space:]]|$)' <<<"$cmd"; then
+      block "git stash (non-list/show) hides work silently — run manually with ! prefix"
+    fi
+    ;;
   Bash:*"git checkout"*) block "git checkout — use git switch, or run manually with ! prefix" ;;
   Bash:*"git reset --hard"*) block "hard reset destroys uncommitted work" ;;
   Bash:*"git clean -f"*) block "git clean -f destroys untracked work" ;;
@@ -40,4 +109,5 @@ case "$tool:$cmd" in
   Bash:*"brew install"*|Bash:*"npm install -g"*|Bash:*"pip install"*) block "global package install" ;;
 esac
 
+log_event "pre_allow"
 exit 0

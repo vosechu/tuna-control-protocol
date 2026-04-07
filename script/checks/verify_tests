@@ -160,7 +160,7 @@ done < <(find "$TESTS_DIR" -name 'test_*.gd' -not -path '*/.godot/*' | sort)
 ERRORS=0
 
 if [ ${#MISSING_STAMPS[@]} -gt 0 ]; then
-    echo "Missing stamps (run script/stamp_tests on these files):" >&2
+    echo "Test files with no stamp sidecar (test was never verified):" >&2
     for f in "${MISSING_STAMPS[@]}"; do
         echo "  $f" >&2
     done
@@ -168,7 +168,7 @@ if [ ${#MISSING_STAMPS[@]} -gt 0 ]; then
 fi
 
 if [ ${#ORPHAN_STAMPS[@]} -gt 0 ]; then
-    echo "Orphan stamps (delete these — no corresponding test file):" >&2
+    echo "Stamp sidecars with no matching test file:" >&2
     for f in "${ORPHAN_STAMPS[@]}"; do
         echo "  $f" >&2
     done
@@ -176,7 +176,7 @@ if [ ${#ORPHAN_STAMPS[@]} -gt 0 ]; then
 fi
 
 if [ ${#STALE_FILES[@]} -gt 0 ]; then
-    echo "Stale file hashes (test file changed — re-run script/stamp_tests):" >&2
+    echo "Test files modified since last verification (file hash mismatch):" >&2
     for f in "${STALE_FILES[@]}"; do
         echo "  $f" >&2
     done
@@ -184,7 +184,7 @@ if [ ${#STALE_FILES[@]} -gt 0 ]; then
 fi
 
 if [ ${#STALE_TESTS[@]} -gt 0 ]; then
-    echo "Stale test hashes (test function changed — re-run script/stamp_tests):" >&2
+    echo "Individual test functions modified since last verification:" >&2
     for f in "${STALE_TESTS[@]}"; do
         echo "  $f" >&2
     done
@@ -192,7 +192,7 @@ if [ ${#STALE_TESTS[@]} -gt 0 ]; then
 fi
 
 if [ ${#MISSING_TESTS[@]} -gt 0 ]; then
-    echo "Unstamped tests (test function exists but no stamp entry):" >&2
+    echo "Test functions added without verification (no stamp entry):" >&2
     for f in "${MISSING_TESTS[@]}"; do
         echo "  $f" >&2
     done
@@ -200,7 +200,7 @@ if [ ${#MISSING_TESTS[@]} -gt 0 ]; then
 fi
 
 if [ ${#ORPHAN_TESTS[@]} -gt 0 ]; then
-    echo "Orphan test entries (stamp entry but function removed from file):" >&2
+    echo "Removed test functions still present in stamp:" >&2
     for f in "${ORPHAN_TESTS[@]}"; do
         echo "  $f" >&2
     done
@@ -209,7 +209,14 @@ fi
 
 if [ $ERRORS -gt 0 ]; then
     echo "" >&2
-    echo "$ERRORS issue(s) found. See .claude/rules/llm-test-verification.md for the verification process." >&2
+    echo "$ERRORS verification issue(s) found." >&2
+    echo "" >&2
+    echo "These tests are no longer in a verified state. To restore verification you" >&2
+    echo "MUST follow the full red-green-refactor process in:" >&2
+    echo "  .claude/rules/llm-test-verification.md" >&2
+    echo "" >&2
+    echo "DO NOT skip the process by stamping directly. The stamp is the seal at the" >&2
+    echo "end of verification, not a fix for verification failures." >&2
     exit 1
 fi
 

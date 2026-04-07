@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# PostToolUse / PostToolUseFailure logger for auto-mode audit trail.
+# Appends one event line to .claude/tool_events.log per tool outcome.
+# stdin: JSON {session_id, tool_name, tool_input, tool_use_id, cwd,
+#              tool_response?, error?, hook_event_name, ...}
+# Exit 0 always — this hook is observability only and must never block.
+#
+# Spec: docs/superpowers/specs/2026-04-06-local-auto-mode-hook-design.md
+
+set -uo pipefail
+payload=$(cat)
+
+tool=$(jq -r '.tool_name // "-"' <<<"$payload")
+cmd=$(jq -r '.tool_input.command // .tool_input.file_path // ""' <<<"$payload")
+tool_use_id=$(jq -r '.tool_use_id // "-"' <<<"$payload")
+session_cwd=$(jq -r '.cwd // "."' <<<"$payload")
+hook_event=$(jq -r '.hook_event_name // ""' <<<"$payload")
+error_msg=$(jq -r '.error // .tool_response.error // ""' <<<"$payload")
+
+case "$hook_event" in
+  PostToolUse)        event=post_success ;;
+  PostToolUseFailure) event=post_failure ;;
+  *)                  event=post_unknown ;;
+esac
+
+EVENT_LOG="$session_cwd/.claude/tool_events.log"
+mkdir -p "$(dirname "$EVENT_LOG")" 2>/dev/null || exit 0
+
+sanitize() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
+printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  "$event" \
+  "$tool_use_id" \
+  "$tool" \
+  "$(sanitize "$error_msg")" \
+  "$(sanitize "$cmd")" \
+  >> "$EVENT_LOG" 2>/dev/null || true
+
+exit 0

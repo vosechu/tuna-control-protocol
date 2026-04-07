@@ -1,5 +1,29 @@
 extends Node2D
 
+const _NAME_COLORS: Array[Color] = [
+	Color.CORAL,       # Mochi
+	Color.CYAN,        # Biscuit
+	Color.YELLOW,      # Noodle
+	Color.LIME_GREEN,  # Slinky
+	Color.ORCHID,      # Bandit
+]
+
+const _STATE_TO_ANIM: Dictionary = {
+	&"IDLE": &"idle",
+	&"GROOMING": &"crouch",
+	&"LOAFING": &"sit",
+	&"SLEEPING": &"sleep",
+	&"SNIFFING": &"sneak",
+	&"SPEED_BUMP": &"liedown",
+	&"SEEKING": &"walk",
+	&"MOVING_TO": &"walk",
+	&"WANDERING": &"walk",
+	&"STARTLED": &"fright",
+	&"SETTLING": &"sit",
+}
+
+static var _next_color: int = 0
+
 var entity_id: int = Constants.INVALID_ID
 
 var _db: GameStateDB
@@ -7,6 +31,7 @@ var _prev_pos: Vector2
 var _target_pos: Vector2
 var _is_ferret: bool = false
 var _footstep_player: AudioStreamPlayer2D
+var _color_index: int = 0
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _name_label: Label = $NameLabel
@@ -70,22 +95,17 @@ func _setup_sprite(species: Dictionary) -> void:
 	_sprite.play(&"idle")
 
 
-func _load_strip(frames: SpriteFrames, anim_name: StringName, path: String, frame_count: int, fps: float) -> void:
+func _load_strip(
+	frames: SpriteFrames,
+	anim_name: StringName,
+	path: String,
+	frame_count: int,
+	fps: float,
+) -> void:
 	var tex: Texture2D = load(path)
 	if tex == null:
 		return
 	_add_strip_animation(frames, anim_name, tex, frame_count, fps)
-
-
-const _NAME_COLORS: Array[Color] = [
-	Color.CORAL,       # Mochi
-	Color.CYAN,        # Biscuit
-	Color.YELLOW,      # Noodle
-	Color.LIME_GREEN,  # Slinky
-	Color.ORCHID,      # Bandit
-]
-var _color_index: int = 0
-static var _next_color: int = 0
 
 
 func _setup_name_label(species: Dictionary) -> void:
@@ -186,27 +206,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _state_to_animation(state: StringName) -> StringName:
-	match state:
-		&"IDLE":
-			return &"idle"
-		&"GROOMING":
-			return &"crouch"
-		&"LOAFING":
-			return &"sit"
-		&"SLEEPING":
-			return &"sleep"
-		&"SNIFFING":
-			return &"sneak"
-		&"SPEED_BUMP":
-			return &"liedown"
-		&"SEEKING", &"MOVING_TO", &"WANDERING":
-			return &"walk"
-		&"STARTLED":
-			return &"fright"
-		&"SETTLING":
-			return &"sit"
-		_:
-			return &"idle"
+	return _STATE_TO_ANIM.get(state, &"idle")
 
 
 func _process(_delta: float) -> void:

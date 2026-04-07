@@ -26,4 +26,5 @@ Thumbs.db
 .claude/settings.local.json
 .claude/projects/*/memory
 .claude/worktrees/
+.claude/tool_events.log
 .env

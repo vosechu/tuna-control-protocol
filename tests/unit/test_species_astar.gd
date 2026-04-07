@@ -69,7 +69,12 @@ func test_adjacent_slots_connected() -> void:
 		float(1 * Constants.RACK_STRIDE_PU + Constants.RACK_STRIDE_PU / 2),
 		float(21 * Constants.SLOT_HEIGHT_PU)
 	)
-	var path: PackedVector2Array = builder.get_path_points(&"tcp_base:cat", slot20_pos, slot21_pos)
-	assert_eq(path.size(), 2, "Adjacent slots must be directly connected (path length 2, not routed via floor)")
+	var path: PackedVector2Array = builder.get_path_points(
+		&"tcp_base:cat", slot20_pos, slot21_pos
+	)
+	assert_eq(
+		path.size(), 2,
+		"Adjacent slots must be directly connected (path length 2, not routed via floor)",
+	)
 
 

@@ -143,11 +143,28 @@ This step should pass immediately after `script/stamp_tests` — it's a sanity c
 
 If a verified test is failing, fix the production code, not the test. The test is the source of truth.
 
-If a test genuinely needs to change (API change, behavior change), the old hash must be invalidated and the full Phase 2-5 cycle must be re-run for the modified test. There is no shortcut.
+If a test's **behavior** genuinely needs to change (API change, expected-value change, new assertion, modified setup, restructured test logic), the old hash must be invalidated and the full Phase 2-5 cycle must be re-run for the modified test. There is no shortcut.
+
+### Cosmetic-only changes: re-stamp without re-verification
+
+A narrow exception exists for changes that demonstrably do not affect what the test verifies. **Re-stamping without the full Phase 2-5 cycle is permitted ONLY when ALL of the following are true:**
+
+1. **The diff is purely non-semantic.** Allowed: whitespace, line wrapping, indentation, comment edits, renaming an unused variable, removing a discarded return-value assignment, reordering imports. Forbidden: anything that touches assertion arguments, expected values, conditionals, loop bounds, mock configuration, setup data, or the order of side-effecting calls.
+2. **The change was forced by an external constraint.** Examples: a linter rule applied to the file, an unrelated refactor renamed a helper, a code-style sweep. Never re-stamp because you "improved" or "cleaned up" a verified test on your own initiative.
+3. **The full test suite still passes** with the modified test included. Run `script/checks/gut_tests` and confirm zero failures before re-stamping.
+4. **You can articulate the diff in one sentence** without referring to test logic. If you find yourself explaining what the test does, the change isn't cosmetic — go through the full cycle.
+
+If all four conditions hold, run `script/stamp_tests <file>` to refresh the seal. The commit message must state which condition forced the change (e.g. "lint fix: wrap long lines in test_desire_resolver.gd; behavior unchanged").
+
+**When in doubt, run the full Phase 2-5 cycle.** The cost of an unnecessary re-verification is small. The cost of re-stamping a behavior change without re-verification is silently shipping a broken test.
+
+**This exception does not apply to:**
+- Tests that have never been verified (no stamp exists). New stamps require the full Phase 1-5 process.
+- Tests where a previous re-stamp was already done as a cosmetic exception. Re-stamping a re-stamp without verification compounds the trust gap. The next change to that test must go through full verification.
 
 ### Pre-commit and CI enforcement
 
-`script/checks/verify_tests` runs in both the pre-commit hook and CI (`script/validate`). It performs the three checks (stamps exist, no orphans, hashes match). If any check fails, the commit is blocked with a message naming the specific files/tests that need attention and whether to run `script/stamp_tests` or delete an orphan stamp.
+`script/checks/verify_tests` runs in both the pre-commit hook and CI (`script/validate`). It performs the three checks (stamps exist, no orphans, hashes match). If any check fails, the commit is blocked. The error output describes only the *state* of each failing file (modified, unstamped, orphaned) — it does not prescribe a fix, because the correct response depends on whether the change was behavioral or cosmetic. Refer back to this rule to choose the right path.
 
 ### Stamp file format
 

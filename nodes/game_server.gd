@@ -239,7 +239,9 @@ func _update_ambient_states() -> void:
 
 		# Check if min duration elapsed
 		var current_state: StringName = ai[&"state"]
-		var min_dur: float = _min_durations_override.get(entity_id, _min_durations.get(current_state, 3.0))
+		var min_dur: float = _min_durations_override.get(
+			entity_id, _min_durations.get(current_state, 3.0)
+		)
 		if _state_timers[entity_id] < min_dur:
 			continue
 
@@ -442,8 +444,10 @@ func _spawn_starter_entities() -> void:
 	db.set_component(pile, &"advertisements", {&"list": [
 		{&"desire_type": &"comfort", &"strength": 800, &"radius_ru": 4, &"max_occupants": 3},
 		{&"desire_type": &"warmth", &"strength": 500, &"radius_ru": 3},
-		{&"desire_type": &"curiosity", &"strength": 400, &"radius_ru": 4,
-		 &"novelty_duration": 300, &"novelty_cooldown": 200},
+		{
+			&"desire_type": &"curiosity", &"strength": 400, &"radius_ru": 4,
+			&"novelty_duration": 300, &"novelty_cooldown": 200,
+		},
 	]})
 	db.set_component(
 		pile, &"object_type", {&"type": &"clothes_pile"}

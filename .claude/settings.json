@@ -3,16 +3,40 @@
     "deny": [
       "Bash(git push)",
       "Bash(git push *)",
+
       "Bash(git stash)",
-      "Bash(git stash *)",
+      "Bash(git stash push*)",
+      "Bash(git stash pop*)",
+      "Bash(git stash drop*)",
+      "Bash(git stash clear)",
+      "Bash(git stash apply*)",
+      "Bash(git stash branch*)",
+      "Bash(git stash create*)",
+      "Bash(git stash store*)",
+
       "Bash(git checkout)",
       "Bash(git checkout *)",
       "Bash(git reset --hard)",
       "Bash(git reset --hard *)",
-      "Bash(git clean -f *)",
-      "Bash(git clean -fd *)",
-      "Bash(rm -rf /*)",
+
+      "Bash(git clean -f*)",
+
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /bin*)",
+      "Bash(rm -rf /boot*)",
+      "Bash(rm -rf /etc*)",
+      "Bash(rm -rf /home*)",
+      "Bash(rm -rf /lib*)",
+      "Bash(rm -rf /opt*)",
+      "Bash(rm -rf /private*)",
+      "Bash(rm -rf /root*)",
+      "Bash(rm -rf /sbin*)",
+      "Bash(rm -rf /System*)",
+      "Bash(rm -rf /usr*)",
+      "Bash(rm -rf /Users*)",
+      "Bash(rm -rf /var*)",
       "Bash(rm -rf ~*)",
+
       "Bash(sudo *)",
       "Bash(brew install *)",
       "Bash(npm install -g *)",
@@ -21,6 +45,7 @@
       "Bash(curl *)",
       "Bash(wget)",
       "Bash(wget *)",
+
       "Write(**/.env)",
       "Write(**/.env.*)",
       "Write(**/export_credentials.cfg)",
@@ -52,9 +77,18 @@
       "Bash(git show)", "Bash(git show *)",
       "Bash(git branch)", "Bash(git branch *)",
       "Bash(git blame *)", "Bash(git ls-files *)",
-      "Bash(git stash list)", "Bash(git worktree list)",
+      "Bash(git stash list)", "Bash(git stash show *)",
+      "Bash(git worktree list)",
       "Bash(git rev-parse *)",
       "Bash(git switch)", "Bash(git switch *)",
+
+      "Bash(mkdir /tmp/*)", "Bash(mkdir -p /tmp/*)",
+      "Bash(mkdir tmp/*)",  "Bash(mkdir -p tmp/*)",
+      "Bash(touch /tmp/*)", "Bash(touch tmp/*)",
+      "Bash(mv /tmp/*)",    "Bash(mv tmp/*)",
+      "Bash(cp /tmp/*)",    "Bash(cp tmp/*)",
+      "Bash(cat /tmp/*)",   "Bash(cat tmp/*)",
+      "Bash(ls /tmp/*)",    "Bash(ls tmp/*)",
 
       "Bash(ls *)", "Bash(pwd)", "Bash(file *)", "Bash(wc *)", "Bash(jq *)",
       "Bash(sox --version)", "Bash(sox --i *)"
@@ -79,6 +113,20 @@
             "timeout": 30,
             "statusMessage": "Running script/validate..."
           }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          { "type": "command", "command": "script/hooks/log-result" }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          { "type": "command", "command": "script/hooks/log-result" }
         ]
       }
     ]

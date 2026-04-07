@@ -1,7 +1,9 @@
 class_name AnimalStateMachine extends RefCounted
 
 # States in which the animal is pursuing a specific goal.
-const GOAL_DIRECTED_STATES: Array[StringName] = [&"SEEKING", &"MOVING_TO", &"SETTLING", &"WANDERING"]
+const GOAL_DIRECTED_STATES: Array[StringName] = [
+	&"SEEKING", &"MOVING_TO", &"SETTLING", &"WANDERING",
+]
 
 # States in which the animal behaves without a specific goal.
 const AMBIENT_STATES: Array[StringName] = [

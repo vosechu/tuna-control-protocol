@@ -36,7 +36,10 @@ def find_all_json():
         root = '.'
     result = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in ('.godot', '.import')]
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in ('.godot', '.import', '.claude', 'addons')
+        ]
         for f in filenames:
             if f.endswith('.json'):
                 result.append(os.path.join(dirpath, f))

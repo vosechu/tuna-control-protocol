@@ -224,6 +224,10 @@ Common commands:
 # Run all tests (PREFERRED — use this, not raw Godot commands)
 script/checks/gut_tests
 
+# Run a single test file
+script/checks/gut_tests -f tests/unit/test_foo.gd
+# Other flags: --failing-only (only failing-test lines), --no-color (strip ANSI)
+
 # Run all validation checks
 script/validate
 

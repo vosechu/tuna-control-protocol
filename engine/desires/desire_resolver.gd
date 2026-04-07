@@ -75,7 +75,10 @@ func score_ad(
 
 	var animal_pos: Dictionary = _db.get_component(animal_id, &"position")
 	var object_pos: Dictionary = _db.get_component(object_id, &"position")
-	var dist_pu: int = absi(animal_pos[&"x"] - object_pos[&"x"]) + absi(animal_pos[&"y"] - object_pos[&"y"])
+	var dist_pu: int = (
+		absi(animal_pos[&"x"] - object_pos[&"x"])
+		+ absi(animal_pos[&"y"] - object_pos[&"y"])
+	)
 	var radius_pu: int = Constants.ru_to_pu(ad[&"radius_ru"])
 
 	if dist_pu > radius_pu:
