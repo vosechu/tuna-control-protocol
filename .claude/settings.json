@@ -28,6 +28,36 @@
       "Write(**/.ssh/**)",
       "Write(~/.aws/**)",
       "Write(**/.aws/**)"
+    ],
+    "allow": [
+      "Read", "Grep", "Glob", "Edit", "Write",
+      "WebSearch", "WebFetch",
+
+      "Bash(script/validate)", "Bash(script/validate *)",
+      "Bash(script/checks/gut_tests)", "Bash(script/checks/gut_tests *)",
+      "Bash(script/checks/verify_tests)",
+      "Bash(script/checks/gdscript_compile *)",
+      "Bash(script/checks/gdlint *)",
+      "Bash(script/checks/no_secrets)",
+      "Bash(script/stamp_tests *)",
+      "Bash(script/pre_commit)",
+
+      "Bash(/Applications/Godot.app/Contents/MacOS/godot --headless --import)",
+      "Bash(/Applications/Godot.app/Contents/MacOS/godot --headless --check-only *)",
+      "Bash(gdlint *)",
+
+      "Bash(git status)", "Bash(git status *)",
+      "Bash(git diff)", "Bash(git diff *)",
+      "Bash(git log)", "Bash(git log *)",
+      "Bash(git show)", "Bash(git show *)",
+      "Bash(git branch)", "Bash(git branch *)",
+      "Bash(git blame *)", "Bash(git ls-files *)",
+      "Bash(git stash list)", "Bash(git worktree list)",
+      "Bash(git rev-parse *)",
+      "Bash(git switch)", "Bash(git switch *)",
+
+      "Bash(ls *)", "Bash(pwd)", "Bash(file *)", "Bash(wc *)", "Bash(jq *)",
+      "Bash(sox --version)", "Bash(sox --i *)"
     ]
   },
   "hooks": {
