@@ -2,6 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **2026-04-07 status (added after triage):** This plan is partially executed. Tasks 1-2 (object state component, food desire, scatter exclusions) landed in commit `8245d85 feat: object-interactions scaffolding` along with the supporting test file `tests/unit/test_object_state.gd` (which currently inlines production logic — see `2026-04-06-game-server-extraction-design.md`). **Task 3 (PERFORMING state & action execution) was never written** — `git log --all -S "PERFORMING"` shows the symbol only in spec/rule docs, never in production source. Tasks 4-7 are blocked on Task 3.
+>
+> **Before resuming this plan**, complete `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md` first. The DesireResolver WANDERING-vs-SEEKING regression that recovery exposes touches the same scoring path that PERFORMING needs to integrate with — fixing it after building PERFORMING would mean re-touching freshly-written code.
+
 **Goal:** Build the core gameplay loop — ferret presses button, can drops, robot arm opens it, cat eats — plus box degradation from ferret shredding.
 
 **Architecture:** Extends the existing desire→seek→arrive pipeline with a PERFORMING state and action effects. Robot arm is an entity with desires (purpose) that uses the same AI as animals but cannot move. Object state transitions swap ad profiles in-place. Food desire added to cats. Action-only desires (food, openable, scannable) are excluded from passive scatter.

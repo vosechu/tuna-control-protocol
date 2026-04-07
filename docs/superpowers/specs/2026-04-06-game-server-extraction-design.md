@@ -1,8 +1,11 @@
 # GameServer Extraction Design Spec
 
 **Date:** 2026-04-06
-**Status:** Designed, attempted twice unsuccessfully — see "Lessons Learned" section
+**Status:** Partially landed — see "Implementation Status" (rewritten 2026-04-07 after triage)
 **Related spec:** `2026-04-06-test-verification-system-design.md`
+**Related plan:** `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md`
+
+> **2026-04-07 update:** Triage of the post-stash-chaos state showed that more of this extraction actually made it onto `main` than the original "Implementation Status" section claimed. The "Lessons Learned" section is still useful as a record of what went wrong and how to avoid it next time. The "Implementation Status" at the bottom has been rewritten to reflect ground truth as of `11dce11`.
 
 ## Goal & Motivation
 
@@ -170,6 +173,8 @@ After each extraction:
 
 This extraction was attempted twice in the same session and failed both times. The lessons are specific and actionable.
 
+> **2026-04-07 note on SHA references:** This section and the "Where things stand" table below cite specific commit SHAs (`39d969e`, `3c1bd18`, `8245d85`, etc.). These SHAs will be invalidated when Phase 5 of `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md` runs `git lfs migrate import --everything`. Phase 5 Step 9 of that plan covers updating or annotating these references after the migration. Until then, the SHAs are still resolvable.
+
 ### Lesson 1: Worktrees with stale bases corrupt merges
 
 **What happened:** An agent was dispatched in an isolated git worktree (`isolation: "worktree"`) to perform the extraction. The worktree was created from an older commit (`39d969e`), not from current `main` (which had moved to `3c1bd18` plus uncommitted work). The agent extracted code, ran tests against the old codebase, and reported "all 123 tests pass."
@@ -254,22 +259,30 @@ Commit message: `refactor: extract <ClassName> from GameServer`. Body explains w
 
 ## Implementation Status
 
-**Built (and lost in failed merges this session):**
-- ObjectStateManager prototype (generic API, config-driven) — exists in worktree `agent-a2eea031` if it hasn't been pruned
-- DesireScatter prototype — exists in same worktree
-- DesireResolver.mark_all_dirty() — exists in same worktree
-- Updated game_server.gd delegating to the new classes — exists in same worktree
+**As of `11dce11` (2026-04-07 verified by triage):**
 
-**These artifacts are NOT trustworthy** — they were built against a stale base and reported false test pass results. They should be treated as design references, not code to copy. The next session should re-extract from current main.
+| Item | Status | Where |
+|---|---|---|
+| `ObjectStateManager` (generic, config-driven) | ✅ Landed | `engine/objects/object_state_manager.gd` (committed in `8245d85`) |
+| `DesireScatter` | ✅ Landed | `engine/desires/desire_scatter.gd` (committed in `8245d85`) |
+| `DesireResolver.mark_all_dirty()` | ✅ Landed | `engine/desires/desire_resolver.gd:21`, called from `nodes/game_server.gd:53` |
+| `MovementSystem` extraction | ❌ Never written | `git log --all -S "MovementSystem"` shows only this spec doc |
+| 4 affected test files updated to call new classes | ❌ Still inline production logic | `test_object_state.gd`, `test_desire_scatter.gd`, `test_performing.gd`, `test_tick_loop.gd` |
+| Re-stamp updated test files | ❌ Blocked on the row above | |
 
-**To do:**
-1. Extract ObjectStateManager (sequential, in main)
-2. Extract DesireScatter (sequential, in main)
-3. Extract MovementSystem (sequential, in main)
-4. Add `mark_all_dirty()` to DesireResolver
-5. Update the 4 affected test files to call the new classes
-6. Re-stamp the updated test files
-7. Verify `script/checks/verify_tests` is green for all test files
+**Why the original status was wrong:** the previous session ended with the author believing the extractions had been lost in worktree merge failures. Triage on 2026-04-07 found that the production code for the first three items had actually made it into `8245d85 feat: object-interactions scaffolding` (probably as part of the same recovery push that pulled most of `stash@{0}` back into commits). The lost-artifact narrative carried over into this spec uncorrected. The spec is otherwise still accurate as a design reference.
+
+**Caveat for whoever picks this up:** the production code on `main` was written under time pressure in the chaotic session and has not been re-verified against this spec's "generic API, no per-type functions" rule. Before resuming, diff the current `engine/objects/object_state_manager.gd` and `engine/desires/desire_scatter.gd` against the design in this spec. If they drifted toward type-specific APIs, fix that *before* extracting MovementSystem — it's much cheaper to fix two extractions than three.
+
+**Remaining work:**
+
+1. **Verify ObjectStateManager + DesireScatter match the spec design.** Read the current files. Confirm generic API. If the API drifted to per-type methods, refactor. Re-stamp affected tests.
+2. **Extract `MovementSystem` from `nodes/game_server.gd`.** Sequential, in `main`, no worktrees, follow the "Plan of attack" section above.
+3. **Update the 4 inlining test files** to call the extracted classes (`ObjectStateManager`, `DesireScatter`, `MovementSystem`) instead of reimplementing them. Phase 1-5 of the test verification checklist (mutation testing against the *real* production code is the safety net — tests that survive mutation against real code were giving false confidence before).
+4. **Stamp the updated test files** via `script/stamp_tests`.
+5. **Run `script/checks/verify_tests`** and confirm green.
+
+**Blocker:** the DesireResolver WANDERING-vs-SEEKING regression (see `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md` Phase 2) needs to be fixed first. The 4 inlining tests are downstream of `desire_resolver.gd` behavior, and re-stamping them against broken production code would seal the wrong behavior into the verification system.
 
 ## Known Limitations
 
