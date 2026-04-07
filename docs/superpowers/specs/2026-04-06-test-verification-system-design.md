@@ -1,8 +1,9 @@
 # Test Verification System Design Spec
 
 **Date:** 2026-04-06
-**Status:** Partially built — see "Implementation Status" section
+**Status:** Mostly built — see "Implementation Status" (status confirmed accurate by 2026-04-07 triage)
 **Related rule:** `.claude/rules/llm-test-verification.md`
+**Related plan:** `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md`
 
 ## Goal & Motivation
 
@@ -182,6 +183,17 @@ Documented examples from Phase B verification:
    - **Soft transition:** add a `verify_tests --warn` mode that prints issues but exits 0, run that in CI initially, switch to hard mode once everything is stamped.
 3. **The 4 unstampable test files.** Four tests inline production logic (test_object_state.gd, test_desire_scatter.gd, test_performing.gd, test_tick_loop.gd) and can't be honestly stamped because they test their own helpers, not real production code. These are deferred to a separate spec that extracts logic from GameServer into pure core classes (see `2026-04-06-game-server-extraction-design.md`).
 4. **CLAUDE.md / README documentation.** Brief mention pointing to this spec and the rules file.
+5. **Re-stamp `tests/unit/test_constants.gd` after recovery.** This file was stamped before the grid-redesign session; the production constants moved to 7px/U/7-rack but the test assertions stayed at 24px/U/5-rack and ended up stuck in `stash@{0}`. The recovery + re-stamp is captured in `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md` Phase 1.
+
+### Lesson from the 2026-04-07 triage
+
+Stamping a test file does *not* protect the relationship between the test and the production constants it asserts against. When the production code changed scale, the stamped test went stale silently — the stamp still verified, the assertions still ran, they just compared against the wrong numbers. This is a known limitation, not a bug:
+
+- The stamp verifies the test file's *content* hasn't changed.
+- It does not verify that the production values the test asserts against haven't changed.
+- A failing test on a stamped file is the correct signal — the agent should investigate, fix one side or the other, then re-stamp.
+
+The bad outcome would have been: someone re-stamps the stale file without fixing it, sealing the wrong assertions. The verification process's "Phase 2 mutate the production code" step is supposed to catch this, because mutating the new constants would still pass the old asserts. Add this to the QA review checklist: when re-stamping a previously-stamped file, confirm Phase 2 mutation testing was actually re-run, not skipped because "the file already had a stamp once."
 
 ## Known Limitations
 
