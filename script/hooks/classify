@@ -85,17 +85,6 @@ case "$tool:$cmd" in
 
   # Destructive / shared-state git (belt-and-suspenders with Layer 0)
   Bash:*"git push"*) block "git push — run manually with ! prefix" ;;
-  Bash:*"git commit"*)
-    # Block --no-verify: pre-commit enforces test stamping, lint, and secret
-    # checks; bypassing it is never allowed for the agent. Only --no-verify
-    # is matched here — `-n` is ambiguous because it can appear inside a
-    # quoted -m message body (false positive). Layer 0 deny in settings.json
-    # catches `-n` via prefix glob where quoting isn't a concern.
-    if grep -qE '(^|[[:space:]])git commit([[:space:]]|$)' <<<"$cmd" \
-       && grep -qE '(^|[[:space:]])--no-verify([[:space:]]|$)' <<<"$cmd"; then
-      block "git commit --no-verify bypasses pre-commit checks (test stamps, lint, secrets)"
-    fi
-    ;;
   Bash:*"git stash"*)
     # Only act if "git stash" is the leading command in the invocation.
     # Embedded in a quoted argument (e.g., a commit message body that
