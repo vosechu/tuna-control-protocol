@@ -38,7 +38,7 @@ func _make_cat(rack: int, slot: int) -> int:
 	var x: int = rack * Constants.RACK_STRIDE_PU
 	var y: int = slot * Constants.SLOT_HEIGHT_PU
 	_db.set_component(id, &"species", {
-		&"id": &"tcp_base:cat",
+		&"id": &"tcp_cats:cat",
 		&"variant": &"cat01",
 		&"name": &"TestCat",
 	})

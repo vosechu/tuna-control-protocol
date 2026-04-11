@@ -13,7 +13,7 @@ func before_each() -> void:
 
 func _make_cat(x: int, y: int, warmth: int, warmth_weight: int = 500) -> int:
 	var id: int = _db.create_entity()
-	_db.set_component(id, &"species", {&"id": &"tcp_base:cat"})
+	_db.set_component(id, &"species", {&"id": &"tcp_cats:cat"})
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"desires", {
 		&"warmth": warmth, &"comfort": 800, &"curiosity": 1000,
@@ -47,7 +47,7 @@ func _make_warm_server(x: int, y: int, strength: int = 800, radius_ru: int = 3) 
 
 func _make_ferret(x: int, y: int, curiosity: int, curiosity_weight: int = 900) -> int:
 	var id: int = _db.create_entity()
-	_db.set_component(id, &"species", {&"id": &"tcp_base:ferret"})
+	_db.set_component(id, &"species", {&"id": &"tcp_ferrets:ferret"})
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"desires", {&"warmth": 800, &"comfort": 800, &"curiosity": curiosity})
 	_db.set_component(id, &"personality", {

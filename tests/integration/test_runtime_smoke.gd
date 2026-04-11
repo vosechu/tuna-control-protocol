@@ -13,7 +13,7 @@ func test_100_ticks_no_errors() -> void:
 	# Spawn a cat with food desire
 	var cat: int = db.create_entity()
 	db.set_component(cat, &"species", {
-		&"id": &"tcp_base:cat",
+		&"id": &"tcp_cats:cat",
 		&"variant": &"cat01", &"name": &"Smoke",
 	})
 	db.set_component(cat, &"position", {&"x": 4000, &"y": 31000})
@@ -39,7 +39,7 @@ func test_100_ticks_no_errors() -> void:
 	# Spawn a ferret WITHOUT food desire
 	var ferret: int = db.create_entity()
 	db.set_component(ferret, &"species", {
-		&"id": &"tcp_base:ferret",
+		&"id": &"tcp_ferrets:ferret",
 		&"variant": &"lilotter", &"name": &"Smokey",
 	})
 	db.set_component(ferret, &"position", {
