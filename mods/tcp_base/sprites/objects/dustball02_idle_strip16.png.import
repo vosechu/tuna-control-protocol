@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://oacl426sksuw"
-path="res://.godot/imported/tuna_can_sealed.png-d1543bac7561b3a29bad24cf6e042f66.ctex"
+uid="uid://jwl8ki6y8f6w"
+path="res://.godot/imported/dustball02_idle_strip16.png-2aa7313570a616ec98b8932f323ea050.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/objects/tuna_can_sealed.png"
-dest_files=["res://.godot/imported/tuna_can_sealed.png-d1543bac7561b3a29bad24cf6e042f66.ctex"]
+source_file="res://mods/tcp_base/sprites/objects/dustball02_idle_strip16.png"
+dest_files=["res://.godot/imported/dustball02_idle_strip16.png-2aa7313570a616ec98b8932f323ea050.ctex"]
 
 [params]
 

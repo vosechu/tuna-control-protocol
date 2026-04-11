@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bdd57l7nmjjgi"
-path="res://.godot/imported/furball.png-646694af13194cc3665559deb5a10e6b.ctex"
+uid="uid://c0cal5imo1mi3"
+path="res://.godot/imported/tunacan_idle_strip1.png-b2ff7c04a1250b797c6352680482daec.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/objects/furball.png"
-dest_files=["res://.godot/imported/furball.png-646694af13194cc3665559deb5a10e6b.ctex"]
+source_file="res://mods/tcp_base/sprites/objects/tunacan_idle_strip1.png"
+dest_files=["res://.godot/imported/tunacan_idle_strip1.png-b2ff7c04a1250b797c6352680482daec.ctex"]
 
 [params]
 

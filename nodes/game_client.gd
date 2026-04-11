@@ -1,33 +1,39 @@
 extends Node
 
 const _RACK_TEX := preload(
-	"res://mods/tcp_base/sprites/infrastructure/rack/rack_frame.png"
+	"res://mods/tcp_base/sprites/infrastructure/rack/rack_single_idle_strip1.png"
 )
-const _FLOOR_TEX := preload(
-	"res://mods/tcp_base/sprites/environment/floor_tile.png"
+const _TILESET_ATLAS := preload(
+	"res://mods/tcp_base/sprites/environment/tcp_tileset01.png"
 )
 const _SERVER_TEX := preload(
-	"res://mods/tcp_base/sprites/infrastructure/server/server_2u_off.png"
+	"res://mods/tcp_base/sprites/infrastructure/server/server01_static_strip1.png"
 )
 const _BOX_TEX := preload(
-	"res://mods/tcp_base/sprites/objects/box_cardboard_new.png"
+	"res://mods/tcp_base/sprites/objects/box01_idle_strip1.png"
 )
 const _PILE_TEX := preload(
 	"res://mods/tcp_base/sprites/objects/pile_clothes.png"
 )
-
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
+
+# Floor tile extracted from tileset atlas — dark ground strip at y=48
+const _FLOOR_REGION := Rect2(64, 48, 80, 16)
 
 var _placement_ui_node: Control
 var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
 # entity_id -> float (seconds elapsed in clearing)
 var _clearing_objects: Dictionary = {}
 var _starter_sprites: Array[Sprite2D] = []
+var _floor_tex: AtlasTexture
 
 @onready var game_server: Node = %GameServer
 
 
 func _ready() -> void:
+	_floor_tex = AtlasTexture.new()
+	_floor_tex.atlas = _TILESET_ATLAS
+	_floor_tex.region = _FLOOR_REGION
 	_build_racks()
 	_build_floor()
 	_build_starter_objects()
@@ -42,15 +48,31 @@ func _ready() -> void:
 
 func _build_racks() -> void:
 	var rack_row: Node2D = $World/RackRow
+	# Bottom-align rack sprite to the floor — sprite is smaller than
+	# the 42U budget so we anchor its bottom edge to the floor top.
+	var rack_bottom_y: float = float(
+		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PX
+	)
+	var rack_top_y: float = rack_bottom_y - float(_RACK_TEX.get_height())
 	for i in Constants.RACK_COUNT:
 		var sprite := Sprite2D.new()
 		sprite.texture = _RACK_TEX
 		sprite.centered = false
 		sprite.position = Vector2(
-			i * (Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX),
-			0.0
+			i * Constants.RACK_STRIDE_PX,
+			rack_top_y,
 		)
 		rack_row.add_child(sprite)
+	_build_ru_grid_overlay()
+
+
+func _build_ru_grid_overlay() -> void:
+	var OverlayScript: GDScript = preload("res://nodes/ru_grid_overlay.gd")
+	var overlay := Node2D.new()
+	overlay.name = "RuGridOverlay"
+	overlay.set_script(OverlayScript)
+	overlay.z_index = 100
+	$World.add_child(overlay)
 
 
 func _build_floor() -> void:
@@ -60,7 +82,7 @@ func _build_floor() -> void:
 	)
 	for i in Constants.RACK_COUNT:
 		var sprite := Sprite2D.new()
-		sprite.texture = _FLOOR_TEX
+		sprite.texture = _floor_tex
 		sprite.centered = false
 		sprite.position = Vector2(
 			i * (Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX),

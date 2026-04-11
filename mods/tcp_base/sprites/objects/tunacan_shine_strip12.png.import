@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dq6xv1mfgimre"
-path="res://.godot/imported/box_cardboard_back.png-56ab3123f4339f521c80c06c3d7b6c27.ctex"
+uid="uid://cerxncfnlekhg"
+path="res://.godot/imported/tunacan_shine_strip12.png-7316c80141e7ca725905131139a8697d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/objects/box_cardboard_back.png"
-dest_files=["res://.godot/imported/box_cardboard_back.png-56ab3123f4339f521c80c06c3d7b6c27.ctex"]
+source_file="res://mods/tcp_base/sprites/objects/tunacan_shine_strip12.png"
+dest_files=["res://.godot/imported/tunacan_shine_strip12.png-7316c80141e7ca725905131139a8697d.ctex"]
 
 [params]
 
