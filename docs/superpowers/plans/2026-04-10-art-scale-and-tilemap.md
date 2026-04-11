@@ -26,9 +26,10 @@
 | `engine/growth/plant_growth_system.gd` | RefCounted state machine. Reads warmth + cat_presence, transitions plant_growth state, registers/removes comfort advertisements on the server entity, emits events. |
 | `nodes/environment_tilemap.tscn` | Vanilla TileMap node instancing `tcp_environment.tres`. No custom script. |
 | `nodes/dynamic_plants.gd` | Projection-only Node. Subscribes to plant_spawned/plant_despawned events and spawns/despawns Sprite2D children on server sprites. |
-| `mods/tcp_base/sprites/environment/tcp_environment.tres` | TileSet resource (hand-written text) referencing `tcp_tileset01.png` with the 16×16 tile grid. Atlas cells registered per Section 3 of the spec. |
-| `mods/tcp_base/sprites/environment/tcp_tileset01.md` | Self-documenting tile cell map next to the atlas. Tables what each cell contains so `tcp_environment.tres` and `tile_painter.gd` can be maintained as the art evolves. |
-| `config/balance/rendering.jsonc` | Rack decor final alpha, ramp duration constants. |
+| `mods/tcp_base/sprites/environment/tcp_environment.tres` | TileSet resource (hand-written text) referencing `tcp_tileset01.png` with the 16×16 tile grid. No `uid=` attribute; Godot assigns on first import. |
+| `mods/tcp_base/sprites/environment/tcp_tileset01.md` | Self-documenting tile cell map next to the atlas. |
+| `mods/tcp_base/shaders/peek_bay_desaturate.gdshader` | Canvas-item shader that blends toward Rec. 709 luminance. Used by peek bay rack sprites for "faded memory" look (not flat RGB multiply). |
+| `config/balance/rendering.jsonc` | Rack decor final alpha, ramp duration, peek bay shader parameters. |
 | `tests/unit/test_bay_layout.gd` | Tests for Constants helper functions. |
 | `tests/unit/test_tile_painter.gd` | Tests for `TilePainter`. |
 | `tests/unit/test_cat_presence_system.gd` | Tests for cat presence increment/decay/cap. |
@@ -36,9 +37,11 @@
 | `tests/unit/test_plant_projection.gd` | Tests for `dynamic_plants.gd` Node, status strip clearance. |
 | `tests/unit/test_robot_narrator_plants.gd` | Tests for server_id → growth_name map (correct name on despawn). |
 | `tests/unit/test_placement_boundary.gd` | Off-by-one placement math tests (bay edges + intra-rack boundaries). |
+| `tests/unit/test_grayscale_luminance.gd` | Accessibility — Rec. 709 luminance assertions for active/peek bay contrast and plant/chassis visibility (no pixel rendering). |
 | `tests/scene/test_environment_tilemap_loads.gd` | Scene test — verifies `environment_tilemap.tscn` instantiates with a populated TileSet. |
 | `tests/integration/test_bay_rendering.gd` | Integration — instantiate GameClient, verify bay/tilemap rendering. |
-| `tests/integration/test_visual_smoke.gd` | Structural smoke test — viewport size, camera, z-order, bay positions, rack decor alpha, DynamicPlants wired. Replaces pixel-exact golden diff. |
+| `tests/integration/test_plant_comfort_advertisement.gd` | Integration — cat near planted server has higher comfort than cat near unplanted. The Ring 2 mechanical hook gate. |
+| `tests/integration/test_visual_smoke.gd` | Structural smoke test — viewport size, camera, z-order, bay positions, peek shader material, rack decor alpha, DynamicPlants wired. Replaces pixel-exact golden diff. |
 | `tests/perf/test_heat_grid_cell_count.gd` | Perf assertion — 55 cells should scan ~6× faster than 301. |
 | `tests/scenario/test_bay_scale_scenarios.gd` | Behavioral regression in new grid. |
 | `tests/scenario/test_plant_narrative.gd` | Robot log entries fire on plant spawn/despawn. |
@@ -527,13 +530,30 @@ script/checks/gut_tests -f tests/unit/test_nav_graph_builder.gd
 
 Expected: PASS.
 
-- [ ] **Step 5: Mutation-test verification + re-stamp**
+- [ ] **Step 5: Mutation verification (per llm-test-verification.md)**
+
+Re-stamping changes to assertion values is a behavioral edit, not cosmetic. Full Phase 2 mutation cycle required: temporarily break the production code, confirm the test catches it, restore.
+
+Suggested mutation: in `engine/navigation/nav_graph_builder.gd`, swap the floor-node loop bound:
+
+```gdscript
+# Original
+for rack: int in Constants.RACK_COUNT:
+# Mutation: skip the last rack
+for rack: int in Constants.RACK_COUNT - 1:
+```
+
+Run `script/checks/gut_tests -f tests/unit/test_nav_graph_builder.gd` — expect FAIL (missing floor node for rack 4). Restore the original. Run again — expect PASS.
+
+Document the mutation and outcome in a scratch note before re-stamping.
+
+- [ ] **Step 6: Re-stamp after mutation verification**
 
 ```bash
 script/stamp_tests tests/unit/test_nav_graph_builder.gd
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add engine/navigation/nav_graph_builder.gd tests/unit/test_nav_graph_builder.gd tests/unit/test_nav_graph_builder.gd.stamp
@@ -542,7 +562,8 @@ test(nav-graph): update for 5-rack bay scale
 
 Node count and position assertions use Constants helpers instead of
 hardcoded values. No source change — nav_graph_builder already reads
-RACK_COUNT and SLOTS_PER_RACK.
+RACK_COUNT and SLOTS_PER_RACK. Mutation-verified: loop-bound change
+catches missing rack 4 floor node.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -578,14 +599,29 @@ script/checks/gut_tests -f tests/integration/test_desire_scatter.gd
 
 Expected: PASS.
 
-- [ ] **Step 4: Re-stamp**
+- [ ] **Step 4: Mutation verification**
+
+Assertion edits are behavioral. Per llm-test-verification.md, re-stamp requires the full mutation cycle.
+
+Suggested mutation: in `engine/desires/desire_resolver.gd`, change the random placement range:
+
+```gdscript
+# Original
+var rack: int = randi_range(0, Constants.RACK_COUNT - 1)
+# Mutation: always pick rack 0
+var rack: int = 0
+```
+
+Run the tests — at least one should fail (a range test that asserts all racks get visited). Restore the original, verify pass. If the existing tests don't actually catch this mutation, the tests are insufficient — add a test that asserts placement hits multiple distinct racks across many samples before re-stamping.
+
+- [ ] **Step 5: Re-stamp**
 
 ```bash
 script/stamp_tests tests/unit/test_desire_resolver.gd
 script/stamp_tests tests/integration/test_desire_scatter.gd
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add tests/unit/test_desire_resolver.gd tests/integration/test_desire_scatter.gd tests/unit/test_desire_resolver.gd.stamp tests/integration/test_desire_scatter.gd.stamp
@@ -612,15 +648,18 @@ EOF
 cat tests/.audit/2026-04-10-grid-rescale-audit.md
 ```
 
-- [ ] **Step 2: For each unit test hit, update and run**
+- [ ] **Step 2: For each unit test hit, update, run, mutation-verify, re-stamp**
 
 For each file:
 
 1. Open the file at the line number from the audit.
 2. Change literal grid values to `Constants.*` references or new values.
 3. Run the file: `script/checks/gut_tests -f tests/unit/test_<name>.gd`
-4. Check off the item in the audit checklist.
+4. **Mutation verify:** pick one production-code line the test exercises, make a targeted change (flip operator, change literal, early return), run the test — expect FAIL. Restore, run again — expect PASS. Document the mutation in a scratch note.
 5. Re-stamp: `script/stamp_tests tests/unit/test_<name>.gd`
+6. Check off the item in the audit checklist.
+
+**Do not batch-stamp.** Each test file goes through its own red-green-mutate-stamp cycle before moving to the next. A sweep that only runs `stamp_tests` across all files violates `.claude/rules/llm-test-verification.md`.
 
 - [ ] **Step 3: Run the full unit test suite**
 
@@ -638,7 +677,8 @@ git commit -m "$(cat <<'EOF'
 test: update remaining unit tests for grid rescale
 
 Audit checklist items for unit test assertions that referenced the old
-grid constants. Each test red-green-refactor verified and re-stamped.
+grid constants. Each test individually red-green-mutate-stamped per
+llm-test-verification.md.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -776,9 +816,9 @@ When the artist ships a new `tcp_tileset01.png`, update:
 Create `mods/tcp_base/sprites/environment/tcp_environment.tres`:
 
 ```
-[gd_resource type="TileSet" load_steps=2 format=3 uid="uid://c8ktcpnvironment"]
+[gd_resource type="TileSet" load_steps=2 format=3]
 
-[ext_resource type="Texture2D" uid="uid://bg5k3yvlhtiles" path="res://mods/tcp_base/sprites/environment/tcp_tileset01.png" id="1_tileset"]
+[ext_resource type="Texture2D" path="res://mods/tcp_base/sprites/environment/tcp_tileset01.png" id="1_tileset"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1"]
 texture = ExtResource("1_tileset")
@@ -850,7 +890,7 @@ sources/0 = SubResource("TileSetAtlasSource_1")
 /Applications/Godot.app/Contents/MacOS/godot --headless --import --path .
 ```
 
-Godot replaces the placeholder `uid://` strings in the file with real UIDs after import. If the file re-serializes with different cell ordering, that's acceptable — the content is what matters.
+Per Bento: the `.tres` above does NOT set a `uid=` attribute on the `gd_resource` block or the `ext_resource` line. Godot assigns real UIDs on first import and rewrites the file with them. Malformed placeholder UIDs would be rejected — omitting them is safer. Accept the post-import diff.
 
 - [ ] **Step 4: Verify the resource loads**
 
@@ -1041,6 +1081,12 @@ const ATLAS_CABLE_E_U: Vector2i = Vector2i(11, 0)
 const ATLAS_FLOWER_ORANGE: Vector2i = Vector2i(4, 2)
 const ATLAS_GRASS: Vector2i = Vector2i(7, 2)
 const ATLAS_PLANTS_SMALL: Vector2i = Vector2i(4, 4)
+const ATLAS_DARK_EDGE: Vector2i = Vector2i(0, 4)
+# Peek bays use abandonment-coded tiles distinct from the bay-0 "earned
+# reclamation" tiles above. Smudge: don't reuse ATLAS_FLOWER_ORANGE or
+# ATLAS_PLANTS_SMALL for abandoned decor — those are the player's reward.
+const ATLAS_ABANDONMENT_LEAVES: Vector2i = Vector2i(6, 2)  # env_leaves — darker, ambient
+const ATLAS_ABANDONMENT_GRASS: Vector2i = Vector2i(10, 2)  # env_grass_small
 
 var _tilemap: Object  # TileMap or mock — must have set_cell(layer, coords, source_id, atlas_coords)
 
@@ -1113,12 +1159,17 @@ func _paint_floor_strip(start_x: int, end_x: int, bay_index: int) -> void:
 		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 21), _SOURCE_ID, ATLAS_GROUND)
 		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 22), _SOURCE_ID, ATLAS_GROUND_LOWER)
 
-	# Peek bays get extra abandonment decor (more plants, flowers) — per Parcel
+	# Peek bays get abandonment-coded decor (per Parcel). IMPORTANT per Smudge:
+	# use tiles that are NOT the same as the bay-0 "earned reclamation" tiles,
+	# so plants/flowers in active play remain semantically meaningful as
+	# player-earned growth. Dark edge + ambient leaves read as "already gone to
+	# seed" without conflicting with the reward vocabulary.
 	if bay_index != 0:
 		@warning_ignore("integer_division")
 		var mid_x: int = start_x + ((end_x - start_x) / 2)
-		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x, 20), _SOURCE_ID, ATLAS_PLANTS_SMALL)
-		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x + 1, 20), _SOURCE_ID, ATLAS_FLOWER_ORANGE)
+		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x, 19), _SOURCE_ID, ATLAS_DARK_EDGE)
+		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x + 1, 19), _SOURCE_ID, ATLAS_ABANDONMENT_LEAVES)
+		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x - 1, 19), _SOURCE_ID, ATLAS_ABANDONMENT_GRASS)
 ```
 
 **Note from Smudge's review:** `ATLAS_PLANTS_SMALL = Vector2i(4, 4)` was a guess. Before Task 11 ships, open `tcp_tileset01.png` at 16px grid and confirm row 4 col 4 has small plants. If not, update the constant (the cell map in the spec Section 3 confirms `env_plants_small` at row 4 col 4).
@@ -1172,7 +1223,7 @@ Per Bento's review: `--check-only` is a script syntax checker that doesn't load 
 Create `nodes/environment_tilemap.tscn`:
 
 ```
-[gd_scene load_steps=2 format=3 uid="uid://c2x7vcenvtmp"]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="TileSet" path="res://mods/tcp_base/sprites/environment/tcp_environment.tres" id="1_tileset"]
 
@@ -1181,7 +1232,7 @@ tile_set = ExtResource("1_tileset")
 format = 2
 ```
 
-Note: the UID at the top is a placeholder. The importer will assign a real UID on first load. We reference the TileSet by path (not UID) so the scene doesn't break when the importer rewrites the UID.
+No `uid=` attribute — Godot assigns one on first import and rewrites the file. Referencing the TileSet by path (not UID) means the scene works regardless of what UID Godot picks.
 
 - [ ] **Step 2: Write a scene load test**
 
@@ -1780,7 +1831,121 @@ Pure Core RefCounted system. Reads warmth + cat_presence per entity,
 transitions plant_growth component through DORMANT/ARMED/PRESENT/
 DORMANT cycle. Cat-presence cumulative trigger (300 cat-seconds).
 Survives HUM brownouts per narrative.md reclamation aesthetic.
-Emits plant_spawned/plant_despawned events on transitions.
+Registers comfort+100 advertisement on PRESENT, removes on despawn
+(Mochi's mechanical hook). Emits plant_spawned/plant_despawned on
+transitions.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Task 15b: Integration test — plant advertisement drives cat preference
+
+**Files:**
+- Create: `tests/integration/test_plant_comfort_advertisement.gd`
+
+Per Mochi's round-2 review: the plant mechanical hook is only real if cats *actually score* planted servers higher than unplanted ones. Without an integration test that places a plant and verifies a nearby cat's comfort desire responds, the whole Ring 2 emergent feedback loop ships silently broken.
+
+- [ ] **Step 1: Write the test**
+
+Create `tests/integration/test_plant_comfort_advertisement.gd`:
+
+```gdscript
+extends GutTest
+
+# Integration: does a plant in PRESENT state actually influence cat
+# AI scoring? This is the Ring 2 mechanical hook Mochi demanded.
+# Without this test, the plant feature could ship as cosmetic-only.
+
+const _STATE := preload("res://engine/growth/plant_growth_state.gd")
+
+var db: GameStateDB
+var heat_grid: HeatGrid
+var desire_scatter: DesireScatter
+
+
+func before_each() -> void:
+	db = GameStateDB.new()
+	heat_grid = HeatGrid.new(db)
+	desire_scatter = DesireScatter.new(db)
+
+
+func _create_server_at(bay: int, rack: int, slot: int) -> int:
+	var eid: int = db.create_entity()
+	var pos: Vector2i = Constants.rack_slot_to_pu(bay, rack, slot)
+	db.set_component(eid, &"position", {&"x": pos.x, &"y": pos.y})
+	db.set_component(eid, &"object_type", &"server_2u")
+	return eid
+
+
+func _create_cat_at(bay: int, rack: int, slot: int) -> int:
+	var eid: int = db.create_entity()
+	var pos: Vector2i = Constants.rack_slot_to_pu(bay, rack, slot)
+	db.set_component(eid, &"position", {&"x": pos.x, &"y": pos.y})
+	db.set_component(eid, &"species", {&"id": &"tcp_base:cat"})
+	db.set_component(eid, &"desires", {
+		&"warmth": 500, &"comfort": 0, &"curiosity": 500,
+	})
+	return eid
+
+
+func test_cat_comfort_higher_near_planted_server_than_unplanted():
+	var planted: int = _create_server_at(0, 1, 5)
+	var unplanted: int = _create_server_at(0, 3, 5)
+	# Attach a PRESENT plant to the "planted" server
+	db.set_component(planted, &"plant_growth", {
+		&"state": _STATE.PRESENT,
+		&"cat_seconds": 400,
+		&"variant": _STATE.VARIANT_MOSS,
+		&"attached_to": planted,
+	})
+	# Register the comfort advertisement the same way PlantGrowthSystem would
+	db.set_component(planted, &"advertisements", {
+		&"list": [{
+			&"source": &"plant_growth",
+			&"type": &"comfort",
+			&"strength": _STATE.PLANT_COMFORT_STRENGTH,
+			&"radius_ru": _STATE.PLANT_ADVERT_RADIUS_RU,
+		}]
+	})
+	# Place two identical cats, one at each server
+	var cat_near_plant: int = _create_cat_at(0, 1, 5)
+	var cat_near_empty: int = _create_cat_at(0, 3, 5)
+	# Run the scatter — this is what applies advertisements to desires
+	desire_scatter.scatter_from_ads()
+	var comfort_near_plant: int = db.get_field(
+		cat_near_plant, &"desires", &"comfort"
+	)
+	var comfort_near_empty: int = db.get_field(
+		cat_near_empty, &"desires", &"comfort"
+	)
+	assert_gt(comfort_near_plant, comfort_near_empty,
+		"Cat near planted server must have higher comfort satisfaction than cat near unplanted server. Mechanical hook broken if this fails.")
+```
+
+- [ ] **Step 2: Run the test**
+
+```bash
+script/checks/gut_tests -f tests/integration/test_plant_comfort_advertisement.gd
+```
+
+Expected: PASS. If it fails, the advertisement shape `{&"list": [...]}` doesn't match what `desire_scatter.scatter_from_ads()` reads. Inspect `engine/desires/desire_scatter.gd` and adjust the shape in `PlantGrowthSystem._register_comfort_advertisement` accordingly.
+
+- [ ] **Step 3: Stamp and commit**
+
+```bash
+script/stamp_tests tests/integration/test_plant_comfort_advertisement.gd
+git add tests/integration/test_plant_comfort_advertisement.gd tests/integration/test_plant_comfort_advertisement.gd.stamp
+git commit -m "$(cat <<'EOF'
+test(growth): integration test for plant comfort advertisement
+
+Verifies a cat near a planted server has higher comfort satisfaction
+than an identical cat near an unplanted server. This is the Ring 2
+mechanical hook — without this test, the plant feature could ship
+as cosmetic-only and the feedback loop would silently never fire.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -1886,26 +2051,18 @@ func test_unregistered_server_noops():
 
 
 func test_plant_sprite_clears_status_strip():
-	# Per Pebble's review — the left 2px column of the server sprite is
-	# the per-slot status strip and must remain visible. Verify the plant
-	# child sprite's rect does not overlap x in [0, 2) of the server.
+	# Per Pebble: the status strip is the 2px-wide column x in [0, 2) on
+	# the server sprite's face. The plant must not occlude it. The plant
+	# is 8×8, placed at (3, -6) — horizontally right of the strip (x in
+	# [3, 11]), and vertically overlapping only the top 2 rows of the
+	# 8px server (y in [-6, 2], server is y in [0, 8]). The strip stays
+	# fully visible.
 	node._on_plant_spawned(42)
 	var plant: Sprite2D = server_sprite.get_child(0)
-	# Plant is positioned at (-2, -2) relative to server, and it's 8px wide.
-	# Rightmost edge of plant = -2 + 8 = 6. Status strip is x in [0, 2).
-	# Plant overlaps x in [-2, 6), which includes [0, 2).
-	# FAIL if the plant intersects the 2px status strip.
-	var plant_left: float = plant.position.x
-	var plant_right: float = plant.position.x + 8
-	var strip_left: float = 0.0
-	var strip_right: float = 2.0
-	var overlaps: bool = plant_right > strip_left and plant_left < strip_right
-	# NOTE: at (-2, -2) the plant DOES overlap the status strip.
-	# The plan's chosen offset must be fixed. Use (-8, -2) or (2, -8) so
-	# the plant is entirely left-of-strip or entirely above the server.
-	# This test asserts the fixed offset, not the original broken one.
-	assert_false(overlaps,
-		"Plant sprite must not overlap the 2px status strip (x in [0, 2))")
+	var plant_rect: Rect2 = Rect2(plant.position, Vector2(8, 8))
+	var strip_rect: Rect2 = Rect2(0, 0, 2, 8)  # status strip on the server face
+	assert_false(plant_rect.intersects(strip_rect),
+		"Plant sprite must not overlap the 2px status strip region %s — got plant rect %s" % [strip_rect, plant_rect])
 ```
 
 - [ ] **Step 2: Run — expect failure**
@@ -1982,11 +2139,14 @@ func _create_plant_sprite(variant: StringName) -> Sprite2D:
 	atlas.region = REGIONS.get(variant, REGIONS[&"moss"])
 	sprite.texture = atlas
 	sprite.centered = false
-	# Position above the server sprite entirely — 8px plant sits just above
-	# the 8px server top edge. This keeps the plant OUT of the 2px status
-	# strip region (x=[0,2) on the server), per Pebble's review.
-	# AI-DEV: Do not move this to (-2, -2) — that overlaps the status strip.
-	sprite.position = Vector2(0, -8)
+	# Position (3, -6): plant occupies x in [3, 11], y in [-6, 2] relative
+	# to the server. The server is 23×8 at y in [0, 8]. This means:
+	#   - Horizontally: plant starts at x=3, clearing the 2px status strip at x in [0, 2)
+	#   - Vertically: plant top (y=-6) is above the server, bottom (y=2) overlaps
+	#     the top 2 rows of the server — reads as "growing from the chassis top"
+	# AI-DEV: do NOT move to (-2, -2) or (0, -8); both visually break the
+	# "growing on the chassis" read or overlap the status strip.
+	sprite.position = Vector2(3, -6)
 	return sprite
 ```
 
@@ -2008,8 +2168,9 @@ feat(growth): dynamic_plants projection Node
 
 Subscribes to plant_spawned/plant_despawned on the event bus and
 creates/removes 8x8 cropped plant Sprite2D children on server sprites.
-Projection-only — no game logic. Plant position (-2,-2) clears the
-status strip per accessibility requirement.
+Projection-only — no game logic. Plant position (3, -6) clears the
+status strip (x in [0,2)) and partially overlaps the server chassis
+top edge so it reads as "growing from the chassis."
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -2260,8 +2421,10 @@ const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
 const _ENVIRONMENT_TILEMAP_SCENE := preload("res://nodes/environment_tilemap.tscn")
 
 const _VISIBLE_BAY_INDICES: Array[int] = [-1, 0, 1]
-const _PEEK_BAY_MODULATE := Color(0.7, 0.7, 0.7, 1.0)
+const _PEEK_BAY_SHADER := preload("res://mods/tcp_base/shaders/peek_bay_desaturate.gdshader")
 ```
+
+Note the change from `_PEEK_BAY_MODULATE` (flat RGB mul) to a shader. Per Smudge's round-2 review, flat `Color(0.7, 0.7, 0.7, 1.0)` darkens everything equally and crushes the already-dark rack interiors — reads as muddy-gray, not "faded memory." A desaturation shader blends toward luminance for a correct "distant / abandoned" look. Task 20b creates the shader file.
 
 - [ ] **Step 2: Remove old floor code**
 
@@ -2299,7 +2462,9 @@ func _build_bays() -> void:
 			224.0,
 		)
 		if bay_index != 0:
-			sprite.modulate = _PEEK_BAY_MODULATE
+			var mat := ShaderMaterial.new()
+			mat.shader = _PEEK_BAY_SHADER
+			sprite.material = mat
 		rack_row.add_child(sprite)
 
 
@@ -2397,12 +2562,150 @@ feat(rendering): TileMap environment, bays with z-order, dynamic plants wired
 
 Deletes _build_floor(), _FLOOR_REGION, _floor_tex quick-fix. Adds
 _build_bays() placing rack_5set sprites for bays -1/0/1 with peek bays
-muted 30%. Adds _build_environment_tilemap() instancing the new scene
-and painting via TilePainter. Adds _build_rack_decor() with a tween
-handler that ramps alpha from 0 -> 0.7 on first plant_spawned event.
-Adds _build_dynamic_plants() to instance the projection node (was
-orphaned in Task 17). Every World child gets an explicit z_index so
-sibling order doesn't accidentally occlude cats.
+running through a desaturation shader. Adds _build_environment_tilemap()
+instancing the new scene and painting via TilePainter. Adds
+_build_rack_decor() with a tween handler that ramps alpha from 0 -> 0.7
+on first plant_spawned event. Adds _build_dynamic_plants() to instance
+the projection node (was orphaned in Task 17). Every World child gets
+an explicit z_index so sibling order doesn't accidentally occlude cats.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Task 20b: Create the peek bay desaturation shader
+
+**Files:**
+- Create: `mods/tcp_base/shaders/peek_bay_desaturate.gdshader`
+
+Per Smudge's round-2 review: flat `modulate = Color(0.7, 0.7, 0.7, 1.0)` crushes the rack interior palette and reads as "muddy gray," not "faded memory." The correct visual for "distant / abandoned" is desaturation (blend toward luminance), not uniform darkening. Godot shaders are plain text, so this can be hand-written.
+
+- [ ] **Step 1: Create the shader directory and file**
+
+```bash
+mkdir -p mods/tcp_base/shaders
+```
+
+Create `mods/tcp_base/shaders/peek_bay_desaturate.gdshader`:
+
+```
+shader_type canvas_item;
+
+// Desaturation + subtle darken for peek bays. Preserves silhouettes by
+// blending toward luminance rather than flattening RGB channels.
+// Per Smudge: "faded memory" not "muddy gray."
+uniform float desaturation : hint_range(0.0, 1.0) = 0.65;
+uniform float brightness : hint_range(0.0, 1.0) = 0.8;
+
+void fragment() {
+    vec4 src = texture(TEXTURE, UV);
+    // Rec. 709 luminance weights
+    float luma = dot(src.rgb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 desat = mix(src.rgb, vec3(luma), desaturation);
+    COLOR = vec4(desat * brightness, src.a);
+}
+```
+
+- [ ] **Step 2: Verify the shader compiles**
+
+```bash
+/Applications/Godot.app/Contents/MacOS/godot --headless --quit --path . 2>&1 | grep -iE "error.*peek_bay"
+```
+
+Expected: no errors referencing `peek_bay_desaturate.gdshader`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add mods/tcp_base/shaders/peek_bay_desaturate.gdshader
+git commit -m "$(cat <<'EOF'
+feat(rendering): peek bay desaturation shader
+
+Blends toward Rec. 709 luminance (desaturation=0.65) then darkens
+(brightness=0.8) instead of flat RGB multiply. Preserves rack
+silhouettes while making peek bays read as "distant / abandoned."
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Task 20c: Create `config/balance/rendering.jsonc`
+
+**Files:**
+- Create: `config/balance/rendering.jsonc`
+
+Per Bramble's round-2 review: Task 20 has `3.0` (tween duration) and `0.7` (final decor alpha) as code literals, which violates `config-is-not-code` from `design-philosophy.md`. Move to config.
+
+- [ ] **Step 1: Create the config directory**
+
+```bash
+mkdir -p config/balance
+```
+
+- [ ] **Step 2: Write the config file**
+
+Create `config/balance/rendering.jsonc`:
+
+```jsonc
+{
+  "schema_version": 1,
+
+  // Rack decor vine overlay on bay 0 — ramps from 0 alpha at scene start
+  // to the target alpha over the ramp duration on first plant_spawned.
+  // Per Parcel's reclamation aesthetic: the decor is the visible "I did this"
+  // feedback for the first plant.
+  "rack_decor_final_alpha": 700,  // 0.7 in UNIT (0-1000) scale
+  "rack_decor_ramp_seconds": 3,
+
+  // Peek bay desaturation shader parameters — see
+  // mods/tcp_base/shaders/peek_bay_desaturate.gdshader
+  "peek_bay_desaturation": 650,   // 0.65
+  "peek_bay_brightness": 800      // 0.80
+}
+```
+
+- [ ] **Step 3: Update Task 20's `_on_plant_spawned_ramp_decor` to read from config**
+
+Replace the hardcoded `0.7` and `3.0` in Task 20's tween snippet:
+
+```gdscript
+func _on_plant_spawned_ramp_decor(_server_id: int) -> void:
+	var decor_node: Node2D = $World.get_node_or_null("RackDecor")
+	if decor_node == null:
+		return
+	var decor: Sprite2D = decor_node.get_node_or_null("Bay_0_decor") as Sprite2D
+	# Config-driven target alpha, idempotent guard at 99% of target
+	var target_alpha: float = float(
+		ConfigRegistry.get_value("rendering", "rack_decor_final_alpha")
+	) / 1000.0
+	var ramp_seconds: float = float(
+		ConfigRegistry.get_value("rendering", "rack_decor_ramp_seconds")
+	)
+	if decor == null or decor.modulate.a >= target_alpha * 0.99:
+		return
+	var tween: Tween = create_tween()
+	tween.tween_property(decor, "modulate:a", target_alpha, ramp_seconds)
+```
+
+Note: `ConfigRegistry` API calls depend on what actually exists — check `engine/mod/config_registry.gd` or equivalent. If the API is different, adapt.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add config/balance/rendering.jsonc nodes/game_client.gd
+git commit -m "$(cat <<'EOF'
+feat(rendering): rendering.jsonc config for decor alpha and shader params
+
+Moves rack decor final alpha (0.7), ramp duration (3s), and peek bay
+shader parameters (desaturation=0.65, brightness=0.8) out of code
+literals per config-is-not-code. Task 20's _on_plant_spawned_ramp_decor
+reads values via ConfigRegistry.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -3009,10 +3312,16 @@ func test_bay_0_at_origin():
 		"Bay 0 rack sprite at (0, 224)")
 
 
-func test_peek_bays_muted():
+func test_peek_bays_have_desaturation_material():
 	var bay_neg1: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_-1")
-	assert_almost_eq(bay_neg1.modulate.r, 0.7, 0.01,
-		"Bay -1 should be muted (modulate=0.7)")
+	var bay_1: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_1")
+	var bay_0: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_0")
+	assert_not_null(bay_neg1.material,
+		"Bay -1 should have a desaturation ShaderMaterial")
+	assert_not_null(bay_1.material,
+		"Bay 1 should have a desaturation ShaderMaterial")
+	assert_null(bay_0.material,
+		"Bay 0 should NOT be desaturated")
 
 
 func test_environment_tilemap_instanced():
@@ -3112,11 +3421,13 @@ func test_bay_0_is_at_origin():
 		"Bay 0 should not be muted")
 
 
-func test_peek_bays_are_muted():
+func test_peek_bays_have_desaturation_material():
 	var bay_neg1: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_-1")
 	var bay_1: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_1")
-	assert_almost_eq(bay_neg1.modulate.r, 0.7, 0.01, "Bay -1 muted")
-	assert_almost_eq(bay_1.modulate.r, 0.7, 0.01, "Bay 1 muted")
+	var bay_0: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_0")
+	assert_not_null(bay_neg1.material, "Bay -1 desaturated")
+	assert_not_null(bay_1.material, "Bay 1 desaturated")
+	assert_null(bay_0.material, "Bay 0 not desaturated")
 
 
 func test_z_order_respects_spec():
@@ -3172,10 +3483,111 @@ git commit -m "$(cat <<'EOF'
 test(visual): structural smoke test for GameClient scene composition
 
 Verifies viewport 640x360, camera bay-0 centered, three rack bays
-present, peek bays muted, z-order matches spec Section 3, tilemap
-has cells painted, rack decor starts invisible, DynamicPlants wired.
-Replaces the original pixel-exact headless render approach which
-was too flaky in Godot 4 headless mode.
+present, peek bays have desaturation shader, bay 0 does not,
+z-order matches spec Section 3, tilemap has cells painted, rack
+decor starts invisible, DynamicPlants wired. Replaces the original
+pixel-exact headless render approach which was too flaky.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Task 29b: Grayscale luminance test (Pebble's accessibility gate)
+
+**Files:**
+- Create: `tests/unit/test_grayscale_luminance.gd`
+
+Per Pebble's round-2 review: `input-design.md` §5 commits to "Game should be playable in grayscale." This branch introduces the entire tilemap + bay + peek-bay color language and is the cheapest moment to add a grayscale regression check. The test is a pure luminance-math assertion — it doesn't render pixels, so it avoids Kibble's flakiness concerns.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/unit/test_grayscale_luminance.gd`:
+
+```gdscript
+extends GutTest
+
+# Grayscale accessibility check: convert the active-bay and peek-bay
+# tint colors to luminance (Rec. 709) and assert they differ by enough
+# that a color-blind / grayscale-mode player can still tell them apart.
+# This doesn't render the game — it just does the math on the constants.
+
+const _DESAT_SHADER_PATH := "res://mods/tcp_base/shaders/peek_bay_desaturate.gdshader"
+
+# WCAG non-text contrast minimum for UI elements is 3:1. We apply that
+# as a luminance-ratio rule here.
+const _MIN_LUMA_RATIO: float = 3.0
+
+
+func _luma(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+func test_active_bay_vs_peek_bay_luma_distinguishable():
+	# Active bay 0 renders at modulate=WHITE with no shader.
+	var active: Color = Color.WHITE
+	# Peek bay is desaturated + darkened by the shader. Simulate a
+	# midtone sample going through the shader math.
+	# Base sample: mid-gray at a rack interior (~0.35 luma).
+	var sample: Color = Color(0.35, 0.35, 0.35)
+	var desaturation: float = 0.65
+	var brightness: float = 0.80
+	var luma: float = _luma(sample)
+	var desat: Color = sample.lerp(Color(luma, luma, luma), desaturation)
+	var peek_sim: Color = desat * brightness
+	peek_sim.a = 1.0
+	# Active and peek should be distinguishable under grayscale
+	var ratio: float = (_luma(active) + 0.05) / (_luma(peek_sim) + 0.05)
+	assert_gt(ratio, _MIN_LUMA_RATIO,
+		"Active and peek luminance contrast ratio %.2f below WCAG 3:1 for non-text UI" % ratio)
+
+
+func test_plant_sprite_vs_server_chassis_luma_distinguishable():
+	# Plant is sampled from the tileset plant tiles (greenish/warm).
+	# Server chassis is dark blue. Assert their luminance differs enough
+	# that grayscale players see "there's a plant on the server."
+	var chassis: Color = Color(0.11, 0.12, 0.17)  # approx server chassis color
+	var plant_moss: Color = Color(0.39, 0.55, 0.35)  # approx env_leaves green
+	var plant_flower: Color = Color(0.95, 0.62, 0.30)  # approx env_flower_orange
+	var chassis_luma: float = _luma(chassis)
+	var moss_luma: float = _luma(plant_moss)
+	var flower_luma: float = _luma(plant_flower)
+	# Both plant variants should be brighter than chassis by a visible margin
+	assert_gt(moss_luma - chassis_luma, 0.15,
+		"Moss plant luma too close to chassis luma: %.2f vs %.2f" % [moss_luma, chassis_luma])
+	assert_gt(flower_luma - chassis_luma, 0.15,
+		"Flower plant luma too close to chassis luma: %.2f vs %.2f" % [flower_luma, chassis_luma])
+
+
+func test_desaturation_shader_exists():
+	# Sanity check: the shader file referenced by game_client.gd must exist
+	assert_true(FileAccess.file_exists(_DESAT_SHADER_PATH),
+		"peek_bay_desaturate.gdshader must exist at " + _DESAT_SHADER_PATH)
+```
+
+- [ ] **Step 2: Run the test**
+
+```bash
+script/checks/gut_tests -f tests/unit/test_grayscale_luminance.gd
+```
+
+Expected: PASS. If either plant-vs-chassis test fails, the plant sprite variants chosen from the tileset are too close in luminance to the server chassis and need a different pick — before that happens, confirm by eye which plant tiles have the most luminance contrast.
+
+- [ ] **Step 3: Stamp and commit**
+
+```bash
+script/stamp_tests tests/unit/test_grayscale_luminance.gd
+git add tests/unit/test_grayscale_luminance.gd tests/unit/test_grayscale_luminance.gd.stamp
+git commit -m "$(cat <<'EOF'
+test(accessibility): grayscale luminance assertions
+
+Per input-design.md §5 "Game should be playable in grayscale."
+Asserts active bay vs peek bay contrast ratio >= WCAG 3:1,
+plant moss and plant flower each visibly brighter than server
+chassis, and the desaturation shader file exists. Math only —
+no pixel rendering, so no flakiness risk.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
