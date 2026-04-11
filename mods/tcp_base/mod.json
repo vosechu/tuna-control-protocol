@@ -1,0 +1,6 @@
+{
+  "title": "TCP Base",
+  "version": "0.1.0",
+  "author": "TCP Team",
+  "description": "Framework glue for Tuna Control Protocol. Provides the engine, desire system, and mod loader."
+}

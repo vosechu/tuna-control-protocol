@@ -1,0 +1,46 @@
+{
+  // Ferret species definition — derived from game_server.gd hardcoded values
+  // Slinky: warmth 300, comfort 600, curiosity 900
+  // Bandit: warmth 400, comfort 800, curiosity 800
+  "schema_version": 1,
+  "id": "tcp_ferrets:ferret",
+  "name": "Ferret",
+  "desires": {
+    "warmth": 350,
+    "comfort": 700,
+    "curiosity": 850
+  },
+  "personality_ranges": {
+    "warmth": [300, 400],
+    "comfort": [600, 800],
+    "curiosity": [800, 900]
+  },
+  "physical": { "mass": 1500, "size_ru": 1 },
+  "strength": 1500,
+  "traversal": ["WALK", "JUMP_DOWN"],
+  "max_jump_height_ru": 0,
+  "variants": ["lilotter"],
+  "animations": {
+    "required": ["idle", "walk", "sit", "sleep"],
+    "optional": ["sneak", "crouch", "liedown"]
+  },
+  "states": {
+    "idle": { "advertisements": [] },
+    "sleeping": {
+      "advertisements": [
+        { "type": "warmth", "strength": 200, "radius_ru": 1 }
+      ]
+    },
+    "seeking": { "advertisements": [] },
+    "startled": { "advertisements": [] }
+  },
+  "sounds": {
+    "dook": ["ferret_dook_01.wav"],
+    "startled": ["ferret_startled_01.wav"]
+  },
+  "verbs": {
+    "push": { "effectiveness": 800, "desire_affinities": { "stimulation": 400, "curiosity": 500 } },
+    "drag": { "effectiveness": 1000, "desire_affinities": { "curiosity": 900 } }
+  },
+  "initial_state": "idle"
+}
