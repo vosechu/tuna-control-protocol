@@ -8,16 +8,30 @@ var _floor_nodes: Dictionary = {}  # rack_index -> nav_id
 var _slot_nodes: Dictionary = {}   # "rack:slot" -> nav_id
 
 
+var _capabilities: Dictionary = {}  # species_id -> Array
+
+
 func _init() -> void:
-	# Create one AStar2D per known species
-	for species_id: StringName in SpeciesAStar.SPECIES_CAPABILITIES:
+	pass
+
+
+func register_species(
+		species_id: StringName,
+		capabilities: Array,
+) -> void:
+	_capabilities[species_id] = capabilities
+	if not _astars.has(species_id):
 		_astars[species_id] = AStar2D.new()
+
+
+func build() -> void:
 	_build_floor_nodes()
 
 
-func get_astar() -> AStar2D:
-	# Returns the cat astar for debug/test use; cats have the most connectivity
-	return _astars.get(&"tcp_base:cat", AStar2D.new())
+func get_astar(
+		species_id: StringName = &"tcp_cats:cat",
+) -> AStar2D:
+	return _astars.get(species_id, AStar2D.new())
 
 
 func _build_floor_nodes() -> void:
@@ -56,12 +70,12 @@ func add_rack_slot(rack: int, slot: int) -> void:
 	for species_id: StringName in _astars:
 		var astar: AStar2D = _astars[species_id]
 		astar.add_point(nav_id, Vector2(x, y))
-		var capabilities: Array = SpeciesAStar.SPECIES_CAPABILITIES.get(species_id, [])
+		var caps: Array = _capabilities.get(species_id, [])
 		# Connect to floor node — only if species can JUMP_UP
-		if _floor_nodes.has(rack) and SpeciesAStar.JUMP_UP in capabilities:
+		if _floor_nodes.has(rack) and SpeciesAStar.JUMP_UP in caps:
 			astar.connect_points(_floor_nodes[rack], nav_id)
 		# Connect to adjacent occupied slots via WALK
-		if SpeciesAStar.WALK in capabilities:
+		if SpeciesAStar.WALK in caps:
 			for ds: int in [-1, 1]:
 				var adj_key: String = "%d:%d" % [rack, slot + ds]
 				if _slot_nodes.has(adj_key):
@@ -94,7 +108,7 @@ func get_path_points(
 
 func get_nearest_floor_node(rack: int) -> Vector2:
 	# All species share the same floor node positions
-	var astar: AStar2D = _astars.get(&"tcp_base:cat", null)
+	var astar: AStar2D = _astars.get(&"tcp_cats:cat", null)
 	if astar == null or not _floor_nodes.has(rack):
 		return Vector2.ZERO
 	return astar.get_point_position(_floor_nodes[rack])
