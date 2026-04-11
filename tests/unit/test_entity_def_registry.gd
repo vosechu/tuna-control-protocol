@@ -4,6 +4,7 @@ var _registry: EntityDefRegistry
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_registry = EntityDefRegistry.new()
 
 

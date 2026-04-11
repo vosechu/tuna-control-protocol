@@ -4,6 +4,7 @@ var builder: NavGraphBuilder
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	builder = NavGraphBuilder.new()
 	builder.register_species(
 		&"tcp_cats:cat", ["WALK", "JUMP_UP", "JUMP_DOWN"],

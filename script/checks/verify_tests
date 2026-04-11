@@ -100,9 +100,34 @@ while IFS= read -r stamp_file; do
     fi
 done < <(find "$TESTS_DIR" -name '*.gd.stamp' -not -path '*/.godot/*' | sort)
 
+# ── Helpers (setup hash) ─────────────────────────────────────────────────────
+
+get_setup_body() {
+    local file="$1"
+    local setup_body=""
+    local setup_funcs
+    setup_funcs=$(grep -n '^func ' "$file" | grep -v '^.*:func test_' | sed 's/(.*//' | sed 's/^.*func //')
+
+    if [ -z "$setup_funcs" ]; then
+        grep '^var ' "$file" | sed 's/[[:space:]]*$//'
+        return
+    fi
+
+    setup_body=$(grep '^var ' "$file" | sed 's/[[:space:]]*$//')
+
+    while IFS= read -r func_name; do
+        [ -z "$func_name" ] && continue
+        local body
+        body=$(get_function_body "$file" "$func_name")
+        setup_body="${setup_body}${body}"
+    done <<< "$setup_funcs"
+
+    echo -n "$setup_body"
+}
+
 # ── Check 3: All stamps match ────────────────────────────────────────────────
 
-STALE_FILES=()
+STALE_SETUP=()
 STALE_TESTS=()
 ORPHAN_TESTS=()
 MISSING_TESTS=()
@@ -115,12 +140,14 @@ while IFS= read -r test_file; do
         continue
     fi
 
-    # Check file hash
-    EXPECTED_FILE_HASH=$(stamp_get "$stamp_file" "file_hash")
-    ACTUAL_FILE_HASH=$(hash_file "$test_file")
-
-    if [ "$EXPECTED_FILE_HASH" != "$ACTUAL_FILE_HASH" ]; then
-        STALE_FILES+=("$test_file (stamp: $EXPECTED_FILE_HASH, actual: $ACTUAL_FILE_HASH)")
+    # Check setup hash (before_each, helpers, fixtures)
+    EXPECTED_SETUP_HASH=$(stamp_get "$stamp_file" "setup_hash")
+    if [ -n "$EXPECTED_SETUP_HASH" ]; then
+        SETUP_BODY=$(get_setup_body "$test_file")
+        ACTUAL_SETUP_HASH=$(hash_string "$SETUP_BODY")
+        if [ "$EXPECTED_SETUP_HASH" != "$ACTUAL_SETUP_HASH" ]; then
+            STALE_SETUP+=("$test_file (stamp: $EXPECTED_SETUP_HASH, actual: $ACTUAL_SETUP_HASH)")
+        fi
     fi
 
     # Check per-test hashes
@@ -175,12 +202,12 @@ if [ ${#ORPHAN_STAMPS[@]} -gt 0 ]; then
     ERRORS=$((ERRORS + ${#ORPHAN_STAMPS[@]}))
 fi
 
-if [ ${#STALE_FILES[@]} -gt 0 ]; then
-    echo "Test files modified since last verification (file hash mismatch):" >&2
-    for f in "${STALE_FILES[@]}"; do
+if [ ${#STALE_SETUP[@]} -gt 0 ]; then
+    echo "Test setup modified (before_each/helpers changed — all tests invalidated):" >&2
+    for f in "${STALE_SETUP[@]}"; do
         echo "  $f" >&2
     done
-    ERRORS=$((ERRORS + ${#STALE_FILES[@]}))
+    ERRORS=$((ERRORS + ${#STALE_SETUP[@]}))
 fi
 
 if [ ${#STALE_TESTS[@]} -gt 0 ]; then

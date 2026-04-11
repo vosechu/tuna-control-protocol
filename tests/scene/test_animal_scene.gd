@@ -4,6 +4,7 @@ var _scene: PackedScene
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_scene = load("res://nodes/animal.tscn")
 
 
