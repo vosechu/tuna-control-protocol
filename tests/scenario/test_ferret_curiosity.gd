@@ -13,7 +13,7 @@ func before_each() -> void:
 
 func _make_ferret(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
-	_db.set_component(id, &"species", {&"id": &"tcp_base:ferret"})
+	_db.set_component(id, &"species", {&"id": &"tcp_ferrets:ferret"})
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"desires", {&"warmth": 800, &"comfort": 800, &"curiosity": 200})
 	_db.set_component(id, &"personality", {
@@ -92,7 +92,7 @@ func test_ferret_prefers_novel_object_over_rack():
 
 func test_cat_ignores_curiosity_ads():
 	var cat_id: int = _db.create_entity()
-	_db.set_component(cat_id, &"species", {&"id": &"tcp_base:cat"})
+	_db.set_component(cat_id, &"species", {&"id": &"tcp_cats:cat"})
 	_db.set_component(cat_id, &"position", {&"x": 0, &"y": 2000})
 	_db.set_component(cat_id, &"desires", {&"warmth": 800, &"comfort": 800, &"curiosity": 1000})
 	_db.set_component(cat_id, &"personality", {

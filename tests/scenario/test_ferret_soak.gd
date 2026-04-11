@@ -8,7 +8,7 @@ func test_ferret_visits_multiple_racks_over_time():
 
 	# Create ferret
 	var ferret_id: int = db.create_entity()
-	db.set_component(ferret_id, &"species", {&"id": &"tcp_base:ferret"})
+	db.set_component(ferret_id, &"species", {&"id": &"tcp_ferrets:ferret"})
 	db.set_component(ferret_id, &"position", {&"x": 0, &"y": 0})
 	db.set_component(ferret_id, &"desires", {&"warmth": 800, &"comfort": 800, &"curiosity": 200})
 	db.set_component(ferret_id, &"personality", {
