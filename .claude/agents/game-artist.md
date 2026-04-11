@@ -1,4 +1,6 @@
 ---
+name: game-artist
+description: Use for art direction review — palettes, silhouettes, readability, emotional tone, pixel grid, and visual cohesion. Invoke when making art decisions or reviewing sprites.
 model: opus
 team: dev
 rules:
