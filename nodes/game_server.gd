@@ -35,8 +35,19 @@ func _ready() -> void:
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
 	nav_builder = NavGraphBuilder.new()
+	_register_species_nav()
+	nav_builder.build()
 	_spawn_starter_entities()
 	_build_nav_for_objects()
+
+
+func _register_species_nav() -> void:
+	for entity_id: StringName in _entity_defs.get_all_entities():
+		if _entity_defs.has_traversal(entity_id):
+			nav_builder.register_species(
+				entity_id,
+				_entity_defs.get_traversal(entity_id),
+			)
 
 
 func _build_nav_for_objects() -> void:
