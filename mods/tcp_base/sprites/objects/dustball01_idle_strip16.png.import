@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://5vdlu8dphc2q"
-path="res://.godot/imported/server_2u_off.png-ae14fcdbf19ca74399c88eab01ea4ea6.ctex"
+uid="uid://b8g3l2rt4egv0"
+path="res://.godot/imported/dustball01_idle_strip16.png-618d13887501daf479ac8c206b6872e5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/infrastructure/server/server_2u_off.png"
-dest_files=["res://.godot/imported/server_2u_off.png-ae14fcdbf19ca74399c88eab01ea4ea6.ctex"]
+source_file="res://mods/tcp_base/sprites/objects/dustball01_idle_strip16.png"
+dest_files=["res://.godot/imported/dustball01_idle_strip16.png-618d13887501daf479ac8c206b6872e5.ctex"]
 
 [params]
 

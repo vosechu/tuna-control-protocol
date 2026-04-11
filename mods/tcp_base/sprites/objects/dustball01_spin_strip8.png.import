@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ghpcnsrtyxrl"
-path="res://.godot/imported/rack_frame.png-edc91b2fd55b94df78cae13728d8ba80.ctex"
+uid="uid://cieh5vmthcvf1"
+path="res://.godot/imported/dustball01_spin_strip8.png-f4384ea526182962aab36ecc8d909334.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/infrastructure/rack/rack_frame.png"
-dest_files=["res://.godot/imported/rack_frame.png-edc91b2fd55b94df78cae13728d8ba80.ctex"]
+source_file="res://mods/tcp_base/sprites/objects/dustball01_spin_strip8.png"
+dest_files=["res://.godot/imported/dustball01_spin_strip8.png-f4384ea526182962aab36ecc8d909334.ctex"]
 
 [params]
 

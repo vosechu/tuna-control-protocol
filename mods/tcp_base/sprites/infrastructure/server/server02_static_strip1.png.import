@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dwqvf36c4irey"
-path="res://.godot/imported/tuna_can_open.png-40693073148c21e8b030253061db70d4.ctex"
+uid="uid://bpapoityou45l"
+path="res://.godot/imported/server02_static_strip1.png-eacb6e457b1622ec57bcdd5f698e68d3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/objects/tuna_can_open.png"
-dest_files=["res://.godot/imported/tuna_can_open.png-40693073148c21e8b030253061db70d4.ctex"]
+source_file="res://mods/tcp_base/sprites/infrastructure/server/server02_static_strip1.png"
+dest_files=["res://.godot/imported/server02_static_strip1.png-eacb6e457b1622ec57bcdd5f698e68d3.ctex"]
 
 [params]
 

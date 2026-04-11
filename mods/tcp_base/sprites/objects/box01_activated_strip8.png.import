@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkmadx3p4rmu4"
-path="res://.godot/imported/server_2u_on.png-16fab7d7c1729a5d6d1d4f158b695286.ctex"
+uid="uid://835uopxhqtjx"
+path="res://.godot/imported/box01_activated_strip8.png-1005ded23e0142562069b4fee8ff636b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://mods/tcp_base/sprites/infrastructure/server/server_2u_on.png"
-dest_files=["res://.godot/imported/server_2u_on.png-16fab7d7c1729a5d6d1d4f158b695286.ctex"]
+source_file="res://mods/tcp_base/sprites/objects/box01_activated_strip8.png"
+dest_files=["res://.godot/imported/box01_activated_strip8.png-1005ded23e0142562069b4fee8ff636b.ctex"]
 
 [params]
 
