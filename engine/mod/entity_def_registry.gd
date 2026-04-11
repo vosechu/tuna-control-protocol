@@ -62,3 +62,105 @@ func get_states(entity_id: StringName) -> Dictionary:
 func get_initial_state(entity_id: StringName) -> StringName:
 	var def: Dictionary = get_definition(entity_id)
 	return StringName(def.get("initial_state", "idle"))
+
+
+func spawn(
+		entity_id: StringName, db: GameStateDB,
+		overrides: Dictionary = {},
+) -> int:
+	assert(
+		_definitions.has(entity_id),
+		"EntityDefRegistry.spawn: unknown entity: %s"
+		% entity_id,
+	)
+	var def: Dictionary = _definitions[entity_id]
+	var id: int = db.create_entity()
+
+	# Species component
+	var variant: String = ""
+	if def.has("variants") and not def["variants"].is_empty():
+		var variants: Array = def["variants"]
+		variant = variants[randi() % variants.size()]
+	var species_data: Dictionary = {
+		&"id": entity_id,
+		&"variant": StringName(variant),
+		&"name": overrides.get(
+			&"name", StringName(def.get("name", "")),
+		),
+	}
+	db.set_component(id, &"species", species_data)
+
+	# Position from overrides
+	if overrides.has(&"position"):
+		var pos: Dictionary = overrides[&"position"]
+		db.set_component(id, &"position", pos)
+		db.update_spatial(
+			id, pos.get(&"x", 0), pos.get(&"y", 0),
+		)
+
+	# Desires + personality (species only)
+	if def.has("desires") and not def["desires"].is_empty():
+		var base_desires: Dictionary = def["desires"]
+		var personality: Dictionary = {}
+		var initial_desires: Dictionary = {}
+		for key: String in base_desires:
+			var skey: StringName = StringName(key)
+			if def.has("personality_ranges") \
+					and def["personality_ranges"].has(key):
+				var bounds: Array = def["personality_ranges"][key]
+				var min_val: int = int(bounds[0])
+				var max_val: int = int(bounds[1])
+				personality[StringName(key + "_weight")] = \
+					randi_range(min_val, max_val)
+			else:
+				personality[StringName(key + "_weight")] = \
+					int(base_desires[key])
+			initial_desires[skey] = 200
+		db.set_component(id, &"desires", initial_desires)
+		db.set_component(id, &"personality", personality)
+
+	# AI state (species only — entities with traversal)
+	if has_traversal(entity_id):
+		var initial: StringName = get_initial_state(entity_id)
+		db.set_component(id, &"ai_state", {
+			&"state": initial,
+			&"meta_state": &"AMBIENT",
+			&"commitment_score": 0,
+		})
+		db.set_component(id, &"target", {
+			&"x": Constants.INVALID_ID,
+			&"y": Constants.INVALID_ID,
+			&"entity_id": Constants.INVALID_ID,
+		})
+
+	# Object state (entities without traversal that have states)
+	if not has_traversal(entity_id) and def.has("states"):
+		var initial: StringName = get_initial_state(entity_id)
+		db.set_component(
+			id, &"object_state", {&"state": initial},
+		)
+		db.set_component(
+			id, &"object_type", {&"type": entity_id},
+		)
+
+	# Physical properties
+	if def.has("physical"):
+		db.set_component(id, &"physical", {
+			&"mass": int(def["physical"].get("mass", 0)),
+			&"size_ru": int(def["physical"].get("size_ru", 1)),
+		})
+
+	# State-driven advertisements (set for initial state)
+	if def.has("states"):
+		var initial: StringName = get_initial_state(entity_id)
+		var states: Dictionary = def["states"]
+		var istr: String = String(initial)
+		if states.has(istr) \
+				and states[istr].has("advertisements"):
+			var ads: Array = states[istr]["advertisements"]
+			if not ads.is_empty():
+				db.set_component(
+					id, &"advertisements", {&"list": ads},
+				)
+
+	return id
