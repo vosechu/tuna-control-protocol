@@ -4,6 +4,7 @@ var _tracker: CuriosityTracker
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_tracker = CuriosityTracker.new()
 
 

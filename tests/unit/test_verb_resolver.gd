@@ -6,6 +6,7 @@ var _defs: EntityDefRegistry
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_resolver = VerbResolver.new()
 	_db = GameStateDB.new()
 	_defs = EntityDefRegistry.new()

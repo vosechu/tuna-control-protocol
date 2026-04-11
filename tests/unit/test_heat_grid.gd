@@ -5,6 +5,7 @@ var _grid: HeatGrid
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_db = GameStateDB.new()
 	_grid = HeatGrid.new(_db)
 
