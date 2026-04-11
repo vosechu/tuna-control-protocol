@@ -36,11 +36,6 @@ for check in "$CHECKS_DIR"/*; do
             [ -z "$STAGED" ] && continue
             echo "$STAGED" | xargs "$check"
             ;;
-        verify_tests)
-            # Always runs. Blocks commit if any test file is unstamped,
-            # stale, or has an orphan stamp. See .claude/rules/llm-test-verification.md.
-            "$check"
-            ;;
         *)
             # Unknown check — run without file args (it decides what to scan)
             "$check"
