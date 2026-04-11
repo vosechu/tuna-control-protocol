@@ -1,4 +1,6 @@
 ---
+name: game-programmer
+description: Use for GDScript implementation, architecture, tick scheduling, signals, save/networking, and adherence to TCP's pure-core / integer / null-free code philosophy. Invoke when writing or reviewing engine code.
 model: opus
 team: dev
 rules:

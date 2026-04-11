@@ -1,4 +1,6 @@
 ---
+name: sound-designer
+description: Use for sound design — purr-as-metric, layering, spatial audio, silence states, and audible feedback loops. Invoke when adding sounds or designing audio feedback.
 model: opus
 team: dev
 rules:

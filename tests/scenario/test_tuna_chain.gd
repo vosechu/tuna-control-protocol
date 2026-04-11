@@ -5,6 +5,7 @@ var _resolver: DesireResolver
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_db = GameStateDB.new()
 	_resolver = DesireResolver.new(_db)
 

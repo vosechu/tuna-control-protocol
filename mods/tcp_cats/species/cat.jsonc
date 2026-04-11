@@ -1,0 +1,66 @@
+{
+  // Cat species definition — derived from game_server.gd hardcoded values
+  // Mochi: warmth 800, comfort 600, curiosity 100
+  // Biscuit: warmth 500, comfort 900, curiosity 100
+  // Noodle: warmth 700, comfort 700, curiosity 200
+  "schema_version": 1,
+  "id": "tcp_cats:cat",
+  "name": "Cat",
+  "desires": {
+    "warmth": 700,
+    "comfort": 700,
+    "curiosity": 150,
+    "noise": -600,
+    "chased": -900
+  },
+  "personality_ranges": {
+    "warmth": [500, 800],
+    "comfort": [600, 900],
+    "curiosity": [100, 200],
+    "noise": [-840, -360],
+    "chased": [-1000, -800]
+  },
+  "physical": { "mass": 4000, "size_ru": 2 },
+  "strength": 3000,
+  "traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
+  "max_jump_height_ru": 3,
+  "variants": ["cat01", "cat02", "cat03", "cat04", "cat05"],
+  "animations": {
+    "required": ["idle", "walk", "sit", "sleep"],
+    "optional": ["groom", "stretch", "knead", "fright", "liedown", "standup"]
+  },
+  "states": {
+    "idle": {
+      "advertisements": [
+        { "type": "warmth", "strength": 300, "radius_ru": 2 },
+        { "type": "curiosity", "strength": 400, "radius_ru": 3, "novelty_duration": 150, "novelty_cooldown": 50 }
+      ]
+    },
+    "sleeping": {
+      "advertisements": [
+        { "type": "warmth", "strength": 400, "radius_ru": 1 },
+        { "type": "comfort", "strength": 300, "radius_ru": 2 }
+      ]
+    },
+    "grooming": { "advertisements": [] },
+    "seeking": { "advertisements": [] },
+    "startled": {
+      "advertisements": [
+        { "type": "noise", "strength": 200, "radius_ru": 3 }
+      ]
+    }
+  },
+  "sounds": {
+    "purr": ["purr_loop_01.wav", "purr_loop_02.wav"],
+    "mrrp": ["cat_mrrp_01.wav"],
+    "startled": ["cat_startled_01.wav"]
+  },
+  "verbs": {
+    "push": { "effectiveness": 1000, "desire_affinities": { "stimulation": 500, "curiosity": 300 } },
+    "bat": { "effectiveness": 500, "desire_affinities": { "stimulation": 600 } },
+    "drag": { "effectiveness": 700, "desire_affinities": { "curiosity": 800 } },
+    "knock_off": { "effectiveness": 2000, "desire_affinities": { "stimulation": 900 } },
+    "sit_on": { "desire_affinities": { "comfort": 700, "warmth": 200 } }
+  },
+  "initial_state": "idle"
+}

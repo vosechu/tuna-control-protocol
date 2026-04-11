@@ -1,4 +1,6 @@
 ---
+name: game-designer
+description: Use for game design — systems, feedback loops, player motivation, abundance/emergence philosophy, and coherence with TCP's vision. Invoke proactively during design discussions and before implementing mechanics.
 model: opus
 team: dev
 rules:

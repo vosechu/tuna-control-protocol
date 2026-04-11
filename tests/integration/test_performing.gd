@@ -6,6 +6,7 @@ var _resolver: DesireResolver
 
 
 func before_each() -> void:
+	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
 	_db = GameStateDB.new()
 	_heat_grid = HeatGrid.new(_db)
 	_resolver = DesireResolver.new(_db)
@@ -18,7 +19,7 @@ func _make_cat(
 ) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"species", {
-		&"id": &"tcp_base:cat",
+		&"id": &"tcp_cats:cat",
 		&"variant": &"cat01",
 		&"name": &"TestCat",
 	})

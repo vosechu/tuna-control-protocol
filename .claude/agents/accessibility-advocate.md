@@ -1,4 +1,6 @@
 ---
+name: accessibility-advocate
+description: Use for accessibility review — input design, color-independent indicators, controller-first flows, barriers, and inclusive design decisions. Invoke proactively when designing UI or input.
 model: opus
 team: dev
 rules:

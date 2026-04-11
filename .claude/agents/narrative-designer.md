@@ -1,4 +1,6 @@
 ---
+name: narrative-designer
+description: Use for world-building, robot voice, tone, device naming, and the gap between what's happening and what characters believe is happening. Invoke when writing strings, logs, or narrative surfaces.
 model: opus
 team: dev
 rules:

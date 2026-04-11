@@ -48,8 +48,8 @@ Weighted random pool filtered by context: warm → grooming/kneading eligible, n
 ```gdscript
 class_name ObjectAdvertisement extends Resource
 
-@export var desire_type: StringName    # "warmth", "food", "comfort", etc.
-@export var strength: int = 500        # 0 to 1000
+@export var desire_type: StringName    # "warmth", "food", "comfort", "quiet", etc. ("influence channel")
+@export var strength: int = 500        # signed: positive = attractor (desire), negative = aversion. See Aversions section.
 @export var radius_ru: int = 3         # Rack units
 @export var falloff_curve: Curve       # Linear by default (samples 0.0-1.0 for rendering)
 @export var species_filter: Array[StringName] = []
@@ -115,6 +115,85 @@ func _evaluate_one(entity_id: int) -> void:
 **Dirty marking:** The scatter system (see `tick-architecture.md`) marks entities dirty when a desire value crosses a threshold band (multiples of 100). Entities are also marked dirty on: cell movement, nearby entity arrival/departure, object placement/removal within perception radius.
 
 **Priority:** `_pop_highest_deficit` returns the dirty entity with the largest gap between any desire's current value and its satisfaction level. Most-uncomfortable entities react first.
+
+---
+
+## Aversions (Signed Advertisements)
+
+Animals have **desires** (attractors — warmth, food, comfort) and **aversions** (repulsors — noise, being sat on by big animals, being chased). Both live in the same scoring pass, using a single `advertisements` concept with **signed strength**. There is no separate "avoid list," no second scoring pipeline.
+
+### Terminology
+
+- **Desire** — a thing the animal is pulled toward. Stored as `AnimalState.desires[type] = weight`. Tracked with a `satisfaction` value so a deficit can be computed.
+- **Aversion** — a thing the animal is pushed away from. Stored as `AnimalState.aversions[type] = weight`. No satisfaction/deficit — aversions are not "met," they are simply avoided when present.
+- **Signed advertisement** — objects emit ads with positive strength (attracting) or negative strength (repelling). A loud PDU advertises `{desire_type: &"quiet", strength: -700, radius_ru: 4}`. The word "desire_type" is retained for schema continuity; read it as "influence channel."
+
+### Scoring formula (extended)
+
+The advertisement score function branches on sign, but lives in one function:
+
+```gdscript
+func score_for(animal: AnimalAgent, distance_ru: int) -> int:
+    if distance_ru > radius_ru: return 0
+    if not species_filter.is_empty() and animal.species not in species_filter: return 0
+    if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
+
+    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_ru) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_ru)) * 1000)
+
+    if strength >= 0:
+        # Desire path: weighted by deficit so a full cat ignores food ads
+        if not is_available(): return 0
+        var desire_weight: int = animal.get_desire_weight(desire_type)
+        var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
+        return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
+    else:
+        # Aversion path: NO deficit term. A cat is not "deficit-hungry for quiet."
+        var aversion_weight: int = animal.get_aversion_weight(desire_type)
+        return aversion_weight * strength / 1000 * dist_factor / 1000  # result is negative
+```
+
+**Candidate scoring (`_evaluate_one`)** sums *all* ads in the radius rather than picking the single-best ad. A candidate location's utility is the sum of its attractors and repulsors. Clamp the *total*, not per-ad.
+
+### Pitfalls (do not skip)
+
+1. **Do not multiply aversion strength by deficit.** There is no "how hungry am I for silence." Aversion weight × strength × distance only.
+2. **Clamp total score, not per-ad.** A strong nearby attractor should be able to pull a cat *into* a moderately noisy area if the warmth is compelling enough. Per-ad clamping prevents this and feels wrong.
+3. **Distance falloff on negatives.** The `1000 - distance_factor` curve produces full strength at distance 0 and zero strength at the radius edge. This is correct for aversions: the PDU is maximally annoying when you're sitting on it and imperceptible from across the room. Do not invert the curve "because it's a negative."
+4. **Hysteresis is free.** `SWITCH_THRESHOLD=150` and commitment_score decay already prevent cats from twitching away from transient loud noises. Aversions don't need their own hysteresis — the existing transition logic is sign-agnostic.
+
+### Scatter pattern integration
+
+Ambient aversions that radiate from a source (noise, heat-as-discomfort, crowding) follow the same scatter pattern as heat in `tick-architecture.md`. Example for noise:
+
+```gdscript
+# Step 3 (in tick order): scatter noise to aversions
+func scatter_noise_to_aversions() -> void:
+    for cell_idx in noise_grid.cell_count():
+        var level: int = noise_grid.get_noise(cell_idx)
+        for entity_id in _cell_entities[cell_idx]:
+            db.set_field(entity_id, &"aversions", &"quiet", level)
+```
+
+Dirty-flagging works identically: when an aversion value crosses a 100-band, mark the entity dirty.
+
+### Species configuration
+
+Species JSON declares aversion weights the same way it declares desire weights:
+
+```json
+{
+  "cat": {
+    "desires": {"warmth": 800, "food": 700, "comfort": 900, "social": 600},
+    "aversions": {"quiet": 400, "unchased": 900, "unsquished": 1200}
+  },
+  "ferret": {
+    "desires": {"stimulation": 900, "hiding": 700},
+    "aversions": {"quiet": 100, "open_space": 300}
+  }
+}
+```
+
+**Naming convention:** aversions are named by the *desired state*, not the thing being avoided. `quiet` not `noise`, `unchased` not `chased`. This keeps signed-advertisement semantics intuitive: a loud PDU advertises `{desire_type: "quiet", strength: -700}` — it reduces quietness in its radius. All thresholds, curves, and hysteresis bands go in `config/balance/desire_thresholds.json` alongside desires.
 
 ---
 

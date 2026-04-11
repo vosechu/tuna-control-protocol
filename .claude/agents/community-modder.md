@@ -1,4 +1,6 @@
 ---
+name: community-modder
+description: Use for modding API decisions, community-facing surfaces, mod compatibility, and "what will modders do with this" reviews. Invoke when designing extensibility or shipping features that affect mod authors.
 model: opus
 team: dev
 rules:

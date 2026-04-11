@@ -5,18 +5,17 @@ const WALK: StringName = &"WALK"
 const JUMP_UP: StringName = &"JUMP_UP"
 const JUMP_DOWN: StringName = &"JUMP_DOWN"
 
-# Species traversal capabilities
-const SPECIES_CAPABILITIES: Dictionary = {
-	&"tcp_base:cat": [WALK, JUMP_UP, JUMP_DOWN],
-	&"tcp_base:ferret": [WALK, JUMP_DOWN],
-}
-
 var _species: StringName = &""
+var _capabilities: Array = [WALK]
 var _edge_types: Dictionary = {}  # "from_id:to_id" -> StringName
 
 
 func set_species(species_id: StringName) -> void:
 	_species = species_id
+
+
+func set_capabilities(capabilities: Array) -> void:
+	_capabilities = capabilities
 
 
 func set_edge_type(from_id: int, to_id: int, edge_type: StringName) -> void:
@@ -31,7 +30,7 @@ func _edge_key(from_id: int, to_id: int) -> String:
 func _compute_cost(from_id: int, to_id: int) -> float:
 	var key: String = _edge_key(from_id, to_id)
 	var edge_type: StringName = _edge_types.get(key, WALK)
-	var capabilities: Array = SPECIES_CAPABILITIES.get(_species, [WALK])
+	var capabilities: Array = _capabilities
 	if edge_type not in capabilities:
 		return INF
 	# Default AStar2D cost: Euclidean distance between the two points
