@@ -8,6 +8,9 @@ var desire_resolver: DesireResolver
 var desire_scatter: DesireScatter
 var object_state_manager: ObjectStateManager
 var nav_builder: NavGraphBuilder
+var _mod_loader := ModLoader.new()
+var _entity_defs: EntityDefRegistry
+var _verb_resolver := VerbResolver.new()
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
 var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
@@ -23,6 +26,10 @@ var _min_durations: Dictionary = {
 
 func _ready() -> void:
 	db = GameStateDB.new()
+	var mod_result: Dictionary = _mod_loader.load_all(
+		"res://mods/",
+	)
+	_entity_defs = mod_result["entity_defs"]
 	heat_grid = HeatGrid.new(db)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
@@ -246,15 +253,22 @@ func _update_ambient_states() -> void:
 			continue
 
 		# Pick new ambient state
-		var species: Dictionary = db.get_component(entity_id, &"species")
-		var desires: Dictionary = db.get_component(entity_id, &"desires")
-		var is_cat: bool = String(species[&"id"]).contains("cat")
-		# warmth desire: 0 = warm/satisfied, 1000 = cold/desperate
+		var species: Dictionary = db.get_component(
+			entity_id, &"species",
+		)
+		var desires: Dictionary = db.get_component(
+			entity_id, &"desires",
+		)
+		var species_id: StringName = species[&"id"]
 		var is_warm: bool = desires[&"warmth"] < 400
-
-
-
-		var new_state: StringName = _pick_ambient_state(is_cat, is_warm)
+		var has_cat_states: bool = _entity_defs != null \
+			and _entity_defs.has_entity(species_id) \
+			and _entity_defs.get_states(species_id).has(
+				"grooming",
+			)
+		var new_state: StringName = _pick_ambient_state(
+			has_cat_states, is_warm,
+		)
 		if new_state != current_state:
 			db.set_component(entity_id, &"ai_state", {
 				&"state": new_state,
@@ -265,13 +279,13 @@ func _update_ambient_states() -> void:
 			_min_durations_override.erase(entity_id)
 
 
-func _pick_ambient_state(is_cat: bool, is_warm: bool) -> StringName:
-	# Weighted pool based on species and warmth context
+func _pick_ambient_state(
+		has_cat_states: bool, is_warm: bool,
+) -> StringName:
 	var pool: Array[Dictionary] = []
-	# IDLE is always available
 	pool.append({&"state": &"IDLE", &"weight": 10})
 
-	if is_cat:
+	if has_cat_states:
 		if is_warm:
 			pool.append({&"state": &"GROOMING", &"weight": 15})
 			pool.append({&"state": &"LOAFING", &"weight": 20})
@@ -454,191 +468,78 @@ func _spawn_starter_entities() -> void:
 	)
 	db.update_spatial(pile, pile_x, pile_y)
 
-	# First cat: Mochi — on the floor near rack 0
-	var cat: int = db.create_entity()
-	db.set_component(cat, &"species", {
-		&"id": &"tcp_base:cat",
-		&"variant": &"cat01",
-		&"name": &"Mochi",
-	})
-	@warning_ignore("integer_division")
-	var cat_x: int = (
-		0 * Constants.RACK_WIDTH_PU
-		+ Constants.RACK_WIDTH_PU / 2
-	)
-	@warning_ignore("integer_division")
-	var cat_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-		+ Constants.FLOOR_HEIGHT_PU / 2
-	)
-	db.set_component(cat, &"position", {
-		&"x": cat_x, &"y": cat_y,
-	})
-	db.set_component(cat, &"desires", {
-		&"warmth": 200,
-		&"comfort": 200,
-		&"curiosity": 0,
-	})
-	db.set_component(cat, &"personality", {
-		&"warmth_weight": 800,
-		&"comfort_weight": 600,
-		&"curiosity_weight": 100,
-	})
-	db.set_component(cat, &"ai_state", {
-		&"state": &"IDLE",
-		&"meta_state": &"AMBIENT",
-		&"commitment_score": 0,
-	})
-	db.set_component(cat, &"target", {
-		&"x": Constants.INVALID_ID,
-		&"y": Constants.INVALID_ID,
-		&"entity_id": Constants.INVALID_ID,
-	})
-	db.set_component(cat, &"advertisements", {&"list": [
-		{
-			&"desire_type": &"warmth",
-			&"strength": 300,
-			&"radius_ru": 2,
-		},
-		{
-			&"desire_type": &"curiosity",
-			&"strength": 400,
-			&"radius_ru": 3,
-			&"novelty_duration": 150,
-			&"novelty_cooldown": 50,
-		},
-	]})
-	db.update_spatial(cat, cat_x, cat_y)
+	# Spawn cats from mod definitions
+	if _entity_defs.has_entity(&"tcp_cats:cat"):
+		@warning_ignore("integer_division")
+		var floor_y: int = (
+			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			+ Constants.FLOOR_HEIGHT_PU / 2
+		)
+		var cat_spawns: Array[Dictionary] = [
+			{
+				&"name": &"Mochi",
+				&"position": {
+					&"x": Constants.RACK_WIDTH_PU / 2,
+					&"y": floor_y,
+				},
+			},
+			{
+				&"name": &"Biscuit",
+				&"position": {
+					&"x": Constants.RACK_WIDTH_PU
+						+ Constants.RACK_WIDTH_PU / 4,
+					&"y": floor_y,
+				},
+			},
+			{
+				&"name": &"Noodle",
+				&"position": {
+					&"x": 2 * Constants.RACK_WIDTH_PU
+						+ Constants.RACK_WIDTH_PU / 2,
+					&"y": floor_y,
+				},
+			},
+		]
+		for overrides: Dictionary in cat_spawns:
+			_entity_defs.spawn(
+				&"tcp_cats:cat", db, overrides,
+			)
 
-	# Second cat: Biscuit — comfort-focused, on the floor near rack 1
-	var cat2: int = db.create_entity()
-	db.set_component(cat2, &"species", {
-		&"id": &"tcp_base:cat", &"variant": &"cat02", &"name": &"Biscuit",
-	})
-	@warning_ignore("integer_division")
-	var cat2_x: int = 1 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 4
-	@warning_ignore("integer_division")
-	var cat2_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
-	)
-	db.set_component(cat2, &"position", {&"x": cat2_x, &"y": cat2_y})
-	db.set_component(cat2, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
-	db.set_component(cat2, &"personality", {
-		&"warmth_weight": 500, &"comfort_weight": 900, &"curiosity_weight": 100,
-	})
-	db.set_component(cat2, &"ai_state", {
-		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
-	})
-	db.set_component(cat2, &"target", {
-		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
-		&"entity_id": Constants.INVALID_ID,
-	})
-	db.set_component(cat2, &"advertisements", {&"list": [
-		{
-			&"desire_type": &"warmth",
-			&"strength": 300,
-			&"radius_ru": 2,
-		},
-		{
-			&"desire_type": &"curiosity",
-			&"strength": 400,
-			&"radius_ru": 3,
-			&"novelty_duration": 150,
-			&"novelty_cooldown": 50,
-		},
-	]})
-	db.update_spatial(cat2, cat2_x, cat2_y)
-
-	# Third cat: Noodle — balanced, on the floor near rack 2
-	var cat3: int = db.create_entity()
-	db.set_component(cat3, &"species", {
-		&"id": &"tcp_base:cat", &"variant": &"cat03", &"name": &"Noodle",
-	})
-	@warning_ignore("integer_division")
-	var cat3_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
-	@warning_ignore("integer_division")
-	var cat3_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
-	)
-	db.set_component(cat3, &"position", {&"x": cat3_x, &"y": cat3_y})
-	db.set_component(cat3, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 0})
-	db.set_component(cat3, &"personality", {
-		&"warmth_weight": 700, &"comfort_weight": 700, &"curiosity_weight": 200,
-	})
-	db.set_component(cat3, &"ai_state", {
-		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
-	})
-	db.set_component(cat3, &"target", {
-		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
-		&"entity_id": Constants.INVALID_ID,
-	})
-	db.set_component(cat3, &"advertisements", {&"list": [
-		{
-			&"desire_type": &"warmth",
-			&"strength": 300,
-			&"radius_ru": 2,
-		},
-		{
-			&"desire_type": &"curiosity",
-			&"strength": 400,
-			&"radius_ru": 3,
-			&"novelty_duration": 150,
-			&"novelty_cooldown": 50,
-		},
-	]})
-	db.update_spatial(cat3, cat3_x, cat3_y)
-
-	# First ferret: Slinky — explorer, on the floor near rack 1
-	var ferret1: int = db.create_entity()
-	db.set_component(ferret1, &"species", {
-		&"id": &"tcp_base:ferret", &"variant": &"lilotter", &"name": &"Slinky",
-	})
-	@warning_ignore("integer_division")
-	var f1_x: int = 1 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
-	@warning_ignore("integer_division")
-	var f1_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
-	)
-	db.set_component(ferret1, &"position", {&"x": f1_x, &"y": f1_y})
-	db.set_component(ferret1, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 700})
-	db.set_component(ferret1, &"personality", {
-		&"warmth_weight": 300, &"comfort_weight": 600, &"curiosity_weight": 900,
-	})
-	db.set_component(ferret1, &"ai_state", {
-		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
-	})
-	db.set_component(ferret1, &"target", {
-		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
-		&"entity_id": Constants.INVALID_ID,
-	})
-	db.update_spatial(ferret1, f1_x, f1_y)
-	_curiosity_trackers[ferret1] = CuriosityTracker.new()
-
-	# Second ferret: Bandit — comfort hoarder, on the floor near rack 2
-	var ferret2: int = db.create_entity()
-	db.set_component(ferret2, &"species", {
-		&"id": &"tcp_base:ferret", &"variant": &"lilotter", &"name": &"Bandit",
-	})
-	@warning_ignore("integer_division")
-	var f2_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 4
-	@warning_ignore("integer_division")
-	var f2_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
-	)
-	db.set_component(ferret2, &"position", {&"x": f2_x, &"y": f2_y})
-	db.set_component(ferret2, &"desires", {&"warmth": 200, &"comfort": 200, &"curiosity": 700})
-	db.set_component(ferret2, &"personality", {
-		&"warmth_weight": 400, &"comfort_weight": 800, &"curiosity_weight": 800,
-	})
-	db.set_component(ferret2, &"ai_state", {
-		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 0,
-	})
-	db.set_component(ferret2, &"target", {
-		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
-		&"entity_id": Constants.INVALID_ID,
-	})
-	db.update_spatial(ferret2, f2_x, f2_y)
-	_curiosity_trackers[ferret2] = CuriosityTracker.new()
+	# Spawn ferrets from mod definitions
+	if _entity_defs.has_entity(&"tcp_ferrets:ferret"):
+		@warning_ignore("integer_division")
+		var floor_y: int = (
+			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			+ Constants.FLOOR_HEIGHT_PU / 2
+		)
+		var ferret_spawns: Array[Dictionary] = [
+			{
+				&"name": &"Slinky",
+				&"position": {
+					&"x": Constants.RACK_WIDTH_PU
+						+ Constants.RACK_WIDTH_PU / 2,
+					&"y": floor_y,
+				},
+			},
+			{
+				&"name": &"Bandit",
+				&"position": {
+					&"x": 2 * Constants.RACK_WIDTH_PU
+						+ Constants.RACK_WIDTH_PU / 4,
+					&"y": floor_y,
+				},
+			},
+		]
+		for overrides: Dictionary in ferret_spawns:
+			var id: int = _entity_defs.spawn(
+				&"tcp_ferrets:ferret", db, overrides,
+			)
+			var desires: Dictionary = _entity_defs.get_desires(
+				&"tcp_ferrets:ferret",
+			)
+			if desires.has("curiosity"):
+				_curiosity_trackers[id] = \
+					CuriosityTracker.new()
 
 	_spawn_rack_entities()
 
