@@ -4,6 +4,11 @@
       "Bash(git push)",
       "Bash(git push *)",
 
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit -n*)",
+      "Bash(git commit * --no-verify*)",
+      "Bash(git commit * -n*)",
+
       "Bash(git stash)",
       "Bash(git stash push*)",
       "Bash(git stash pop*)",
