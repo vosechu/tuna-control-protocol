@@ -23,6 +23,18 @@ GUT (Godot Unit Test). Tests live in `tests/` mirroring `src/` structure. Test f
 - Soak tests: run 10,000+ ticks, assert invariants.
 - Perf tests: measure time, assert under budget, log actual as telemetry.
 
+## Expected Errors in Tests
+GUT fails tests that trigger `push_error()` unless the error is consumed by an assertion. When testing code paths that intentionally call `push_error()` (validation failures, bad input), use `assert_push_error("substring")` after the call. This tells GUT the error was expected and prevents the test from failing on "unexpected errors."
+
+```gdscript
+func test_missing_field_returns_null():
+    var result := MyParser.parse({"incomplete": true})
+    assert_null(result)
+    assert_push_error("missing required field")
+```
+
+Each `push_error` call must be matched by exactly one `assert_push_error`. Multiple errors need multiple assertions, in order.
+
 ## CI Pipeline
 1. `gdlint` — style enforcement
 2. Unit + Scene + Integration — fail-fast
