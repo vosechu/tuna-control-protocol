@@ -1,4 +1,6 @@
 ---
+name: game-asset-creator
+description: Use for asset pipeline design — how content gets named, structured, versioned, and loaded. Bridges art and code. Invoke when designing content structures or naming/layout conventions.
 model: opus
 team: dev
 rules:

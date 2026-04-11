@@ -1,4 +1,6 @@
 ---
+name: game-qa
+description: Use for edge-case review, failure-mode analysis, test coverage gaps, and "what happens when" stress-testing of designs and implementations. Invoke before shipping features and during test verification.
 model: opus
 team: dev
 rules:
