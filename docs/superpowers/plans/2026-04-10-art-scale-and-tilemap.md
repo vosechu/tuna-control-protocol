@@ -21,28 +21,27 @@
 | File | Responsibility |
 |---|---|
 | `engine/environment/tile_painter.gd` | RefCounted helper — takes a TileMap reference and paints bay environment by calling `set_cell()`. Unit-testable. |
-| `engine/growth/plant_growth_system.gd` | RefCounted state machine. Reads warmth + cat_presence components, transitions plant_growth state, emits events. |
-| `engine/growth/plant_growth_state.gd` | Enum-holder / constants for plant state machine (DORMANT/ARMED/GROWING/PRESENT). |
+| `engine/growth/plant_growth_state.gd` | Constants module for plant state machine (DORMANT/ARMED/GROWING/PRESENT, variants, thresholds, comfort advert strength). |
+| `engine/growth/cat_presence_system.gd` | RefCounted system that increments/decays `cat_presence.seconds` on servers based on cat proximity. Runs after movement. |
+| `engine/growth/plant_growth_system.gd` | RefCounted state machine. Reads warmth + cat_presence, transitions plant_growth state, registers/removes comfort advertisements on the server entity, emits events. |
 | `nodes/environment_tilemap.tscn` | Vanilla TileMap node instancing `tcp_environment.tres`. No custom script. |
-| `nodes/dynamic_plants.gd` | Projection-only Node. Subscribes to plant_growth component lifecycle events and spawns/despawns Sprite2D children on server sprites. |
-| `nodes/dynamic_plants.tscn` | Scene wrapper for the above. |
-| `mods/tcp_base/sprites/environment/tcp_environment.tres` | TileSet resource (Godot-authored) referencing `tcp_tileset01.png` with the 16×16 tile grid from Section 3 of the spec. |
+| `nodes/dynamic_plants.gd` | Projection-only Node. Subscribes to plant_spawned/plant_despawned events and spawns/despawns Sprite2D children on server sprites. |
+| `mods/tcp_base/sprites/environment/tcp_environment.tres` | TileSet resource (hand-written text) referencing `tcp_tileset01.png` with the 16×16 tile grid. Atlas cells registered per Section 3 of the spec. |
+| `mods/tcp_base/sprites/environment/tcp_tileset01.md` | Self-documenting tile cell map next to the atlas. Tables what each cell contains so `tcp_environment.tres` and `tile_painter.gd` can be maintained as the art evolves. |
 | `config/balance/rendering.jsonc` | Rack decor final alpha, ramp duration constants. |
-| `script/checks/visual_smoke` | CI script — headless render + PNG diff against golden. |
-| `script/render_snapshot.gd` | Godot script used by visual_smoke to dump viewport to PNG. |
-| `script/regen_visual_goldens` | Manual golden regeneration script. |
 | `tests/unit/test_bay_layout.gd` | Tests for Constants helper functions. |
 | `tests/unit/test_tile_painter.gd` | Tests for `TilePainter`. |
-| `tests/unit/test_plant_growth_system.gd` | Tests for plant state machine. |
-| `tests/unit/test_plant_projection.gd` | Tests for `dynamic_plants.gd` Node. |
-| `tests/unit/test_placement_boundary.gd` | Off-by-one placement math tests. |
+| `tests/unit/test_cat_presence_system.gd` | Tests for cat presence increment/decay/cap. |
+| `tests/unit/test_plant_growth_system.gd` | Tests for plant state machine, multi-tick hysteresis dip, HUM-brownout survival. |
+| `tests/unit/test_plant_projection.gd` | Tests for `dynamic_plants.gd` Node, status strip clearance. |
+| `tests/unit/test_robot_narrator_plants.gd` | Tests for server_id → growth_name map (correct name on despawn). |
+| `tests/unit/test_placement_boundary.gd` | Off-by-one placement math tests (bay edges + intra-rack boundaries). |
+| `tests/scene/test_environment_tilemap_loads.gd` | Scene test — verifies `environment_tilemap.tscn` instantiates with a populated TileSet. |
 | `tests/integration/test_bay_rendering.gd` | Integration — instantiate GameClient, verify bay/tilemap rendering. |
+| `tests/integration/test_visual_smoke.gd` | Structural smoke test — viewport size, camera, z-order, bay positions, rack decor alpha, DynamicPlants wired. Replaces pixel-exact golden diff. |
 | `tests/perf/test_heat_grid_cell_count.gd` | Perf assertion — 55 cells should scan ~6× faster than 301. |
 | `tests/scenario/test_bay_scale_scenarios.gd` | Behavioral regression in new grid. |
 | `tests/scenario/test_plant_narrative.gd` | Robot log entries fire on plant spawn/despawn. |
-| `tests/snapshots/visual/golden/bay0_centered.png` | Visual smoke golden. |
-| `tests/snapshots/visual/golden/bay0_grayscale.png` | Accessibility grayscale golden. |
-| `tests/snapshots/visual/golden/bay0_reduce_motion.png` | Accessibility reduce-motion golden. |
 
 ### Modified files
 
@@ -89,21 +88,28 @@ mkdir -p tests/.audit
 grep -rnE '\b(42|294|80|76|96)\b' tests/ engine/ nodes/ > /tmp/audit_literals.txt
 ```
 
-Expected: many hits. Some are false positives (tick counts, seeds), some are real grid values. Manual triage in step 5.
+Expected: many hits. Some are false positives (tick counts, seeds), some are real grid values. Manual triage in step 6.
 
-- [ ] **Step 3: Run grep audit — expressions**
+- [ ] **Step 3: Run grep audit — multiplication AND division expressions**
 
-```bash
-grep -rnE '\*\s*(7|8|42|80)' tests/ engine/ nodes/ > /tmp/audit_expressions.txt
-grep -rnE 'SLOTS_PER_RACK\s*-' tests/ engine/ nodes/ >> /tmp/audit_expressions.txt
-```
-
-- [ ] **Step 4: Run grep audit — scene/resource files**
+Per Kibble/Bramble review: reverse math (division) is as common as multiplication. Both directions must be scanned.
 
 ```bash
-grep -rnE '\b(42|294|80|76|96)\b' nodes/*.tscn mods/tcp_base/ 2>/dev/null > /tmp/audit_resources.txt
-grep -rnE 'Vector2\(' tests/scenario/ tests/integration/ >> /tmp/audit_resources.txt
+grep -rnE '\*\s*(7|8|42|80|96)' tests/ engine/ nodes/ > /tmp/audit_expressions.txt
+grep -rnE '/\s*(7|8|42|80|96)' tests/ engine/ nodes/ >> /tmp/audit_expressions.txt
+grep -rnE 'SLOTS_PER_RACK\s*[-+*/]' tests/ engine/ nodes/ >> /tmp/audit_expressions.txt
+grep -rnE 'RACK_COUNT\s*[-+*/]' tests/ engine/ nodes/ >> /tmp/audit_expressions.txt
 ```
+
+- [ ] **Step 4: Run grep audit — scene/resource files, Vector literals, string keys**
+
+```bash
+grep -rnE '\b(42|294|80|76|96)\b' nodes/**/*.tscn mods/**/*.tscn mods/**/*.tres tests/scene/*.tscn 2>/dev/null > /tmp/audit_resources.txt
+grep -rnE 'Vector2i?\(' tests/scenario/ tests/integration/ tests/scene/ >> /tmp/audit_resources.txt
+grep -rn '"server_2u"\|&"server_2u"' tests/ engine/ nodes/ mods/ >> /tmp/audit_resources.txt
+```
+
+**Server_2u note:** All hits of `"server_2u"` should STAY — the type string is kept per the rename strategy. Listing them only to prove they're intentional, not to change them.
 
 - [ ] **Step 5: Write the checklist file**
 
@@ -701,57 +707,174 @@ EOF
 
 Goal: real Godot TileMap painting the environment, unit-testable RefCounted painter, scene ready for `game_client.gd` integration.
 
-### Task 9: Create the TileSet resource
+### Task 9: Create the TileSet resource + tile cell map doc
 
 **Files:**
 - Create: `mods/tcp_base/sprites/environment/tcp_environment.tres`
+- Create: `mods/tcp_base/sprites/environment/tcp_tileset01.md`
 
-This step is **Godot-editor work**, not text editing. The agent executing this plan should open the project in Godot and follow the steps, or hand this task to the human operator.
+Per Bento's review: the original plan required opening the Godot GUI editor to build the TileSet, which an inline LLM executor can't do. The `.tres` format is plain text and can be hand-written. `TilePainter` (Task 11) looks tiles up by atlas coordinates directly, so we don't need named custom data layers — just an atlas source that covers `tcp_tileset01.png` with a `16×16` grid.
 
-- [ ] **Step 1: Open Godot editor**
+We also write a **tile cell map markdown file** next to the PNG so the tileset is self-documenting. `TilePainter` constants reference tile positions by `Vector2i(col, row)` — the `.md` explains what each cell contains. If the artist ships an updated tileset with different tile layouts, this doc gets updated alongside.
 
-```bash
-/Applications/Godot.app/Contents/MacOS/godot --path . --editor
+- [ ] **Step 1: Write the tile cell map markdown**
+
+Create `mods/tcp_base/sprites/environment/tcp_tileset01.md`:
+
+```markdown
+# tcp_tileset01.png — tile cell map
+
+Atlas: 192×96 pixels, 12 columns × 6 rows of 16×16 tiles.
+Referenced by `tcp_environment.tres` (Godot TileSet) and
+`engine/environment/tile_painter.gd` (via `Vector2i(col, row)` constants).
+
+Rows are indexed 0 at the top, columns 0 at the left.
+
+| Tile | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5 | Col 6 | Col 7 | Col 8 | Col 9 | Col 10 | Col 11 |
+|------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|--------|--------|
+| Row 0 | Ceiling corner | Wall | Wall | Wall | Cable A L | Cable A R | Cable B L | Cable B R | Cable C L | Cable C R | Cable D R | Cable E (U) |
+| Row 1 | Wall | Wall | Wall | Wall | — | — | Cable B L bot | Cable B R bot | Cable C L bot | Cable C R bot | Cable D R bot | — |
+| Row 2 | Wall | Wall | Wall | Wall | Orange flowers | Yellow/orange flowers | Leaves | Grass | Orange blossoms | Single blossom | Little grass | — |
+| Row 3 | Baseboard A | Baseboard B | Baseboard C | Wall (lower) | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | — |
+| Row 4 | Dark edge | — | — | — | Small plants | — | — | — | — | — | — | — |
+| Row 5 | — | — | — | — | Ground surface | Ground surface | Ground surface | Ground surface | — | — | — | — |
+
+`—` = transparent / not registered in the TileSet.
+
+## Purpose groups
+
+- **Wall background:** cols 0–3, rows 0–2 (4×3 block of wall tiles, tiled behind racks)
+- **Ceiling corner:** (0, 0) — only used at the leftmost edge of bay 0
+- **Wall-to-ground transition:** (3, 3) — placed at y=19 (one row above baseboard)
+- **Baseboard:** (0, 3), (1, 3), (2, 3) — horizontal strip at y=20
+- **Ground surface:** (4, 3)–(10, 3) and (4, 5)–(7, 5) — y=21 and y=22
+- **Hanging cables (5 variants, A–E):** cols 4–11 of row 0, some with "bottom" halves in row 1
+- **Decorative plants/flowers:** scattered across rows 2 and 4–5 for ground-level reclamation aesthetic
+- **Small plants:** (4, 4) — used on floor strip of peek bays (abandoned-looking)
+
+## Painter usage
+
+See `engine/environment/tile_painter.gd`:
+- `ATLAS_CEILING = Vector2i(0, 0)` — leftmost cell of bay 0's ceiling row
+- `ATLAS_WALL = Vector2i(1, 0)` — tiled across ceiling and wall fill
+- `ATLAS_WALL_LOWER = Vector2i(3, 3)` — y=19 transition row
+- `ATLAS_BASEBOARD_A/B/C = Vector2i(0, 3)/(1, 3)/(2, 3)` — y=20
+- `ATLAS_GROUND = Vector2i(4, 3)` / `ATLAS_GROUND_LOWER = Vector2i(4, 5)` — y=21, y=22
+- `ATLAS_CABLE_A_L = Vector2i(4, 0)` / `ATLAS_CABLE_A_R = Vector2i(5, 0)` — cable A (first cable)
+- `ATLAS_PLANTS_SMALL = Vector2i(4, 4)` — abandonment decor on peek bay floors
+
+## Updating this file
+
+When the artist ships a new `tcp_tileset01.png`, update:
+1. This markdown table to match the new tile layout
+2. `tcp_environment.tres` to register the new non-transparent cells
+3. `engine/environment/tile_painter.gd` constants if positions changed
 ```
 
-- [ ] **Step 2: Create a new TileSet resource**
+- [ ] **Step 2: Hand-write the `.tres` file**
 
-In the FileSystem dock, navigate to `mods/tcp_base/sprites/environment/`. Right-click → New Resource → TileSet. Name it `tcp_environment.tres`.
+Create `mods/tcp_base/sprites/environment/tcp_environment.tres`:
 
-- [ ] **Step 3: Add atlas source**
+```
+[gd_resource type="TileSet" load_steps=2 format=3 uid="uid://c8ktcpnvironment"]
 
-Open `tcp_environment.tres`. In the TileSet editor at the bottom of the Godot window:
-1. Click "+" in the Sources panel
-2. Select "Atlas"
-3. Point at `tcp_tileset01.png`
-4. Set Tile Size to `16 × 16`
-5. Click "Automatic Tile Creation" to detect non-transparent cells
+[ext_resource type="Texture2D" uid="uid://bg5k3yvlhtiles" path="res://mods/tcp_base/sprites/environment/tcp_tileset01.png" id="1_tileset"]
 
-- [ ] **Step 4: Name each tile per the spec's flat list**
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1"]
+texture = ExtResource("1_tileset")
+texture_region_size = Vector2i(16, 16)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+5:0/0 = 0
+6:0/0 = 0
+7:0/0 = 0
+8:0/0 = 0
+9:0/0 = 0
+10:0/0 = 0
+11:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
+3:1/0 = 0
+6:1/0 = 0
+7:1/0 = 0
+8:1/0 = 0
+9:1/0 = 0
+10:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
+3:2/0 = 0
+4:2/0 = 0
+5:2/0 = 0
+6:2/0 = 0
+7:2/0 = 0
+8:2/0 = 0
+9:2/0 = 0
+10:2/0 = 0
+0:3/0 = 0
+1:3/0 = 0
+2:3/0 = 0
+3:3/0 = 0
+4:3/0 = 0
+5:3/0 = 0
+6:3/0 = 0
+7:3/0 = 0
+8:3/0 = 0
+9:3/0 = 0
+10:3/0 = 0
+0:4/0 = 0
+4:4/0 = 0
+4:5/0 = 0
+5:5/0 = 0
+6:5/0 = 0
+7:5/0 = 0
 
-For each tile cell from the spec's Section 3 table (`env_ceiling`, `env_wall`, `env_cable_*`, etc.), assign a custom data layer for `tile_name` with the string. This lets the painter look up tiles by name.
+[resource]
+tile_size = Vector2i(16, 16)
+sources/0 = SubResource("TileSetAtlasSource_1")
+```
 
-Alternative: skip named lookup and use atlas coordinates directly in `tile_painter.gd`. If that's simpler for this pass, do it that way and document.
+**What this encodes:**
+- One `TileSetAtlasSource` pointing at `tcp_tileset01.png`
+- `texture_region_size = 16×16` — 12 cols × 6 rows of tiles
+- Each `x:y/0 = 0` line registers a non-transparent atlas cell at (col, row). Transparent cells are omitted.
+- The list matches the tile table from the spec's Section 3. The file **does not** use named tile data layers — `TilePainter` references tiles by `Vector2i(col, row)` directly.
 
-- [ ] **Step 5: Save and quit the editor**
-
-Save the resource. Close the Godot editor.
-
-- [ ] **Step 6: Run the importer to generate `.import` sidecar**
+- [ ] **Step 3: Run the Godot importer to register UIDs**
 
 ```bash
 /Applications/Godot.app/Contents/MacOS/godot --headless --import --path .
 ```
 
-- [ ] **Step 7: Commit**
+Godot replaces the placeholder `uid://` strings in the file with real UIDs after import. If the file re-serializes with different cell ordering, that's acceptable — the content is what matters.
+
+- [ ] **Step 4: Verify the resource loads**
+
+The scene test in Task 12 provides the real verification — it preloads `environment_tilemap.tscn` which references this `.tres`. For this task, a quick headless sanity check:
 
 ```bash
-git add mods/tcp_base/sprites/environment/tcp_environment.tres mods/tcp_base/sprites/environment/tcp_environment.tres.import
-git commit -m "$(cat <<'EOF'
-feat(environment): add tcp_environment.tres TileSet resource
+/Applications/Godot.app/Contents/MacOS/godot --headless --path . --quit 2>&1 | grep -iE "error.*tcp_environment" && exit 1 || echo "no errors on tcp_environment"
+```
 
-TileSet with Atlas source pointing at tcp_tileset01.png, 16x16 tiles,
-non-transparent cells registered with names per spec Section 3.
+Expected: "no errors on tcp_environment". If the `.tres` has a syntax error, Godot's resource loader logs it during the project startup.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add mods/tcp_base/sprites/environment/tcp_environment.tres mods/tcp_base/sprites/environment/tcp_environment.tres.import mods/tcp_base/sprites/environment/tcp_tileset01.md 2>/dev/null || git add mods/tcp_base/sprites/environment/tcp_environment.tres mods/tcp_base/sprites/environment/tcp_tileset01.md
+git commit -m "$(cat <<'EOF'
+feat(environment): tcp_environment.tres TileSet + tile cell map doc
+
+Text-serialized Godot TileSet pointing at tcp_tileset01.png. Atlas
+source with 16x16 tiles, non-transparent cells registered per the
+spec Section 3 tile table. No named custom data layers — TilePainter
+references cells by Vector2i(col, row). Companion tcp_tileset01.md
+documents what each cell contains so the tileset is self-describing
+independent of the .tres resource.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -951,11 +1074,15 @@ func clear_bay(bay_index: int) -> void:
 
 
 func _paint_ceiling_row(start_x: int, end_x: int, bay_index: int) -> void:
-	# Row y=0, ceiling corner at left, wall across, cables in the middle
+	# Row y=0: ceiling corner at the leftmost edge of bay 0, wall across.
+	# Per Smudge's review — ATLAS_CEILING must actually be used.
 	for x in range(start_x, end_x + 1):
-		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 0), _SOURCE_ID, ATLAS_WALL)
-	# Place a single cable decoration in the middle of the environment gap
-	# (only in bay 0 so peek bays don't compete visually)
+		var tile: Vector2i = ATLAS_WALL
+		if bay_index == 0 and x == start_x:
+			tile = ATLAS_CEILING  # corner piece on the leftmost cell of bay 0
+		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 0), _SOURCE_ID, tile)
+	# Place cable decoration in the middle of the environment gap (only in bay 0
+	# so peek bays don't compete visually).
 	if bay_index == 0:
 		@warning_ignore("integer_division")
 		var mid_x: int = start_x + ((end_x - start_x) / 4)
@@ -971,21 +1098,30 @@ func _paint_wall_fill(start_x: int, end_x: int) -> void:
 
 
 func _paint_floor_strip(start_x: int, end_x: int, bay_index: int) -> void:
-	# Floor is y=20..22 (320-368 at 16px cells). Baseboard + ground.
+	# Floor is y=20..22 (320-368 at 16px cells). The row just above floor (y=19)
+	# uses ATLAS_WALL_LOWER as the wall-to-ground transition.
 	for x in range(start_x, end_x + 1):
-		# Baseboard at y=20
-		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 20), _SOURCE_ID, ATLAS_BASEBOARD_B)
+		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 19), _SOURCE_ID, ATLAS_WALL_LOWER)
+		# Baseboard at y=20 — vary the variant across the row for texture
+		var baseboard_tile: Vector2i = ATLAS_BASEBOARD_B
+		if x == start_x:
+			baseboard_tile = ATLAS_BASEBOARD_A
+		elif x == end_x:
+			baseboard_tile = ATLAS_BASEBOARD_C
+		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 20), _SOURCE_ID, baseboard_tile)
 		# Ground rows
 		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 21), _SOURCE_ID, ATLAS_GROUND)
 		_tilemap.set_cell(_MAIN_LAYER, Vector2i(x, 22), _SOURCE_ID, ATLAS_GROUND_LOWER)
 
-	# Peek bays get extra abandonment decor (more plants, flowers)
+	# Peek bays get extra abandonment decor (more plants, flowers) — per Parcel
 	if bay_index != 0:
 		@warning_ignore("integer_division")
 		var mid_x: int = start_x + ((end_x - start_x) / 2)
 		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x, 20), _SOURCE_ID, ATLAS_PLANTS_SMALL)
 		_tilemap.set_cell(_MAIN_LAYER, Vector2i(mid_x + 1, 20), _SOURCE_ID, ATLAS_FLOWER_ORANGE)
 ```
+
+**Note from Smudge's review:** `ATLAS_PLANTS_SMALL = Vector2i(4, 4)` was a guess. Before Task 11 ships, open `tcp_tileset01.png` at 16px grid and confirm row 4 col 4 has small plants. If not, update the constant (the cell map in the spec Section 3 confirms `env_plants_small` at row 4 col 4).
 
 - [ ] **Step 3: Run tests**
 
@@ -1023,12 +1159,13 @@ EOF
 
 ---
 
-### Task 12: Create the vanilla `environment_tilemap.tscn`
+### Task 12: Create the vanilla `environment_tilemap.tscn` + scene load test
 
 **Files:**
 - Create: `nodes/environment_tilemap.tscn`
+- Create: `tests/scene/test_environment_tilemap_loads.gd`
 
-This is a scene file — create via Godot editor or hand-write the `.tscn` text.
+Per Bento's review: `--check-only` is a script syntax checker that doesn't load scenes. Use a real GUT scene test per `.claude/rules/testing.md`.
 
 - [ ] **Step 1: Hand-write the scene file**
 
@@ -1037,36 +1174,66 @@ Create `nodes/environment_tilemap.tscn`:
 ```
 [gd_scene load_steps=2 format=3 uid="uid://c2x7vcenvtmp"]
 
-[ext_resource type="TileSet" uid="uid://bg5k3yvlh2x7a" path="res://mods/tcp_base/sprites/environment/tcp_environment.tres" id="1_tileset"]
+[ext_resource type="TileSet" path="res://mods/tcp_base/sprites/environment/tcp_environment.tres" id="1_tileset"]
 
 [node name="EnvironmentTileMap" type="TileMap"]
 tile_set = ExtResource("1_tileset")
 format = 2
 ```
 
-Note: the UIDs above are placeholders. Run the Godot importer and it will assign real UIDs.
+Note: the UID at the top is a placeholder. The importer will assign a real UID on first load. We reference the TileSet by path (not UID) so the scene doesn't break when the importer rewrites the UID.
 
-- [ ] **Step 2: Run the importer**
+- [ ] **Step 2: Write a scene load test**
+
+Create `tests/scene/test_environment_tilemap_loads.gd`:
+
+```gdscript
+extends GutTest
+
+# Scene test: verify environment_tilemap.tscn instantiates without errors
+# and exposes a valid TileMap with a TileSet reference.
+
+const _SCENE := preload("res://nodes/environment_tilemap.tscn")
+
+func test_scene_instantiates():
+	var node: TileMap = _SCENE.instantiate()
+	add_child_autofree(node)
+	assert_not_null(node, "Scene should instantiate")
+
+func test_tile_set_is_loaded():
+	var node: TileMap = _SCENE.instantiate()
+	add_child_autofree(node)
+	assert_not_null(node.tile_set,
+		"TileMap should have a tile_set assigned")
+
+func test_tile_set_has_atlas_source():
+	var node: TileMap = _SCENE.instantiate()
+	add_child_autofree(node)
+	var source_count: int = node.tile_set.get_source_count()
+	assert_gt(source_count, 0,
+		"TileSet should have at least one source")
+```
+
+- [ ] **Step 3: Run the importer, then the scene test**
 
 ```bash
 /Applications/Godot.app/Contents/MacOS/godot --headless --import --path .
+script/checks/gut_tests -f tests/scene/test_environment_tilemap_loads.gd
 ```
 
-Expected: new `.uid` files generated. Verify the scene loads without errors:
+Expected: scene test PASSES. If it fails with "ext_resource path not found" the TileSet from Task 9 isn't loading; re-check the `.tres` text.
+
+- [ ] **Step 4: Stamp and commit**
 
 ```bash
-/Applications/Godot.app/Contents/MacOS/godot --headless --path . --check-only 2>&1 | grep -i "environment_tilemap"
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add nodes/environment_tilemap.tscn nodes/environment_tilemap.tscn.uid
+script/stamp_tests tests/scene/test_environment_tilemap_loads.gd
+git add nodes/environment_tilemap.tscn tests/scene/test_environment_tilemap_loads.gd tests/scene/test_environment_tilemap_loads.gd.stamp
 git commit -m "$(cat <<'EOF'
-feat(environment): add environment_tilemap.tscn scene
+feat(environment): environment_tilemap.tscn scene + load test
 
 Vanilla TileMap node referencing tcp_environment.tres. No custom
-script — logic lives in the RefCounted TilePainter.
+script — logic lives in the RefCounted TilePainter. Scene test verifies
+it instantiates with a populated TileSet.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -1112,6 +1279,12 @@ const VARIANT_FLOWER: StringName = &"flower"
 const WARMTH_MIN: int = 600     # 0.6 warmth precondition
 const GROW_THRESHOLD_SECONDS: int = 300  # 300 cat-seconds to grow
 const DECAY_THRESHOLD_SECONDS: int = 100  # below this, PRESENT → DORMANT
+
+# Mechanical hook (Mochi): present plants advertise comfort so emergent
+# behavior compounds — cats find planted servers more attractive, which
+# increases cat presence, which keeps the plant alive.
+const PLANT_COMFORT_STRENGTH: int = 100  # in UNIT
+const PLANT_ADVERT_RADIUS_RU: int = 1
 ```
 
 - [ ] **Step 2: Commit**
@@ -1123,6 +1296,172 @@ feat(growth): add PlantGrowthState constants module
 
 State machine values (DORMANT/ARMED/GROWING/PRESENT), variants
 (moss/grass/blossom/flower), and thresholds for plant spawn/despawn.
+Comfort advertisement strength (PLANT_COMFORT_STRENGTH = 100, radius 1U)
+for the Ring 2 mechanical hook that emergent cat placement responds to.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Task 13b: Add `cat_presence` component update system
+
+**Files:**
+- Create: `engine/growth/cat_presence_system.gd`
+- Create: `tests/unit/test_cat_presence_system.gd`
+
+Per Bramble's review: the plant growth system reads `cat_presence[&"seconds"]` but nothing writes it. Without a dedicated system, PlantGrowthSystem crashes on the first tick (GameStateDB asserts on missing components). This task fills that gap.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/unit/test_cat_presence_system.gd`:
+
+```gdscript
+extends GutTest
+
+const _SYSTEM_SCRIPT := preload("res://engine/growth/cat_presence_system.gd")
+
+var db: GameStateDB
+var system: RefCounted
+var server_id: int
+var cat_id: int
+
+
+func before_each() -> void:
+	db = GameStateDB.new()
+	system = _SYSTEM_SCRIPT.new(db)
+	# A server that wants to track cat presence
+	server_id = db.create_entity()
+	db.set_component(server_id, &"position",
+		{&"x": Constants.rack_slot_to_pu(0, 2, 5).x, &"y": Constants.rack_slot_to_pu(0, 2, 5).y})
+	db.set_component(server_id, &"object_type", &"server_2u")
+	db.set_component(server_id, &"cat_presence", {&"seconds": 0})
+	# A cat at the same slot
+	cat_id = db.create_entity()
+	db.set_component(cat_id, &"position",
+		{&"x": Constants.rack_slot_to_pu(0, 2, 5).x, &"y": Constants.rack_slot_to_pu(0, 2, 5).y})
+	db.set_component(cat_id, &"species", {&"id": &"tcp_base:cat"})
+
+
+func test_cat_overlapping_server_increments_presence():
+	system.tick()
+	var pres: int = db.get_field(server_id, &"cat_presence", &"seconds")
+	assert_gt(pres, 0, "Cat overlapping server should increment cat_presence")
+
+
+func test_cat_far_from_server_does_not_increment():
+	db.set_component(cat_id, &"position", {&"x": 99999, &"y": 99999})
+	system.tick()
+	var pres: int = db.get_field(server_id, &"cat_presence", &"seconds")
+	assert_eq(pres, 0, "Cat far from server should not increment cat_presence")
+
+
+func test_presence_decays_when_cat_leaves():
+	db.set_field(server_id, &"cat_presence", &"seconds", 500)
+	db.set_component(cat_id, &"position", {&"x": 99999, &"y": 99999})
+	for _i in 10:
+		system.tick()
+	var pres: int = db.get_field(server_id, &"cat_presence", &"seconds")
+	assert_lt(pres, 500, "Presence should decay when cat leaves")
+
+
+func test_presence_capped_at_max():
+	# Run enough ticks that the counter would overflow without a cap
+	db.set_field(server_id, &"cat_presence", &"seconds", 0)
+	for _i in 2000:
+		system.tick()
+	var pres: int = db.get_field(server_id, &"cat_presence", &"seconds")
+	assert_lte(pres, 1000,
+		"cat_presence should cap at 1000 (100 seconds) to prevent overflow")
+```
+
+- [ ] **Step 2: Run — expect failure**
+
+```bash
+script/checks/gut_tests -f tests/unit/test_cat_presence_system.gd
+```
+
+Expected: script doesn't exist.
+
+- [ ] **Step 3: Write the system**
+
+Create `engine/growth/cat_presence_system.gd`:
+
+```gdscript
+class_name CatPresenceSystem extends RefCounted
+
+# Tracks how long cats have been near each server entity.
+# Runs once per tick AFTER cat movement. The plant growth system
+# reads cat_presence the same tick after this runs.
+# Pure Core RefCounted — no Node references.
+
+const _MAX_PRESENCE: int = 1000  # capped at 100 seconds worth (10 per tick at 10Hz)
+const _INCREMENT_PER_TICK: int = 10  # one second of credit per tick at 10Hz
+const _DECAY_PER_TICK: int = 5  # half a second decay when no cats present
+const _PROXIMITY_RU: int = 1  # cats within 1 rack unit count
+
+var _db: GameStateDB
+
+
+func _init(db: GameStateDB) -> void:
+	_db = db
+
+
+func tick() -> void:
+	var servers: Array[int] = _db.get_entities_with(&"cat_presence")
+	for server_id in servers:
+		_evaluate(server_id)
+
+
+func _evaluate(server_id: int) -> void:
+	var server_pos: Dictionary = _db.get_component(server_id, &"position")
+	var proximity_pu: int = _PROXIMITY_RU * Constants.SLOT_HEIGHT_PU * 2  # horizontal and vertical
+	var nearby: bool = _any_cat_nearby(server_pos, proximity_pu)
+
+	var current: int = _db.get_field(server_id, &"cat_presence", &"seconds")
+	var next: int
+	if nearby:
+		next = mini(current + _INCREMENT_PER_TICK, _MAX_PRESENCE)
+	else:
+		next = maxi(current - _DECAY_PER_TICK, 0)
+	_db.set_field(server_id, &"cat_presence", &"seconds", next)
+
+
+func _any_cat_nearby(server_pos: Dictionary, max_dist_pu: int) -> bool:
+	var cats: Array[int] = _db.get_entities_with(&"species")
+	for cat_id in cats:
+		if not _db.has_component(cat_id, &"position"):
+			continue
+		var cat_pos: Dictionary = _db.get_component(cat_id, &"position")
+		var dx: int = absi(cat_pos[&"x"] - server_pos[&"x"])
+		var dy: int = absi(cat_pos[&"y"] - server_pos[&"y"])
+		if dx <= max_dist_pu and dy <= max_dist_pu:
+			return true
+	return false
+```
+
+- [ ] **Step 4: Run tests**
+
+```bash
+script/checks/gut_tests -f tests/unit/test_cat_presence_system.gd
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Stamp and commit**
+
+```bash
+script/stamp_tests tests/unit/test_cat_presence_system.gd
+git add engine/growth/cat_presence_system.gd tests/unit/test_cat_presence_system.gd tests/unit/test_cat_presence_system.gd.stamp
+git commit -m "$(cat <<'EOF'
+feat(growth): CatPresenceSystem tracks cat-seconds on servers
+
+RefCounted system ticked after cat movement. For each server entity
+with a cat_presence component, increments when a cat is within 1 RU,
+decays otherwise. Caps at 1000 (100 seconds) to prevent overflow.
+Populates the component that PlantGrowthSystem reads.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -1221,16 +1560,37 @@ func test_armed_reaches_threshold_grows():
 
 
 func test_hysteresis_dip_preserves_counter():
-	# Warmth dips into 0.5 (below MIN but well above decay)
-	heat.set_temp(500)
-	db.set_field(server_id, &"cat_presence", &"seconds", 200)
+	# Multi-tick dip sequence per Kibble's review:
+	# Start warm, accumulate, dip into the 0.5 band for several ticks,
+	# return to warm, verify the counter held through the dip and kept climbing.
+	db.set_field(server_id, &"cat_presence", &"seconds", 400)
 	db.set_field(server_id, &"plant_growth", &"state", _STATE.ARMED)
-	db.set_field(server_id, &"plant_growth", &"cat_seconds", 200)
+	db.set_field(server_id, &"plant_growth", &"cat_seconds", 100)
+
+	# Phase 1: warm, counter should rise
+	heat.set_temp(700)
 	system.tick()
-	var growth: Dictionary = db.get_component(server_id, &"plant_growth")
-	# The counter should NOT reset to 0 on a transient warmth dip
-	assert_gte(growth[&"cat_seconds"], 200,
-		"Warmth dip (not cold) should preserve cat_seconds accumulator")
+	var after_warm_1: int = db.get_field(server_id, &"plant_growth", &"cat_seconds")
+	assert_gt(after_warm_1, 100, "First warm tick should increment counter")
+
+	# Phase 2: dip into hysteresis band (warmth 0.5, cats still present).
+	# Counter should hold — not reset, not decay, not error.
+	heat.set_temp(500)
+	for _i in 5:
+		system.tick()
+	var after_dip: int = db.get_field(server_id, &"plant_growth", &"cat_seconds")
+	assert_gte(after_dip, after_warm_1,
+		"Dip ticks must preserve counter — not reset to zero")
+	var state_during_dip: StringName = db.get_field(server_id, &"plant_growth", &"state")
+	assert_eq(state_during_dip, _STATE.ARMED,
+		"State should stay ARMED during dip, not fall back to DORMANT")
+
+	# Phase 3: return to warm, counter should resume climbing
+	heat.set_temp(700)
+	system.tick()
+	var after_resume: int = db.get_field(server_id, &"plant_growth", &"cat_seconds")
+	assert_gt(after_resume, after_dip,
+		"Return to warm should resume incrementing counter from dip value")
 
 
 func test_present_survives_hum_brownout():
@@ -1279,14 +1639,15 @@ Create `engine/growth/plant_growth_system.gd`:
 class_name PlantGrowthSystem extends RefCounted
 
 # State machine for reclamation plant growth on servers.
-# Reads warmth + cat_presence, transitions plant_growth component.
-# Pure Core — no Node references.
+# Reads warmth + cat_presence, transitions plant_growth component,
+# registers/removes comfort advertisements on the server entity.
+# Pure Core — no Node references. Events autoload is a global identifier
+# per signals.md — no has_singleton guard needed.
 
 const _STATE := preload("res://engine/growth/plant_growth_state.gd")
 
 var _db: GameStateDB
 var _heat_grid: Object  # HeatGrid or FakeHeatGrid — must have get_temperature_for_slot(slot_key)
-var _last_tick: int = 0
 
 
 func _init(db: GameStateDB, heat_grid: Object) -> void:
@@ -1296,11 +1657,12 @@ func _init(db: GameStateDB, heat_grid: Object) -> void:
 
 func tick() -> void:
 	# Iterate entities with plant_growth component.
-	# At ~50 servers this is trivial; change detection can be added later.
+	# At ~50 servers this is trivial. Change-detection (watch_lifecycle + dirty
+	# flags) can replace this if the scale target changes; per design-philosophy
+	# we prefer explicit full scans over premature optimization at prototype scale.
 	var entities: Array[int] = _db.get_entities_with(&"plant_growth")
 	for entity_id in entities:
 		_evaluate(entity_id)
-	_last_tick = _db.get_tick() if _db.has_method("get_tick") else _last_tick + 1
 
 
 func _evaluate(entity_id: int) -> void:
@@ -1341,17 +1703,41 @@ func _transition(entity_id: int, new_state: StringName, new_cat_seconds: int) ->
 	_db.set_field(entity_id, &"plant_growth", &"state", new_state)
 	_db.set_field(entity_id, &"plant_growth", &"cat_seconds", new_cat_seconds)
 
-	# Emit events on spawn/despawn (hook for narrative system)
+	# Spawning — register comfort advertisement (Mochi mechanical hook) and fire event
 	if old_state != _STATE.PRESENT and new_state == _STATE.PRESENT:
-		if Engine.has_singleton("Events"):
-			var ev: Object = Engine.get_singleton("Events")
-			if ev.has_signal(&"plant_spawned"):
-				ev.plant_spawned.emit(entity_id)
+		_register_comfort_advertisement(entity_id)
+		Events.plant_spawned.emit(entity_id)
+	# Despawning — remove advertisement and fire event
 	elif old_state == _STATE.PRESENT and new_state != _STATE.PRESENT:
-		if Engine.has_singleton("Events"):
-			var ev: Object = Engine.get_singleton("Events")
-			if ev.has_signal(&"plant_despawned"):
-				ev.plant_despawned.emit(entity_id)
+		_remove_comfort_advertisement(entity_id)
+		Events.plant_despawned.emit(entity_id)
+
+
+func _register_comfort_advertisement(server_id: int) -> void:
+	# Plant advertises comfort to nearby cats. Ring 2 mechanical hook: cats
+	# find planted servers more attractive, so plants compound presence.
+	# If the server already has an advertisements component, append to it.
+	var ads: Array = []
+	if _db.has_component(server_id, &"advertisements"):
+		ads = _db.get_component(server_id, &"advertisements").get(&"list", [])
+	ads.append({
+		&"source": &"plant_growth",  # tag for removal
+		&"type": &"comfort",
+		&"strength": _STATE.PLANT_COMFORT_STRENGTH,
+		&"radius_ru": _STATE.PLANT_ADVERT_RADIUS_RU,
+	})
+	_db.set_component(server_id, &"advertisements", {&"list": ads})
+
+
+func _remove_comfort_advertisement(server_id: int) -> void:
+	if not _db.has_component(server_id, &"advertisements"):
+		return
+	var ads: Array = _db.get_component(server_id, &"advertisements").get(&"list", [])
+	var filtered: Array = []
+	for ad: Dictionary in ads:
+		if ad.get(&"source", &"") != &"plant_growth":
+			filtered.append(ad)
+	_db.set_component(server_id, &"advertisements", {&"list": filtered})
 
 
 func _slot_key_for(pos: Dictionary) -> int:
@@ -1359,6 +1745,11 @@ func _slot_key_for(pos: Dictionary) -> int:
 	var info: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
 	return Constants.rack_cell(info[&"rack"], info[&"slot"])
 ```
+
+**Bramble notes:**
+- `Events.plant_spawned.emit(id)` uses the autoload as a global identifier, per signals.md. No `Engine.has_singleton` guard — the autoload is always loaded. If it's not, the test harness will crash loudly, which is correct.
+- `has_method("get_tick")` check removed — `GameStateDB` always has it.
+- Advertisement component shape (`{list: [...]}`) must match whatever the existing `desire_scatter.gd` reads. Confirm during implementation that `desire_scatter` iterates `advertisements.list` and not some other shape. If the existing shape is different, adapt `_register_comfort_advertisement` accordingly.
 
 - [ ] **Step 2: Run tests**
 
@@ -1492,6 +1883,29 @@ func test_unregistered_server_noops():
 	# Emit for an unknown server ID — should not crash
 	node._on_plant_spawned(999)
 	pass_test("No crash")
+
+
+func test_plant_sprite_clears_status_strip():
+	# Per Pebble's review — the left 2px column of the server sprite is
+	# the per-slot status strip and must remain visible. Verify the plant
+	# child sprite's rect does not overlap x in [0, 2) of the server.
+	node._on_plant_spawned(42)
+	var plant: Sprite2D = server_sprite.get_child(0)
+	# Plant is positioned at (-2, -2) relative to server, and it's 8px wide.
+	# Rightmost edge of plant = -2 + 8 = 6. Status strip is x in [0, 2).
+	# Plant overlaps x in [-2, 6), which includes [0, 2).
+	# FAIL if the plant intersects the 2px status strip.
+	var plant_left: float = plant.position.x
+	var plant_right: float = plant.position.x + 8
+	var strip_left: float = 0.0
+	var strip_right: float = 2.0
+	var overlaps: bool = plant_right > strip_left and plant_left < strip_right
+	# NOTE: at (-2, -2) the plant DOES overlap the status strip.
+	# The plan's chosen offset must be fixed. Use (-8, -2) or (2, -8) so
+	# the plant is entirely left-of-strip or entirely above the server.
+	# This test asserts the fixed offset, not the original broken one.
+	assert_false(overlaps,
+		"Plant sprite must not overlap the 2px status strip (x in [0, 2))")
 ```
 
 - [ ] **Step 2: Run — expect failure**
@@ -1527,12 +1941,9 @@ var _plant_sprites: Dictionary = {}  # entity_id -> Sprite2D (the plant child)
 
 
 func _ready() -> void:
-	if Engine.has_singleton("Events"):
-		var ev: Object = Engine.get_singleton("Events")
-		if ev.has_signal(&"plant_spawned"):
-			ev.plant_spawned.connect(_on_plant_spawned)
-		if ev.has_signal(&"plant_despawned"):
-			ev.plant_despawned.connect(_on_plant_despawned)
+	# Events autoload is a global identifier per signals.md — no guards.
+	Events.plant_spawned.connect(_on_plant_spawned)
+	Events.plant_despawned.connect(_on_plant_despawned)
 
 
 func register_server_sprite(server_id: int, sprite: Sprite2D) -> void:
@@ -1571,7 +1982,11 @@ func _create_plant_sprite(variant: StringName) -> Sprite2D:
 	atlas.region = REGIONS.get(variant, REGIONS[&"moss"])
 	sprite.texture = atlas
 	sprite.centered = false
-	sprite.position = Vector2(-2, -2)  # clears the 2px left-edge status strip
+	# Position above the server sprite entirely — 8px plant sits just above
+	# the 8px server top edge. This keeps the plant OUT of the 2px status
+	# strip region (x=[0,2) on the server), per Pebble's review.
+	# AI-DEV: Do not move this to (-2, -2) — that overlaps the status strip.
+	sprite.position = Vector2(0, -8)
 	return sprite
 ```
 
@@ -1623,37 +2038,85 @@ Add alongside other system instances in `nodes/game_server.gd`:
 var plant_growth_system: PlantGrowthSystem
 ```
 
-In `_ready()` (after heat_grid is constructed):
+Add member declarations alongside existing systems (near the `desire_scatter` field around line 8 of `game_server.gd`):
 
 ```gdscript
+var cat_presence_system: CatPresenceSystem
+var plant_growth_system: PlantGrowthSystem
+```
+
+In `_ready()` (after `heat_grid` is constructed, around line 28):
+
+```gdscript
+cat_presence_system = CatPresenceSystem.new(db)
 plant_growth_system = PlantGrowthSystem.new(db, heat_grid)
 ```
 
-In `_physics_process` (after heat propagation, before animal AI):
+- [ ] **Step 3: Insert explicit tick order into `_physics_process`**
+
+The current `_physics_process` (around line 48) looks like:
 
 ```gdscript
-plant_growth_system.tick()
+func _physics_process(_delta: float) -> void:
+	db.advance_tick()
+	heat_grid.propagate()
+	_scatter_desires()
+	_decay_commitment()
+	desire_resolver.mark_all_dirty()
+	desire_resolver.evaluate_budget(_curiosity_trackers)
+	_move_animals()
+	_update_ambient_states()
+	db.flush_notifications()
 ```
 
-The exact placement depends on the existing tick-order sequence — consult `.claude/rules/tick-architecture.md` for the canonical order.
+**Critical tick-order requirement (per Bramble's review):** `cat_presence_system.tick()` MUST run after `_move_animals()` so it sees the current tick's cat positions, and `plant_growth_system.tick()` MUST run after `cat_presence_system.tick()` so it sees fresh presence data. Insert between `_move_animals()` and `_update_ambient_states()`:
 
-- [ ] **Step 3: Compile-check**
+```gdscript
+func _physics_process(_delta: float) -> void:
+	db.advance_tick()
+	heat_grid.propagate()
+	_scatter_desires()
+	_decay_commitment()
+	desire_resolver.mark_all_dirty()
+	desire_resolver.evaluate_budget(_curiosity_trackers)
+	_move_animals()
+	cat_presence_system.tick()   # NEW — reads fresh positions
+	plant_growth_system.tick()   # NEW — reads fresh presence + heat
+	_update_ambient_states()
+	db.flush_notifications()
+```
+
+Placement rationale:
+- AFTER `_move_animals` so cat positions are current
+- BEFORE `_update_ambient_states` so plant transitions this tick can influence ambient state selection next tick
+- Events emitted during `plant_growth_system.tick()` fire immediately and any subscribers receive them before the next tick begins (see `_update_ambient_states` and `db.flush_notifications`)
+
+- [ ] **Step 4: Compile-check**
 
 ```bash
-/Applications/Godot.app/Contents/MacOS/godot --headless --check-only --path . 2>&1 | grep -i error
+/Applications/Godot.app/Contents/MacOS/godot --headless --quit --path . 2>&1 | grep -iE "error.*game_server"
 ```
 
-Expected: no new errors from `game_server.gd`.
+Expected: no errors referencing `game_server.gd`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Run existing integration tests to verify the new tick order doesn't break anything**
+
+```bash
+script/checks/gut_tests -f tests/integration/test_tick_loop.gd
+```
+
+Expected: PASS. (This test may need updating if it asserts a specific tick sequence — do that in Phase 2 cascade fixes.)
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add nodes/game_server.gd
 git commit -m "$(cat <<'EOF'
-feat(growth): wire PlantGrowthSystem into tick loop
+feat(growth): wire CatPresenceSystem and PlantGrowthSystem into tick loop
 
-Instantiated alongside heat_grid, ticked in _physics_process after
-heat propagation and before animal AI.
+Tick order: after _move_animals (so positions are current), before
+_update_ambient_states. CatPresenceSystem runs first so PlantGrowthSystem
+sees fresh presence data the same tick.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -1675,25 +2138,28 @@ grep -rln "RobotNarrator\|robot_log\|robot_narrator" nodes/ engine/ | head -5
 
 If no robot narrator exists yet, create a minimal stub at `nodes/robot_narrator.gd` that logs to `print()` as a placeholder.
 
-- [ ] **Step 2: Subscribe to plant events**
+- [ ] **Step 2: Subscribe to plant events, track names per server**
+
+Per Parcel's review: `_next_growth_id - 1` lies when two plants coexist and the older one despawns. Track a `server_id → growth_name` map so each despawn logs the correct growth ID.
 
 In the narrator's `_ready()`:
 
 ```gdscript
-if Engine.has_singleton("Events"):
-	var ev: Object = Engine.get_singleton("Events")
-	ev.plant_spawned.connect(_on_plant_spawned)
-	ev.plant_despawned.connect(_on_plant_despawned)
+# Events is a GDScript autoload global — direct access per signals.md
+Events.plant_spawned.connect(_on_plant_spawned)
+Events.plant_despawned.connect(_on_plant_despawned)
 ```
 
-Add handlers:
+Add state + handlers:
 
 ```gdscript
 var _next_growth_id: int = 1
+var _growth_names: Dictionary = {}  # server_id -> "DECORATIVE-GROWTH-NN"
 
 func _on_plant_spawned(server_id: int) -> void:
 	var growth_name: String = "DECORATIVE-GROWTH-%02d" % _next_growth_id
 	_next_growth_id += 1
+	_growth_names[server_id] = growth_name
 	var unit_name: String = "UNIT-S%02d" % server_id
 	_emit_log(
 		"[NOTE] %s is producing unauthorized biological output. " % unit_name
@@ -1704,9 +2170,11 @@ func _on_plant_spawned(server_id: int) -> void:
 	)
 
 func _on_plant_despawned(server_id: int) -> void:
+	var growth_name: String = _growth_names.get(server_id, "DECORATIVE-GROWTH-??")
+	_growth_names.erase(server_id)
 	var unit_name: String = "UNIT-S%02d" % server_id
 	_emit_log(
-		"[LOG] DECORATIVE-GROWTH-%02d has gone offline. " % (_next_growth_id - 1)
+		"[LOG] %s has gone offline. " % growth_name
 		+ "%s resuming standard operations. I will miss it." % unit_name
 	)
 
@@ -1716,22 +2184,41 @@ func _emit_log(text: String) -> void:
 
 Exact line numbers depend on the narrator file's structure.
 
-- [ ] **Step 3: Compile-check + run a scenario**
+**Test for the despawn-name-lookup fix:** add this test to whichever test file touches the narrator (or create `tests/unit/test_robot_narrator_plants.gd`):
 
-```bash
-/Applications/Godot.app/Contents/MacOS/godot --headless --check-only --path . 2>&1 | grep -i error
+```gdscript
+func test_despawn_log_names_correct_plant():
+	var narrator: Node = _NARRATOR_SCRIPT.new()
+	narrator._on_plant_spawned(10)  # creates DECORATIVE-GROWTH-01 for server 10
+	narrator._on_plant_spawned(20)  # creates DECORATIVE-GROWTH-02 for server 20
+	narrator._on_plant_despawned(10)  # should log GROWTH-01, not GROWTH-02
+	# Assert last log contains "DECORATIVE-GROWTH-01", not "02"
+	assert_string_contains(narrator._last_log_text, "DECORATIVE-GROWTH-01",
+		"Despawn should name the specific plant that despawned, not _next_growth_id - 1")
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Compile-check and run the despawn-name test**
 
 ```bash
-git add nodes/robot_narrator.gd
+/Applications/Godot.app/Contents/MacOS/godot --headless --quit --path . 2>&1 | grep -iE "error.*robot_narrator"
+script/checks/gut_tests -f tests/unit/test_robot_narrator_plants.gd
+```
+
+Expected: no errors in compile check, test passes.
+
+- [ ] **Step 4: Stamp and commit**
+
+```bash
+script/stamp_tests tests/unit/test_robot_narrator_plants.gd
+git add nodes/robot_narrator.gd tests/unit/test_robot_narrator_plants.gd tests/unit/test_robot_narrator_plants.gd.stamp
 git commit -m "$(cat <<'EOF'
 feat(narrative): robot log entries for plant spawn/despawn
 
 DECORATIVE-GROWTH-NN naming per Parcel's spec. The robot never says
 'plant' — biological output is logged as a hardware anomaly. Despawn
-line is the 'I will miss it' beat from the reclamation arc.
+line is the 'I will miss it' beat from the reclamation arc. server_id
+-> growth_name map ensures the correct plant is named on despawn when
+multiple plants coexist.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -1780,11 +2267,28 @@ const _PEEK_BAY_MODULATE := Color(0.7, 0.7, 0.7, 1.0)
 
 Delete `_FLOOR_REGION`, `_floor_tex`, `_TILESET_ATLAS`, `_build_floor()`, and the `_floor_tex = AtlasTexture.new()` setup in `_ready()`.
 
-- [ ] **Step 3: Replace `_build_racks` with `_build_bays`**
+- [ ] **Step 3: Replace `_build_racks` with `_build_bays` — with explicit z_index**
+
+Per Smudge's review: Godot falls back to sibling order when `z_index` is unset, and that breaks the cat-overflow z-order contract. Set `z_index` explicitly on every World child per the spec Section 3 table.
 
 ```gdscript
+# Z-order contract (spec Section 3):
+# 0 = environment tilemap, 1 = rack row, 2 = rack decor,
+# 3 = placed objects + dynamic plants, 4 = animals,
+# 5 = status strips, 6 = focus halo, 7 = heat overlay, 100 = debug
+const _Z_ENVIRONMENT: int = 0
+const _Z_RACK_ROW: int = 1
+const _Z_RACK_DECOR: int = 2
+const _Z_PLACED: int = 3
+const _Z_ANIMALS: int = 4
+const _Z_STATUS: int = 5
+const _Z_HEAT: int = 7
+const _Z_DEBUG: int = 100
+
+
 func _build_bays() -> void:
 	var rack_row: Node2D = $World/RackRow
+	rack_row.z_index = _Z_RACK_ROW
 	for bay_index: int in _VISIBLE_BAY_INDICES:
 		var sprite := Sprite2D.new()
 		sprite.name = "Bay_%d" % bay_index
@@ -1802,8 +2306,8 @@ func _build_bays() -> void:
 func _build_environment_tilemap() -> void:
 	var tilemap_node: TileMap = _ENVIRONMENT_TILEMAP_SCENE.instantiate()
 	tilemap_node.name = "EnvironmentTileMap"
+	tilemap_node.z_index = _Z_ENVIRONMENT
 	$World.add_child(tilemap_node)
-	$World.move_child(tilemap_node, 0)  # Put behind racks
 	var painter := TilePainter.new(tilemap_node)
 	for bay_index: int in _VISIBLE_BAY_INDICES:
 		painter.paint_bay(bay_index)
@@ -1814,14 +2318,49 @@ func _build_rack_decor() -> void:
 	if decor_node == null:
 		decor_node = Node2D.new()
 		decor_node.name = "RackDecor"
+		decor_node.z_index = _Z_RACK_DECOR
 		$World.add_child(decor_node)
 	var decor := Sprite2D.new()
 	decor.name = "Bay_0_decor"
 	decor.texture = _RACK_DECOR_TEX
 	decor.centered = false
 	decor.position = Vector2(0.0, 224.0)
-	decor.modulate = Color(1.0, 1.0, 1.0, 0.0)  # Starts invisible, ramps up after first plant
+	decor.modulate = Color(1.0, 1.0, 1.0, 0.0)  # Starts invisible, ramps up via _on_plant_spawned
 	decor_node.add_child(decor)
+	# Subscribe to plant_spawned so the first spawn ramps the decor alpha to 0.7.
+	# Per Parcel and Mochi: this is the visible reclamation beat — vines appear
+	# the first time the player successfully grows anything.
+	Events.plant_spawned.connect(_on_plant_spawned_ramp_decor)
+
+
+func _on_plant_spawned_ramp_decor(_server_id: int) -> void:
+	# Idempotent — multiple plant spawns don't re-trigger the tween.
+	var decor_node: Node2D = $World.get_node_or_null("RackDecor")
+	if decor_node == null:
+		return
+	var decor: Sprite2D = decor_node.get_node_or_null("Bay_0_decor") as Sprite2D
+	if decor == null or decor.modulate.a >= 0.69:
+		return
+	var tween: Tween = create_tween()
+	tween.tween_property(decor, "modulate:a", 0.7, 3.0)
+
+
+func _build_dynamic_plants() -> void:
+	# Wire the DynamicPlants projection node into the scene tree.
+	# Per Mochi — the script was created in Task 17 but nothing instantiated it.
+	var dp_script: GDScript = preload("res://nodes/dynamic_plants.gd")
+	var dp_node: Node = Node.new()
+	dp_node.name = "DynamicPlants"
+	dp_node.set_script(dp_script)
+	$World.add_child(dp_node)
+```
+
+Assign `z_index` to the other `$World` children that already exist (PlacedObjects, Animals, HeatOverlay) during `_ready()`:
+
+```gdscript
+$World/PlacedObjects.z_index = _Z_PLACED
+$World/Animals.z_index = _Z_ANIMALS
+# HeatOverlay and RuGridOverlay are swapped in later; set their z_index at that point.
 ```
 
 - [ ] **Step 4: Update `_ready()` to call the new builders**
@@ -1836,28 +2375,34 @@ With:
 _build_environment_tilemap()
 _build_bays()
 _build_rack_decor()
+_build_dynamic_plants()
 ```
+
+And assign the other existing node z_indexes right after `_ready()` starts building World children.
 
 - [ ] **Step 5: Compile-check**
 
 ```bash
-/Applications/Godot.app/Contents/MacOS/godot --headless --check-only --path . 2>&1 | grep -iE "error|game_client"
+/Applications/Godot.app/Contents/MacOS/godot --headless --quit --path . 2>&1 | grep -iE "error.*game_client"
 ```
 
-Expected: no compile errors in game_client.gd.
+Expected: no compile errors.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add nodes/game_client.gd
 git commit -m "$(cat <<'EOF'
-feat(rendering): replace floor sprite with TileMap environment, bays
+feat(rendering): TileMap environment, bays with z-order, dynamic plants wired
 
 Deletes _build_floor(), _FLOOR_REGION, _floor_tex quick-fix. Adds
-_build_bays() placing rack_5set sprites for bays -1/0/1 with peek
-bays muted 30%. Adds _build_environment_tilemap() instancing the
-new scene and painting via TilePainter. Adds _build_rack_decor()
-for the vine overlay Sprite2D (starts invisible).
+_build_bays() placing rack_5set sprites for bays -1/0/1 with peek bays
+muted 30%. Adds _build_environment_tilemap() instancing the new scene
+and painting via TilePainter. Adds _build_rack_decor() with a tween
+handler that ramps alpha from 0 -> 0.7 on first plant_spawned event.
+Adds _build_dynamic_plants() to instance the projection node (was
+orphaned in Task 17). Every World child gets an explicit z_index so
+sibling order doesn't accidentally occlude cats.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -1918,8 +2463,10 @@ func _build_starter_objects() -> void:
 - [ ] **Step 2: Compile-check**
 
 ```bash
-/Applications/Godot.app/Contents/MacOS/godot --headless --check-only --path . 2>&1 | grep -iE "error"
+/Applications/Godot.app/Contents/MacOS/godot --headless --quit --path . 2>&1 | grep -iE "error.*game_client"
 ```
+
+Expected: no errors referencing `game_client.gd`.
 
 - [ ] **Step 3: Commit**
 
@@ -1999,6 +2546,43 @@ func test_snap_in_previous_bay():
 	)
 	assert_eq(result[&"bay"], -1,
 		"Position before bay 0 should be bay -1")
+
+
+# ── Intra-rack off-by-one tests per Kibble's review ──
+
+func test_snap_at_rack_0_last_pixel():
+	# One PU before the boundary between rack 0 and rack 1
+	var boundary: int = Constants.LEFTMOST_RACK_OFFSET_PU + Constants.RACK_STRIDE_PU
+	var result: Dictionary = Constants.pu_to_bay_rack_slot(boundary - 1, 0)
+	assert_eq(result[&"rack"], 0,
+		"One PU before boundary should still snap to rack 0")
+
+
+func test_snap_at_rack_1_first_pixel():
+	# Exactly at the boundary — should snap to rack 1 (exclusive upper)
+	var boundary: int = Constants.LEFTMOST_RACK_OFFSET_PU + Constants.RACK_STRIDE_PU
+	var result: Dictionary = Constants.pu_to_bay_rack_slot(boundary, 0)
+	assert_eq(result[&"rack"], 1,
+		"At rack 1 origin should snap to rack 1")
+
+
+func test_snap_just_past_rack_1_origin():
+	# One PU past rack 1 origin — still rack 1
+	var boundary: int = Constants.LEFTMOST_RACK_OFFSET_PU + Constants.RACK_STRIDE_PU
+	var result: Dictionary = Constants.pu_to_bay_rack_slot(boundary + 1, 0)
+	assert_eq(result[&"rack"], 1,
+		"One PU past rack 1 origin should still be rack 1")
+
+
+func test_snap_slot_boundaries():
+	# Slot boundary at the y axis — slot 5 ends, slot 6 begins
+	var slot_6_origin: int = 6 * Constants.SLOT_HEIGHT_PU
+	var result_before: Dictionary = Constants.pu_to_bay_rack_slot(0, slot_6_origin - 1)
+	var result_at: Dictionary = Constants.pu_to_bay_rack_slot(0, slot_6_origin)
+	var result_after: Dictionary = Constants.pu_to_bay_rack_slot(0, slot_6_origin + 1)
+	assert_eq(result_before[&"slot"], 5, "One PU before slot 6 is slot 5")
+	assert_eq(result_at[&"slot"], 6, "At slot 6 origin is slot 6")
+	assert_eq(result_after[&"slot"], 6, "One PU past slot 6 origin is slot 6")
 ```
 
 - [ ] **Step 2: Run — expect PASS (helper already works)**
@@ -2132,6 +2716,55 @@ EOF
 
 Goal: docs updated, visual smoke tests pass, audit checklist complete, spec committed alongside code.
 
+### Task 24a: narrative.md consistency grep
+
+**Files:**
+- Modify: `.claude/rules/narrative.md` (only if stale rack references found)
+
+Per Parcel's review: the spec preserves "Rack 03 is still the center rack" but the plan never verifies that narrative.md's rack references are compatible with the new 5-rack layout.
+
+- [ ] **Step 1: Grep for rack-index references**
+
+```bash
+grep -nE 'rack\s*[0-9]|Rack\s*[0-9]|UNIT-C[0-9]|UNIT-F[0-9]' .claude/rules/narrative.md
+```
+
+Expected: a handful of matches referencing specific racks (e.g., "Rack 03, slots 1-3" from the UNIT-C01 arrival log).
+
+- [ ] **Step 2: Verify compatibility with 5-rack layout**
+
+For each match, check:
+- Rack numbers 0–4 are valid (center is rack 2)
+- Slot numbers 0–9 are valid (old "slots 1-3" is fine, but "slot 40" would need updating)
+- No references to "rack 5" or "rack 6" that existed in the old 7-rack layout
+
+- [ ] **Step 3: Update stale references (only if needed)**
+
+If any references are stale:
+- "Rack 03, slots 1-3" → still valid (rack 2 in 0-indexed == rack 03 in the log's 1-indexed naming, center of 5-rack bay, slots 1-3 still exist)
+- Any "rack 5/6" references → update to valid rack indices or make generic ("a rack in the datacenter")
+- Any slot references above 9 → clamp to the new 0–9 range
+
+- [ ] **Step 4: Commit (only if changes were made)**
+
+```bash
+git add .claude/rules/narrative.md
+git commit -m "$(cat <<'EOF'
+docs(narrative): refresh rack/slot references for 5-rack bay
+
+Audit of rack-index and slot-number mentions in narrative.md. Any
+references incompatible with the new 10-slot, 5-rack layout updated
+to valid indices or generalized.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+If no changes needed, skip the commit and move on.
+
+---
+
 ### Task 24: Update `art-direction.md`
 
 **Files:**
@@ -2193,7 +2826,7 @@ In `asset-pipeline.md`, replace the "Must-Have Sprites" table with role-organize
 | server02_static_strip1 | 23×8 | 1 | Server variant B (static) |
 | server02_idle_strip7 | 161×8 | 7 | Server variant B (blink) |
 
-### Object Sprites
+### Object Sprites (tcp_base)
 
 | Asset | Size | Frames | Notes |
 |---|---|---|---|
@@ -2201,11 +2834,23 @@ In `asset-pipeline.md`, replace the "Must-Have Sprites" table with role-organize
 | box01_activated_strip8 | 256×16 | 8 | Small box (activation) |
 | box02_idle_strip1 | 48×32 | 1 | Large box (static) |
 | box02_activated_strip8 | 384×32 | 8 | Large box (activation) |
-| tunacan_idle_strip1 | 16×16 | 1 | Tuna can (static) |
-| tunacan_shine_strip12 | 192×16 | 12 | Tuna can (shine) |
-| dustball01_idle_strip16 | 256×16 | 16 | Dust ball (idle) |
-| dustball01_spin_strip8 | 128×16 | 8 | Dust ball (spin) |
-| dustball02_* | ... | ... | Variant B |
+| dustball01_idle_strip16 | 256×16 | 16 | Dust ball (idle, animation support deferred) |
+| dustball01_spin_strip8 | 128×16 | 8 | Dust ball (spin, animation support deferred) |
+| dustball02_idle_strip16 | 256×16 | 16 | Variant B |
+| dustball02_spin_strip8 | 128×16 | 8 | Variant B |
+
+Note: dust ball animation support is deferred per spec non-goals. Sprites are imported but currently render as the first frame only.
+
+### Object Sprites (external mods — reference only)
+
+Per the 2026-04-10 mod extraction, tuna can sprites moved to `mods/tcp_tuna/`:
+
+| Asset | Location | Notes |
+|---|---|---|
+| tunacan_idle_strip1 | `mods/tcp_tuna/sprites/` | Static |
+| tunacan_shine_strip12 | `mods/tcp_tuna/sprites/` | Shine animation (deferred) |
+
+Cat and ferret sprites similarly live in `mods/tcp_cats/sprites/` and `mods/tcp_ferrets/sprites/` respectively. Do not add them to `tcp_base` tables.
 
 ### Environment
 
@@ -2215,7 +2860,7 @@ In `asset-pipeline.md`, replace the "Must-Have Sprites" table with role-organize
 
 ### Tilesets
 
-**`tcp_environment.tres`** — Godot TileSet resource pointing at `tcp_tileset01.png`. Tile cells named per the spec's Section 3 flat list (env_ceiling, env_wall, env_cable_*, env_baseboard_*, env_ground_*, etc.). Built in the Godot editor.
+**`tcp_environment.tres`** — Godot TileSet resource pointing at `tcp_tileset01.png`. Hand-written text resource (not Godot-editor-authored). Tile cell positions documented in `tcp_tileset01.md` next to the atlas image. `TilePainter` (`engine/environment/tile_painter.gd`) references cells by `Vector2i(col, row)` directly.
 ```
 
 Preserve the "Naming Conventions" and "Audio Format & Import Standards" sections verbatim.
@@ -2280,30 +2925,46 @@ EOF
 **Files:**
 - Modify: `../game_assets/Credits.md`
 
+**Precondition (blocks execution):** Before starting this task, the operator must provide the artist's attribution string. Acceptable values:
+
+- Artist name and optional URL (e.g. "Jane Doe, https://janedoe.art")
+- "Anonymous (client brief)" if the artist requested no attribution
+- "Internal team" if made in-house
+
+If the operator cannot provide attribution, pause execution and ask. Do NOT commit a `TBD` placeholder into Credits.md.
+
+- [ ] **Step 0: Confirm attribution with operator**
+
+Ask: "What attribution should I credit for the 2026-04-10 pixel art import (racks/servers/boxes/dust balls/environment tileset)?"
+
+Wait for reply before proceeding.
+
 - [ ] **Step 1: Add credit entries**
 
-Append to `../game_assets/Credits.md`:
+Using the attribution string supplied by the operator (referred to as `$ARTIST` below), append to `../game_assets/Credits.md`:
 
 ```markdown
 ## Pixel Art — 2026-04-10 import
 
-Racks, servers, boxes, dust balls, tuna can, and environment tileset:
-- Artist: [TBD — ask user for artist attribution]
+Racks, servers, boxes, dust balls, and environment tileset (tcp_base):
+- Artist: $ARTIST
 - Source: ~/Downloads/tcp_props_tilesets/ (2026-04-09)
 - Files: rack_single_*, rack_5set_*, server01_*, server02_*, box01_*,
-  box02_*, dustball01_*, dustball02_*, tunacan_*, tcp_tileset01.png
+  box02_*, dustball01_*, dustball02_*, tcp_tileset01.png
 ```
 
-**Before committing, ask the user for the actual artist name/attribution.** The "TBD" placeholder is a plan failure unless the user supplies it.
+Note: tuna can sprites are credited in `mods/tcp_tuna/` separately per the mod-extraction split. Do not include them in the tcp_base block.
 
-- [ ] **Step 2: Commit (after filling in artist info)**
+- [ ] **Step 2: Commit**
 
 ```bash
 git add ../game_assets/Credits.md
 git commit -m "$(cat <<'EOF'
 docs(credits): add pixel art import credit entries
 
-Attribution for the 2026-04-09 tcp_props_tilesets import.
+Attribution for the 2026-04-09 tcp_props_tilesets import. Only
+tcp_base-owned assets credited here; tuna can credits live in
+mods/tcp_tuna/.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -2399,120 +3060,122 @@ EOF
 - Create: `script/render_snapshot.gd`
 - Create: `tests/snapshots/visual/golden/bay0_centered.png` (committed after manual golden gen)
 
-- [ ] **Step 1: Write the snapshot script**
+Per Kibble's review: pixel-exact headless rendering in Godot 4 is catastrophically flaky (driver differences, font hinting, texture sampling). The `extends SceneTree` pattern with `_init()` async work is an anti-pattern. The original plan's visual smoke would hang CI or produce perpetually-red goldens.
 
-Create `script/render_snapshot.gd`:
+Replacement: **structural assertions in a GUT integration test**, not pixel rendering. We verify the scene *composes correctly* (bay positions, z-order, viewport size, children counts, modulate values) without ever touching the rendering pipeline.
+
+- [ ] **Step 1: Write the structural smoke test**
+
+Create `tests/integration/test_visual_smoke.gd`:
 
 ```gdscript
-extends SceneTree
+extends GutTest
 
-# Godot script for headless rendering to PNG. Usage:
-# godot --headless --script script/render_snapshot.gd --output <path>
+# Structural smoke test — verifies GameClient scene composes per the spec's
+# visual expectations. Does NOT render pixels. Pixel-exact golden diffs are
+# too flaky in Godot headless; structural assertions catch regressions just
+# as reliably for rendering decisions (z-order, positions, modulate).
 
-func _init() -> void:
-	var args: PackedStringArray = OS.get_cmdline_args()
-	var output_path: String = "tests/snapshots/visual/bay0_centered.png"
-	for i in range(args.size()):
-		if args[i] == "--output" and i + 1 < args.size():
-			output_path = args[i + 1]
-	var scene: PackedScene = load("res://nodes/main.tscn")
-	var instance: Node = scene.instantiate()
-	get_root().add_child(instance)
-	await create_timer(0.1).timeout  # let one physics frame run
-	var viewport: Viewport = get_root()
-	var img: Image = viewport.get_texture().get_image()
-	img.save_png(output_path)
-	quit()
+var client: Node
+
+
+func before_each() -> void:
+	var scene: PackedScene = preload("res://nodes/main.tscn")
+	client = scene.instantiate()
+	add_child_autofree(client)
+	await get_tree().process_frame
+
+
+func test_viewport_is_640x360():
+	var viewport: Viewport = client.get_viewport()
+	var size: Vector2i = viewport.get_visible_rect().size
+	assert_eq(size.x, 640, "Viewport width should be 640")
+	assert_eq(size.y, 360, "Viewport height should be 360")
+
+
+func test_camera_centered_on_bay_0():
+	var camera: Camera2D = client.get_node("GameClient/Camera")
+	var expected: Vector2 = Constants.bay_center(0)
+	assert_almost_eq(camera.position.x, expected.x, 1.0,
+		"Camera x should be bay 0 center")
+
+
+func test_three_bays_rendered():
+	var rack_row: Node2D = client.get_node("GameClient/World/RackRow")
+	assert_eq(rack_row.get_child_count(), 3, "Bays -1, 0, 1")
+
+
+func test_bay_0_is_at_origin():
+	var bay_0: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_0")
+	assert_eq(bay_0.position, Vector2(0.0, 224.0))
+	assert_eq(bay_0.modulate, Color.WHITE,
+		"Bay 0 should not be muted")
+
+
+func test_peek_bays_are_muted():
+	var bay_neg1: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_-1")
+	var bay_1: Sprite2D = client.get_node("GameClient/World/RackRow/Bay_1")
+	assert_almost_eq(bay_neg1.modulate.r, 0.7, 0.01, "Bay -1 muted")
+	assert_almost_eq(bay_1.modulate.r, 0.7, 0.01, "Bay 1 muted")
+
+
+func test_z_order_respects_spec():
+	# Per spec Section 3 z-order contract
+	var env: Node = client.get_node("GameClient/World/EnvironmentTileMap")
+	var rack_row: Node = client.get_node("GameClient/World/RackRow")
+	var rack_decor: Node = client.get_node_or_null("GameClient/World/RackDecor")
+	var animals: Node = client.get_node("GameClient/World/Animals")
+	assert_eq(env.z_index, 0, "Environment tilemap z=0")
+	assert_eq(rack_row.z_index, 1, "RackRow z=1")
+	if rack_decor != null:
+		assert_eq(rack_decor.z_index, 2, "RackDecor z=2")
+	assert_eq(animals.z_index, 4, "Animals z=4 (above racks, above decor)")
+
+
+func test_environment_tilemap_has_tiles_painted():
+	var tilemap: TileMap = client.get_node("GameClient/World/EnvironmentTileMap")
+	var used: Array[Vector2i] = tilemap.get_used_cells(0)
+	assert_gt(used.size(), 0,
+		"Environment tilemap should have cells painted")
+
+
+func test_rack_decor_starts_invisible():
+	# Ramps up via plant_spawned — at scene start it's invisible
+	var decor: Sprite2D = client.get_node_or_null(
+		"GameClient/World/RackDecor/Bay_0_decor"
+	) as Sprite2D
+	if decor == null:
+		return  # not wired yet
+	assert_almost_eq(decor.modulate.a, 0.0, 0.01,
+		"Rack decor alpha starts at 0 (ramps on first plant_spawned)")
+
+
+func test_dynamic_plants_node_is_wired():
+	var dp: Node = client.get_node_or_null("GameClient/World/DynamicPlants")
+	assert_not_null(dp, "DynamicPlants projection node should be in the scene")
 ```
 
-- [ ] **Step 2: Write the checker script**
-
-Create `script/checks/visual_smoke`:
+- [ ] **Step 2: Run the test**
 
 ```bash
-#!/usr/bin/env bash
-set -e
-cd "$(dirname "$0")/../.."
-
-GODOT="/Applications/Godot.app/Contents/MacOS/godot"
-SNAPSHOT="tests/snapshots/visual/bay0_centered.png"
-GOLDEN="tests/snapshots/visual/golden/bay0_centered.png"
-
-mkdir -p tests/snapshots/visual/golden
-
-if [ ! -f "$GOLDEN" ]; then
-    echo "No golden image. Run script/regen_visual_goldens to create one."
-    exit 1
-fi
-
-"$GODOT" --headless --script script/render_snapshot.gd --output "$SNAPSHOT" 2>&1 | tail -5
-
-if ! cmp -s "$SNAPSHOT" "$GOLDEN"; then
-    echo "FAIL: snapshot differs from golden."
-    echo "  snapshot: $SNAPSHOT"
-    echo "  golden:   $GOLDEN"
-    exit 1
-fi
-
-echo "PASS: snapshot matches golden"
+script/checks/gut_tests -f tests/integration/test_visual_smoke.gd
 ```
 
-- [ ] **Step 3: Write the regeneration script**
+Expected: PASS. Each failure points at a specific structural expectation from the spec.
 
-Create `script/regen_visual_goldens`:
-
-```bash
-#!/usr/bin/env bash
-set -e
-cd "$(dirname "$0")/.."
-
-GODOT="/Applications/Godot.app/Contents/MacOS/godot"
-
-mkdir -p tests/snapshots/visual/golden
-
-echo "Regenerating golden images..."
-"$GODOT" --headless --script script/render_snapshot.gd --output tests/snapshots/visual/golden/bay0_centered.png
-echo "Done. Review the new golden and commit if it matches expectations."
-```
-
-- [ ] **Step 4: Make scripts executable**
+- [ ] **Step 3: Stamp and commit**
 
 ```bash
-chmod +x script/checks/visual_smoke script/regen_visual_goldens
-```
-
-- [ ] **Step 5: Generate the golden**
-
-```bash
-script/regen_visual_goldens
-```
-
-- [ ] **Step 6: Visually inspect the golden**
-
-```bash
-open tests/snapshots/visual/golden/bay0_centered.png
-```
-
-It should show bay 0 centered with peek bays muted, environment tilemap visible, starter objects placed. **If it doesn't match the mockup, STOP and fix the rendering code before committing.**
-
-- [ ] **Step 7: Run the smoke test**
-
-```bash
-script/checks/visual_smoke
-```
-
-Expected: `PASS: snapshot matches golden`
-
-- [ ] **Step 8: Commit**
-
-```bash
-git add script/checks/visual_smoke script/render_snapshot.gd script/regen_visual_goldens tests/snapshots/visual/golden/bay0_centered.png
+script/stamp_tests tests/integration/test_visual_smoke.gd
+git add tests/integration/test_visual_smoke.gd tests/integration/test_visual_smoke.gd.stamp
 git commit -m "$(cat <<'EOF'
-test(visual): headless render smoke test + bay 0 golden
+test(visual): structural smoke test for GameClient scene composition
 
-render_snapshot.gd dumps the main scene viewport to PNG. visual_smoke
-diffs pixel-exact against a committed golden. regen_visual_goldens
-is a manual script for updating goldens.
+Verifies viewport 640x360, camera bay-0 centered, three rack bays
+present, peek bays muted, z-order matches spec Section 3, tilemap
+has cells painted, rack decor starts invisible, DynamicPlants wired.
+Replaces the original pixel-exact headless render approach which
+was too flaky in Godot 4 headless mode.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
@@ -2825,38 +3488,57 @@ Tell the user:
 
 ---
 
-## Self-review
+## Self-review (post team review)
 
 Against the spec:
 
 - ✅ Section 1 (constants) → Task 3
 - ✅ Section 2 (viewport composition) → Tasks 20–23 (camera + bay placement)
-- ✅ Section 3 (tilemap + rack rendering) → Tasks 9–12 (tileset, painter, scene)
+- ✅ Section 3 (tilemap + rack rendering) → Tasks 9–12 (tileset + cell map doc, painter, scene + load test)
 - ✅ Section 4 (state preservation) → Tasks 4–8 (cascading fixes) + 22 (placement)
-- ✅ Section 5 (reclamation growth) → Tasks 13–19 (state machine + projection + narrative)
-- ✅ Section 6 (mod-extraction coordination) → documented in spec only, no code task (interface agreement is spec-level)
-- ✅ Section 7 (testing strategy) → Tasks 1 (audit), 10/14/17/22/28/29/30/31/32 (test coverage)
-- ✅ Section 8 (implementation order) → matches phases 1–6
+- ✅ Section 5 (reclamation growth) → Tasks 13, 13b, 14–19 (state module, cat presence, system, projection, wiring, narrative)
+- ✅ Section 6 (mod-extraction coordination) → documented in spec; Task 25 table separates tcp_base from external mods
+- ✅ Section 7 (testing strategy) → Tasks 1 (broad audit), 14 (multi-tick dip), 17 (strip clearance), 22 (intra-rack boundaries), 29 (structural smoke)
+- ✅ Section 8 (implementation order) → phases 1–6, with explicit CI-red warning
 
-**Placeholders/failures detected:**
+**MUST-FIX items from team review (resolved):**
 
-- Task 27 has `[TBD — ask user for artist attribution]`. This is a legitimate user-blocking item, not a plan failure. The step explicitly says "Before committing, ask the user."
-- Task 32 has `pass  # TODO: expand when tube infrastructure is re-added`. **Fix inline:** remove the TODO test body entirely and add a comment noting the ferret-tube scenario is deferred until tube infrastructure is re-added post-rescale.
+| # | Reviewer | Item | Fix location |
+|---|---|---|---|
+| 1 | Bramble | `Engine.has_singleton("Events")` wrong API | Tasks 15, 17, 19 now use direct `Events.xxx.emit/connect` |
+| 2 | Bramble | `cat_presence` never populated | New Task 13b creates CatPresenceSystem |
+| 3 | Bramble | Tick order ambiguous | Task 18 spells out explicit order with line comments |
+| 4 | Bramble | `has_method("get_tick")` cargo cult | Removed from Task 15 |
+| 5 | Bento | Task 9 Godot-GUI not headless | Rewrote as hand-written .tres text |
+| 6 | Bento | Task 12 `--check-only` doesn't load | Replaced with GUT scene test |
+| 7 | Bento | tunacan leaks into tcp_base tables | Task 25 split into "tcp_base" vs "external mods" |
+| 8 | Bento | Task 27 TBD placeholder | Now a Step 0 operator precondition |
+| 9 | Kibble | Visual smoke pixel-exact flaky | Task 29 rewritten as structural test |
+| 10 | Kibble | Task 14 single-tick hysteresis | Now multi-tick dip sequence |
+| 11 | Kibble | Task 1 audit missing patterns | Added /-division, .tscn/.tres globs, Vector2i, server_2u string |
+| 12 | Kibble | Task 22 missing intra-rack boundaries | Added stride-1/stride/stride+1 tests |
+| 13 | Mochi | Plant comfort advertisement missing | Task 15 registers advertisement on PRESENT |
+| 14 | Mochi/Parcel | Rack decor ramp stub | Task 20 subscribes to plant_spawned and tweens alpha |
+| 15 | Mochi | DynamicPlants never added to scene | Task 20 adds `_build_dynamic_plants()` |
+| 16 | Smudge | z_index not set | Task 20 sets z_index on every World child |
+| 17 | Smudge | TilePainter ignores own constants | Task 11 now uses ATLAS_CEILING and ATLAS_WALL_LOWER |
+| 18 | Pebble | Plant strip clearance untested | Task 17 adds assertion, position moved to `(0, -8)` |
+| 19 | Parcel | Despawn name lookup lies | Task 19 uses server_id → growth_name map |
+| 20 | Parcel | narrative.md references unchecked | New Task 24a grep task |
+| 21 | User | Self-documenting tileset | Task 9 Step 1 creates `tcp_tileset01.md` alongside the atlas |
 
 **Type consistency:**
 
-- `plant_growth` component fields (`state`, `cat_seconds`, `variant`, `attached_to`) used consistently in Task 13, 14, 15, 17
+- `plant_growth` component fields (`state`, `cat_seconds`, `variant`, `attached_to`) used consistently in Tasks 13, 14, 15, 17
 - `Events.plant_spawned(server_id)` / `Events.plant_despawned(server_id)` — single-arg signature throughout
 - `Constants.bay_center(bay_index)` returns `Vector2` (float), `rack_slot_to_pu` returns `Vector2i` — consistent
+- `cat_presence[&"seconds"]` component shape used in Tasks 13b, 14, 15
 
-**Applying Task 32 fix inline now:**
+**Remaining open items (non-blocking, documented):**
 
-Task 32 Step 1 replaces `test_ferret_prefers_enclosed_space_in_new_grid` with:
-
-```gdscript
-# Note: the ferret-prefers-tubes scenario from the old prototype is
-# deferred until tube infrastructure is re-added post-rescale. Tracked
-# in the plan's Open Questions section.
-```
+- Task 32 deferred ferret-tube scenario (tube infrastructure not yet re-added post-rescale)
+- Focus halo rendering for keyboard/controller (spec open question #2, not in this branch)
+- Grayscale/reduce-motion visual goldens — structural smoke test replaces them for this branch; true accessibility goldens need a separate spec once focus halo lands
+- Peek bay contrast verification (Pebble recommendation, non-blocking)
 
 Remove the empty test function entirely rather than leave a `pass` stub.
