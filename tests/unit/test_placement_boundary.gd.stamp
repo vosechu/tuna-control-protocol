@@ -2,10 +2,10 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: e3b0c442
-verified_at: 2026-04-12T11:22:47Z
+verified_at: 2026-04-12T21:00:16Z
 tests:
   test_snap_at_bay_origin: f4350572
-  test_snap_just_before_first_rack: 3c5bf3cc
+  test_snap_just_before_first_rack: 0a2d1106
   test_snap_at_last_rack_interior: 6db53195
   test_snap_in_next_bay: a495e6f0
   test_snap_in_previous_bay: bffbd04a

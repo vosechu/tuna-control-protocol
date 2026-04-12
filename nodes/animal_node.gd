@@ -45,7 +45,7 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	_target_pos = Vector2(
 		Constants.to_world(pos[&"x"]),
-		Constants.to_world(pos[&"y"])
+		float(Constants.FLOOR_Y)
 	)
 	_prev_pos = _target_pos
 	global_position = _target_pos
@@ -65,7 +65,13 @@ func _setup_sprite(species: Dictionary) -> void:
 		base_path = "res://mods/tcp_cats/sprites/%s" % variant
 	else:
 		base_path = "res://mods/tcp_ferrets/sprites/%s" % variant
-	_sprite.scale = Vector2(2.0, 2.0)
+	_sprite.scale = Vector2(1.0, 1.0)
+	# Shift sprite up so visible feet align with node position (ground level).
+	# Frames have transparent padding below the feet (~8px).
+	if _is_ferret:
+		_sprite.offset.y = -8
+	else:
+		_sprite.offset.y = -12
 
 	var idle_tex: Texture2D = load(base_path + "_idle_strip8.png")
 	if idle_tex == null:
@@ -163,7 +169,7 @@ func _physics_process(_delta: float) -> void:
 	)
 	_target_pos = Vector2(
 		Constants.to_world(pos[&"x"]),
-		Constants.to_world(pos[&"y"])
+		float(Constants.FLOOR_Y)
 	)
 
 	# Update animation and state label based on AI state

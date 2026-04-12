@@ -63,7 +63,7 @@ func _ready() -> void:
 	_setup_lighting()
 	_setup_hum_bar()
 	_setup_narrator_panel()
-	$Camera.position = Constants.bay_center(0)
+	# Camera position/zoom handled by camera_controller.gd
 
 
 func _setup_narrator_panel() -> void:
@@ -113,12 +113,9 @@ func _build_bays() -> void:
 		sprite.centered = false
 		sprite.position = Vector2(
 			float(bay_index * Constants.BAY_STRIDE_PX),
-			224.0,
+			float(Constants.RACK_TOP_Y),
 		)
-		if bay_index != 0:
-			var mat := ShaderMaterial.new()
-			mat.shader = _PEEK_BAY_SHADER
-			sprite.material = mat
+		# All bays render the same — no desaturation for neighboring bays
 		rack_row.add_child(sprite)
 	_build_ru_grid_overlay()
 
@@ -143,7 +140,7 @@ func _build_rack_decor() -> void:
 	decor.name = "Bay_0_decor"
 	decor.texture = _RACK_DECOR_TEX
 	decor.centered = false
-	decor.position = Vector2(0.0, 224.0)
+	decor.position = Vector2(0.0, float(Constants.RACK_TOP_Y))
 	decor.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	decor_node.add_child(decor)
 	Events.plant_spawned.connect(
@@ -185,10 +182,11 @@ func _build_starter_objects() -> void:
 	var server_pu: Vector2i = Constants.rack_slot_to_pu(
 		0, 1, 8
 	)
+	# Server Y: rack top + 4px frame + slot position in PU
 	server_sprite.position = Vector2(
 		Constants.to_world(server_pu.x)
 			- float(Constants.RACK_WIDTH_PX) / 2.0,
-		Constants.to_world(server_pu.y),
+		Constants.to_world(server_pu.y) + float(Constants.RACK_TOP_Y) + 4.0,
 	)
 	$World/PlacedObjects.add_child(server_sprite)
 	_starter_sprites.append(server_sprite)
@@ -196,26 +194,15 @@ func _build_starter_objects() -> void:
 	var box_sprite := Sprite2D.new()
 	box_sprite.texture = _BOX_TEX
 	box_sprite.centered = false
-	var floor_y: float = float(
-		Constants.SLOTS_PER_RACK
-		* Constants.SLOT_HEIGHT_PX
-	) + 224.0
+	# Box is 16px tall, centered=false (top-left at position).
+	# Place top-left so bottom edge sits on the floor surface.
 	box_sprite.position = Vector2(
 		float(Constants.LEFTMOST_RACK_OFFSET_PX),
-		floor_y + 4.0,
+		float(Constants.FLOOR_Y) - 16.0,
 	)
 	$World/PlacedObjects.add_child(box_sprite)
 	_starter_sprites.append(box_sprite)
 
-	var pile_sprite := Sprite2D.new()
-	pile_sprite.texture = _PILE_TEX
-	pile_sprite.centered = false
-	pile_sprite.position = Vector2(
-		float(Constants.BAY_WIDTH_PX) / 2.0,
-		floor_y + 4.0,
-	)
-	$World/PlacedObjects.add_child(pile_sprite)
-	_starter_sprites.append(pile_sprite)
 
 
 func _register_starter_sprites() -> void:
@@ -316,6 +303,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			and event.is_command_or_control_pressed()
 		):
 			get_tree().quit()
+			return
+		if event.keycode == KEY_G:
+			var grid: Node2D = $World.get_node_or_null("RuGridOverlay")
+			if grid:
+				grid.visible = not grid.visible
 			return
 
 	if not event is InputEventMouseButton:
@@ -465,7 +457,7 @@ func _create_object_sprite(
 	sprite.centered = false
 	sprite.position = Vector2(
 		Constants.to_world(pu_x),
-		Constants.to_world(pu_y),
+		Constants.to_world(pu_y) + float(Constants.RACK_TOP_Y) + 4.0,
 	)
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite

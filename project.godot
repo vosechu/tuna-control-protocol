@@ -20,8 +20,10 @@ Events="*res://nodes/events.gd"
 
 [display]
 
-window/size/viewport_width=640
-window/size/viewport_height=360
+window/size/viewport_width=224
+window/size/viewport_height=128
+window/size/window_width_override=1792
+window/size/window_height_override=1024
 window/size/mode=3
 window/stretch/mode="canvas_items"
 
