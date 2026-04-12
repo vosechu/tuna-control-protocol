@@ -1,12 +1,16 @@
 extends GutTest
 
+const EventsScript: GDScript = preload("res://engine/core/events.gd")
+
 var _db: GameStateDB
+var _events: RefCounted
 var _hum: HumSystem
 
 
 func before_each() -> void:
 	_db = GameStateDB.new()
-	_hum = HumSystem.new(_db)
+	_events = EventsScript.new()
+	_hum = HumSystem.new(_db, _events)
 
 
 # ── Initialization ──────────────────────────────────────────────────────────
@@ -161,6 +165,43 @@ func test_non_purring_cat_does_not_charge():
 	_hum.tick_charge()
 	assert_eq(_hum.get_reserve(), 500,
 		"Non-purring cat should not charge the HUM")
+
+
+# ── HUM signals ────────────────────────────────────────────────────────────
+
+func test_charge_emits_hum_reserve_changed():
+	var received: Array[Array] = []
+	_events.hum_reserve_changed.connect(func(old_val: int, new_val: int) -> void:
+		received.append([old_val, new_val]))
+	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 500)
+	_hum.charge(100)
+	assert_eq(received.size(), 1, "Should emit once")
+	assert_eq(received[0][0], 500, "Old reserve should be 500")
+	assert_eq(received[0][1], 600, "New reserve should be 600")
+
+
+func test_brownout_entered_emitted_at_threshold():
+	var entered: Array[int] = [0]
+	_events.hum_brownout_entered.connect(func() -> void: entered[0] += 1)
+	# Set reserve just above the 25% brownout threshold, then drain below
+	var capacity: int = _db.get_field(HumSystem.FACILITY_ID, &"hum", &"capacity")
+	@warning_ignore("integer_division")
+	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", capacity / 4 + 1)
+	_hum.drain_action(10)
+	assert_eq(entered[0], 1, "Should emit brownout_entered when crossing below 25%%")
+
+
+func test_brownout_recovered_emitted_on_recovery():
+	var recovered: Array[int] = [0]
+	_events.hum_brownout_recovered.connect(func() -> void: recovered[0] += 1)
+	# Put into brownout first
+	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 100)
+	_hum.drain_action(1)  # triggers brownout_entered, sets _was_brownout
+	# Charge back above threshold
+	var capacity: int = _db.get_field(HumSystem.FACILITY_ID, &"hum", &"capacity")
+	@warning_ignore("integer_division")
+	_hum.charge(capacity / 4 + 100)
+	assert_eq(recovered[0], 1, "Should emit brownout_recovered when crossing above 25%%")
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────

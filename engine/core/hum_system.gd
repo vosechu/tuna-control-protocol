@@ -5,11 +5,16 @@ const DEFAULT_CAPACITY: int = 10000
 const IDLE_DRAIN_BASE: int = 5
 const CHARGE_PER_PURRING_CAT: int = 10
 
+const BROWNOUT_THRESHOLD: int = 250  # 25% of 1000 ratio
+
 var _db: GameStateDB
+var _events: RefCounted
+var _was_brownout: bool = false
 
 
-func _init(db: GameStateDB) -> void:
+func _init(db: GameStateDB, events: RefCounted = null) -> void:
 	_db = db
+	_events = events
 	_db.create_entity_with_id(FACILITY_ID)
 	_db.set_component(FACILITY_ID, &"hum", {
 		&"reserve": DEFAULT_CAPACITY,
@@ -18,25 +23,28 @@ func _init(db: GameStateDB) -> void:
 
 
 func charge(amount: int) -> void:
+	var old_reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
 	var capacity: int = _db.get_field(FACILITY_ID, &"hum", &"capacity")
-	var reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
-	_db.set_field(FACILITY_ID, &"hum", &"reserve", mini(reserve + amount, capacity))
+	_db.set_field(FACILITY_ID, &"hum", &"reserve", mini(old_reserve + amount, capacity))
+	_emit_if_changed(old_reserve)
 
 
 func drain_idle() -> void:
-	var reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
+	var old_reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
 	var capacity: int = _db.get_field(FACILITY_ID, &"hum", &"capacity")
-	if reserve <= 0 or capacity <= 0:
+	if old_reserve <= 0 or capacity <= 0:
 		return
 	# Idle drain scales with reserve ratio: full drain at 100%, near-zero at 0%
 	@warning_ignore("integer_division")
-	var drain: int = maxi(1, IDLE_DRAIN_BASE * reserve / capacity)
-	_db.set_field(FACILITY_ID, &"hum", &"reserve", maxi(0, reserve - drain))
+	var drain: int = maxi(1, IDLE_DRAIN_BASE * old_reserve / capacity)
+	_db.set_field(FACILITY_ID, &"hum", &"reserve", maxi(0, old_reserve - drain))
+	_emit_if_changed(old_reserve)
 
 
 func drain_action(cost: int) -> void:
-	var reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
-	_db.set_field(FACILITY_ID, &"hum", &"reserve", maxi(0, reserve - cost))
+	var old_reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
+	_db.set_field(FACILITY_ID, &"hum", &"reserve", maxi(0, old_reserve - cost))
+	_emit_if_changed(old_reserve)
 
 
 func has_reserve(cost: int) -> bool:
@@ -77,3 +85,20 @@ func get_reserve_ratio() -> int:
 	var reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
 	@warning_ignore("integer_division")
 	return reserve * 1000 / capacity
+
+
+func _emit_if_changed(old_reserve: int) -> void:
+	if _events == null:
+		return
+	var new_reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
+	if old_reserve == new_reserve:
+		return
+	_events.hum_reserve_changed.emit(old_reserve, new_reserve)
+	var ratio: int = get_reserve_ratio()
+	var is_brownout: bool = ratio < BROWNOUT_THRESHOLD
+	if is_brownout and not _was_brownout:
+		_events.hum_brownout_entered.emit()
+		_was_brownout = true
+	elif not is_brownout and _was_brownout:
+		_events.hum_brownout_recovered.emit()
+		_was_brownout = false
