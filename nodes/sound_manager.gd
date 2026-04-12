@@ -4,6 +4,10 @@ var _db: GameStateDB
 var _purr_player_1: AudioStreamPlayer
 var _purr_player_2: AudioStreamPlayer
 var _ambient_player: AudioStreamPlayer
+var _meow_player: AudioStreamPlayer
+var _squeak_player: AudioStreamPlayer
+var _can_pop_player: AudioStreamPlayer
+var _button_click_player: AudioStreamPlayer
 var _hum_reserve_ratio: int = 1000
 
 
@@ -12,9 +16,16 @@ func initialize(
 ) -> void:
 	_db = db
 	_setup_audio_players()
+	_setup_event_players()
 	events.hum_reserve_changed.connect(
 		_on_hum_reserve_changed,
 	)
+	events.cat_started_pacing.connect(
+		_on_cat_started_pacing,
+	)
+	events.food_dispensed.connect(_on_food_dispensed)
+	events.can_opened.connect(_on_can_opened)
+	events.box_squeaked.connect(_on_box_squeaked)
 
 
 func register_cat(_entity_id: int) -> void:
@@ -66,6 +77,60 @@ func _set_loop(stream: AudioStream) -> void:
 		var wav: AudioStreamWAV = stream as AudioStreamWAV
 		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		wav.loop_end = -1
+
+
+func _setup_event_players() -> void:
+	_meow_player = _make_player(
+		"res://mods/tcp_base/sounds/cat/cat_meow_pacing_01.wav",
+		-15.0,
+	)
+	_squeak_player = _make_player(
+		"res://mods/tcp_base/sounds/objects/squeak_toy_01.wav",
+		-10.0,
+	)
+	_can_pop_player = _make_player(
+		"res://mods/tcp_base/sounds/objects/can_pop_01.wav",
+		-12.0,
+	)
+	_button_click_player = _make_player(
+		"res://mods/tcp_base/sounds/objects/button_click_01.wav",
+		-10.0,
+	)
+
+
+func _make_player(
+		path: String, volume: float,
+) -> AudioStreamPlayer:
+	if not ResourceLoader.exists(path):
+		return null
+	var stream: AudioStream = load(path)
+	if stream == null:
+		return null
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.volume_db = volume
+	add_child(player)
+	return player
+
+
+func _on_cat_started_pacing(_animal_id: int) -> void:
+	if _meow_player and not _meow_player.playing:
+		_meow_player.play()
+
+
+func _on_food_dispensed(_can_id: int) -> void:
+	if _button_click_player:
+		_button_click_player.play()
+
+
+func _on_can_opened(_can_id: int) -> void:
+	if _can_pop_player:
+		_can_pop_player.play()
+
+
+func _on_box_squeaked(_box_id: int) -> void:
+	if _squeak_player:
+		_squeak_player.play()
 
 
 func _on_hum_reserve_changed(

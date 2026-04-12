@@ -208,6 +208,9 @@ func _move_animals() -> void:
 						&"meta_state": &"GOAL_DIRECTED",
 						&"commitment_score": 100,
 					})
+					Events.cat_started_pacing.emit(
+						entity_id,
+					)
 				_state_timers[entity_id] = 0.0
 				continue
 			if state == &"RETURNING":
@@ -389,6 +392,9 @@ func _update_ambient_states() -> void:
 						&"meta_state": &"GOAL_DIRECTED",
 						&"commitment_score": 200,
 					})
+					Events.cat_started_pacing.emit(
+						entity_id,
+					)
 					_state_timers[entity_id] = 0.0
 					continue
 

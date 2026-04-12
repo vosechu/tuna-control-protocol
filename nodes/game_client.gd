@@ -373,7 +373,13 @@ func _try_click_entity(world_pos: Vector2) -> void:
 		if game_server.db.has_component(
 			entity_id, &"tuna_button",
 		):
-			game_server.food_system.press_button(entity_id)
+			var can_id: int = (
+				game_server.food_system.press_button(
+					entity_id,
+				)
+			)
+			if can_id != Constants.INVALID_ID:
+				Events.food_dispensed.emit(can_id)
 			return
 		# Click on cat/ferret → pet it
 		if game_server.db.has_component(
@@ -410,6 +416,7 @@ func _pet_animal(entity_id: int) -> void:
 
 
 func _squeak_box(box_id: int) -> void:
+	Events.box_squeaked.emit(box_id)
 	var box_pos: Dictionary = game_server.db.get_component(
 		box_id, &"position",
 	)

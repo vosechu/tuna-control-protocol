@@ -126,6 +126,8 @@ func tick_arms() -> void:
 					&"max_occupants": 1,
 				}]},
 			)
+			if _events and _events.has_signal(&"can_opened"):
+				_events.can_opened.emit(entity_id)
 
 
 func tick_cleanup() -> void:

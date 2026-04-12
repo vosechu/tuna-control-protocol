@@ -17,3 +17,10 @@ signal animal_relocated(animal_id: int, from_x: int, from_y: int, to_x: int, to_
 signal hum_reserve_changed(old_reserve: int, new_reserve: int)
 signal hum_brownout_entered()
 signal hum_brownout_recovered()
+
+# Food loop
+signal cat_started_pacing(animal_id: int)
+signal food_dispensed(can_id: int)
+signal can_opened(can_id: int)
+signal cat_petted(animal_id: int)
+signal box_squeaked(box_id: int)
