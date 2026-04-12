@@ -26,6 +26,14 @@ func create_entity() -> int:
 	return id
 
 
+func create_entity_with_id(entity_id: int) -> void:
+	assert(not _entities.has(entity_id),
+			"create_entity_with_id: entity %d already exists" % entity_id)
+	_entities[entity_id] = {}
+	if entity_id >= _next_id:
+		_next_id = entity_id + 1
+
+
 func destroy_entity(entity_id: int) -> void:
 	assert(_entities.has(entity_id), "destroy_entity: unknown entity %d" % entity_id)
 	_entities.erase(entity_id)
