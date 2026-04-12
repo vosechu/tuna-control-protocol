@@ -10,6 +10,8 @@
     "warmth": 700,
     "comfort": 700,
     "curiosity": 150,
+    "hunger": 700,
+    "attention": 500,
     "noise": -600,
     "chased": -900
   },
@@ -17,6 +19,8 @@
     "warmth": [500, 800],
     "comfort": [600, 900],
     "curiosity": [100, 200],
+    "hunger": [600, 800],
+    "attention": [400, 600],
     "noise": [-840, -360],
     "chased": [-1000, -800]
   },

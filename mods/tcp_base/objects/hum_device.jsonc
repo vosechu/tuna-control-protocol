@@ -1,0 +1,14 @@
+{
+  // HUM Device — Harmonic Uptime Matrix receiver + battery
+  // 6U tall. Cats purring within radius contribute HUM charge.
+  "schema_version": 1,
+  "id": "tcp_base:hum_device",
+  "name": "HUM Device",
+  "size_ru": 6,
+  "placement": "rack",
+  "hum_receiver": {
+    "radius_ru": 4
+  },
+  "physical": { "mass": 20000, "size_ru": 6 },
+  "advertisements": []
+}

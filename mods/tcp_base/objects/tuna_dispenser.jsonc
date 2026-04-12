@@ -1,0 +1,21 @@
+{
+  // TUNA — Tamper-sealed Utility Negotiation Asset dispenser
+  // 1U. Drops sealed tuna cans when triggered. Requires HUM.
+  "schema_version": 1,
+  "id": "tcp_base:tuna_dispenser",
+  "name": "TUNA Dispenser",
+  "size_ru": 1,
+  "placement": "rack",
+  "tuna_dispenser": {
+    "hum_cost": 50,
+    "can_type": "tcp_tuna:tuna_can"
+  },
+  "physical": { "mass": 8000, "size_ru": 1 },
+  "advertisements": [
+    {
+      "desire_type": "hunger",
+      "strength": 300,
+      "radius_ru": 6
+    }
+  ]
+}

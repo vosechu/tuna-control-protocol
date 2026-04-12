@@ -9,6 +9,9 @@ var desire_resolver: DesireResolver
 var desire_scatter: DesireScatter
 var object_state_manager: ObjectStateManager
 var nav_builder: NavGraphBuilder
+var hum_system: HumSystem
+var contentment: Contentment
+var food_system: FoodSystem
 var cat_presence_system: CatPresenceSystem
 var plant_growth_system: PlantGrowthSystem
 var _mod_loader := ModLoader.new()
@@ -34,6 +37,9 @@ func _ready() -> void:
 	)
 	_entity_defs = mod_result["entity_defs"]
 	heat_grid = HeatGrid.new(db)
+	contentment = Contentment.new(db)
+	hum_system = HumSystem.new(db, Events)
+	food_system = FoodSystem.new(db, hum_system, Events)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
@@ -73,21 +79,29 @@ func _physics_process(_delta: float) -> void:
 	# the EXPECTED_ORDER array in tests/integration/test_tick_loop.gd.
 	# Key constraints:
 	#   - heat_grid before _scatter_desires (warmth feeds desire scatter)
+	#   - contentment before hum_system (purring state feeds HUM charge)
+	#   - hum_system before desire_resolver (HUM reserve affects arm actions)
 	#   - _move_animals before cat_presence (reads fresh positions)
+	#   - food_system before cat_presence (food state resolves before presence)
 	#   - cat_presence before plant_growth (reads fresh presence)
 	#   - plant_growth before _update_ambient_states (transitions
 	#     influence next tick's ambient state selection)
 	db.advance_tick()                                       # 1
 	heat_grid.propagate()                                   # 2
 	_scatter_desires()                                      # 3
-	_decay_commitment()                                     # 4
-	desire_resolver.mark_all_dirty()                        # 5
-	desire_resolver.evaluate_budget(_curiosity_trackers)    # 6
-	_move_animals()                                         # 7
-	cat_presence_system.tick()                              # 8
-	plant_growth_system.tick()                              # 9
-	_update_ambient_states()                                # 10
-	db.flush_notifications()                                # 11
+	contentment.evaluate_all()                              # 4
+	hum_system.tick_charge()                                # 5
+	hum_system.drain_idle()                                 # 6
+	_decay_commitment()                                     # 7
+	desire_resolver.mark_all_dirty()                        # 8
+	desire_resolver.evaluate_budget(_curiosity_trackers)    # 9
+	_move_animals()                                         # 10
+	food_system.tick_arms()                                 # 11
+	food_system.tick_cleanup()                              # 12
+	cat_presence_system.tick()                              # 13
+	plant_growth_system.tick()                              # 14
+	_update_ambient_states()                                # 15
+	db.flush_notifications()                                # 16
 
 
 func _decay_commitment() -> void:
@@ -127,14 +141,18 @@ func _scatter_desires() -> void:
 		# Warmth desire is satisfaction: 0 = cold/desperate, 1000 = warm/satisfied.
 		# Temperature: 0 = cold, 1000 = hot. They match directly.
 		db.set_field(entity_id, &"desires", &"warmth", temp)
-	# Comfort and curiosity satisfaction decay over time (positive values drop).
+	# Satisfaction decay over time (positive values drop toward 0 = desperate).
 	db.add_all(&"desires", &"comfort", -5)
 	db.add_all(&"desires", &"curiosity", -3)
+	db.add_all(&"desires", &"hunger", -3)
+	db.add_all(&"desires", &"attention", -8)
 	# Satisfaction from nearby object advertisements (warmth, comfort, etc.)
 	desire_scatter.scatter_from_ads()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
+	db.clamp_all(&"desires", &"hunger", 0, 1000)
+	db.clamp_all(&"desires", &"attention", 0, 1000)
 
 
 
@@ -143,7 +161,10 @@ func _move_animals() -> void:
 	for entity_id: int in animals:
 		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
-		if state != &"SEEKING" and state != &"MOVING_TO" and state != &"WANDERING":
+		if state != &"SEEKING" and state != &"MOVING_TO" \
+				and state != &"WANDERING" \
+				and state != &"HUNGRY" \
+				and state != &"RETURNING":
 			continue
 
 		var pos: Dictionary = db.get_component(entity_id, &"position")
@@ -187,6 +208,37 @@ func _move_animals() -> void:
 				&"x": target[&"x"], &"y": floor_y,
 			})
 			db.update_spatial(entity_id, target[&"x"], floor_y)
+
+			# Food state arrivals
+			if state == &"HUNGRY":
+				var food_id: int = _find_nearby_food(
+					entity_id,
+				)
+				if food_id != Constants.INVALID_ID:
+					db.set_component(entity_id, &"ai_state", {
+						&"state": &"EATING",
+						&"meta_state": &"GOAL_DIRECTED",
+						&"commitment_score": 300,
+					})
+				else:
+					db.set_component(entity_id, &"ai_state", {
+						&"state": &"PACING",
+						&"meta_state": &"GOAL_DIRECTED",
+						&"commitment_score": 100,
+					})
+					Events.cat_started_pacing.emit(
+						entity_id,
+					)
+				_state_timers[entity_id] = 0.0
+				continue
+			if state == &"RETURNING":
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"SETTLING",
+					&"meta_state": &"GOAL_DIRECTED",
+					&"commitment_score": 50,
+				})
+				_state_timers[entity_id] = 0.0
+				continue
 
 			# Determine arrival state based on what drew the animal here
 			var arrival_state: StringName = &"IDLE"
@@ -254,8 +306,107 @@ func _update_ambient_states() -> void:
 				_state_timers[entity_id] = 0.0
 			continue
 
+		# Food state machine (GOAL_DIRECTED states)
+		if ai[&"state"] == &"PACING":
+			_state_timers[entity_id] = (
+				_state_timers.get(entity_id, 0.0) + tick_delta
+			)
+			var food_id: int = _find_nearby_food(entity_id)
+			if food_id != Constants.INVALID_ID:
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"EATING",
+					&"meta_state": &"GOAL_DIRECTED",
+					&"commitment_score": 300,
+				})
+				_state_timers[entity_id] = 0.0
+			continue
+
+		if ai[&"state"] == &"EATING":
+			_state_timers[entity_id] = (
+				_state_timers.get(entity_id, 0.0) + tick_delta
+			)
+			db.add_field(entity_id, &"desires", &"hunger", 30)
+			db.clamp_field(
+				entity_id, &"desires", &"hunger", 0, 1000,
+			)
+			if _state_timers[entity_id] >= 3.0:
+				_mark_nearest_can_eaten(entity_id)
+				var box_id: int = _find_nearest_box(entity_id)
+				if box_id != Constants.INVALID_ID:
+					var bpos: Dictionary = db.get_component(
+						box_id, &"position",
+					)
+					db.set_component(entity_id, &"ai_state", {
+						&"state": &"RETURNING",
+						&"meta_state": &"GOAL_DIRECTED",
+						&"commitment_score": 150,
+					})
+					db.set_component(entity_id, &"target", {
+						&"x": bpos[&"x"],
+						&"y": bpos[&"y"],
+						&"entity_id": box_id,
+					})
+				else:
+					db.set_component(entity_id, &"ai_state", {
+						&"state": &"IDLE",
+						&"meta_state": &"AMBIENT",
+						&"commitment_score": 0,
+					})
+				_state_timers[entity_id] = 0.0
+			continue
+
+		if ai[&"state"] == &"SETTLING":
+			_state_timers[entity_id] = (
+				_state_timers.get(entity_id, 0.0) + tick_delta
+			)
+			if _state_timers[entity_id] >= 2.0:
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"LOAFING",
+					&"meta_state": &"AMBIENT",
+					&"commitment_score": 0,
+				})
+				_state_timers[entity_id] = 0.0
+			continue
+
 		if ai[&"meta_state"] != &"AMBIENT":
 			continue
+
+		# Check hunger for AMBIENT cats
+		if db.has_component(entity_id, &"desires"):
+			var desires: Dictionary = db.get_component(
+				entity_id, &"desires",
+			)
+			if desires.has(&"hunger") and desires[&"hunger"] < 400:
+				var target_id: int = _find_nearest_dispenser(
+					entity_id,
+				)
+				if target_id != Constants.INVALID_ID:
+					var tpos: Dictionary = db.get_component(
+						target_id, &"position",
+					)
+					db.set_component(entity_id, &"ai_state", {
+						&"state": &"HUNGRY",
+						&"meta_state": &"GOAL_DIRECTED",
+						&"commitment_score": 200,
+					})
+					db.set_component(entity_id, &"target", {
+						&"x": tpos[&"x"],
+						&"y": tpos[&"y"],
+						&"entity_id": target_id,
+					})
+					_state_timers[entity_id] = 0.0
+					continue
+				else:
+					db.set_component(entity_id, &"ai_state", {
+						&"state": &"PACING",
+						&"meta_state": &"GOAL_DIRECTED",
+						&"commitment_score": 200,
+					})
+					Events.cat_started_pacing.emit(
+						entity_id,
+					)
+					_state_timers[entity_id] = 0.0
+					continue
 
 		# Update timer
 		if not _state_timers.has(entity_id):
@@ -354,6 +505,7 @@ func place_object(
 					&"max_occupants": 1,
 				}],
 			})
+			db.set_component(entity, &"hum_receiver", {&"radius_ru": 5})
 		&"cardboard_box":
 			db.set_component(entity, &"advertisements", {
 				&"list": [
@@ -380,6 +532,40 @@ func place_object(
 					&"radius_ru": 4,
 					&"max_occupants": 3,
 				}],
+			})
+		&"hum_device":
+			db.set_component(entity, &"hum_receiver", {
+				&"radius_ru": 4,
+			})
+		&"tuna_dispenser":
+			db.set_component(entity, &"tuna_dispenser", {
+				&"hum_cost": 50,
+				&"can_type": &"tcp_tuna:tuna_can",
+			})
+			db.set_component(entity, &"advertisements", {
+				&"list": [{
+					&"desire_type": &"hunger",
+					&"strength": 300,
+					&"radius_ru": 6,
+				}],
+			})
+		&"tuna_button":
+			var disp_id: int = _find_dispenser_in_rack(
+				world_x, world_y,
+			)
+			if disp_id != Constants.INVALID_ID:
+				db.set_component(entity, &"tuna_button", {
+					&"dispenser_id": disp_id,
+				})
+			else:
+				push_error(
+					"No TUNA dispenser in this rack"
+				)
+		&"arm":
+			db.set_component(entity, &"arm", {
+				&"radius_ru": 3,
+				&"hum_cost": 30,
+				&"open_duration_ticks": 20,
 			})
 
 	db.set_component(
@@ -433,15 +619,16 @@ func remove_object(entity_id: int) -> void:
 
 
 func _spawn_starter_entities() -> void:
-	# Pre-placed server at rack 1, slot 40 (bottom of rack, right above floor, near Mochi)
+	# Pre-placed server at rack 1, slot 8 (bottom of rack, right above floor, near Mochi)
 	var server: int = db.create_entity()
 	var server_x: int = 1 * Constants.RACK_WIDTH_PU
-	var server_y: int = 40 * Constants.SLOT_HEIGHT_PU
+	var server_y: int = 8 * Constants.SLOT_HEIGHT_PU
 	db.set_component(server, &"position", {&"x": server_x, &"y": server_y})
 	db.set_component(server, &"heat_source", {&"value": 1000, &"radius_ru": 5})
 	db.set_component(server, &"advertisements", {&"list": [
 		{&"desire_type": &"warmth", &"strength": 800, &"radius_ru": 8, &"max_occupants": 1}
 	]})
+	db.set_component(server, &"hum_receiver", {&"radius_ru": 5})
 	db.set_component(
 		server, &"object_type", {&"type": &"server_2u"}
 	)
@@ -478,6 +665,7 @@ func _spawn_starter_entities() -> void:
 					&"x": Constants.RACK_WIDTH_PU / 2,
 					&"y": floor_y,
 				},
+				&"desires": {&"hunger": 900, &"attention": 600},
 			},
 			{
 				&"name": &"Biscuit",
@@ -486,6 +674,7 @@ func _spawn_starter_entities() -> void:
 						+ Constants.RACK_WIDTH_PU / 4,
 					&"y": floor_y,
 				},
+				&"desires": {&"hunger": 900, &"attention": 600},
 			},
 			{
 				&"name": &"Noodle",
@@ -494,6 +683,7 @@ func _spawn_starter_entities() -> void:
 						+ Constants.RACK_WIDTH_PU / 2,
 					&"y": floor_y,
 				},
+				&"desires": {&"hunger": 900, &"attention": 600},
 			},
 		]
 		for overrides: Dictionary in cat_spawns:
@@ -557,3 +747,101 @@ func _spawn_rack_entities() -> void:
 			},
 		]})
 		db.update_spatial(rack_entity, x, y)
+
+
+func _find_dispenser_in_rack(
+		world_x: int, _world_y: int,
+) -> int:
+	@warning_ignore("integer_division")
+	var rack: int = world_x / Constants.RACK_WIDTH_PU
+	var dispensers: Array[int] = db.get_entities_with(
+		&"tuna_dispenser",
+	)
+	for disp_id: int in dispensers:
+		var dpos: Dictionary = db.get_component(
+			disp_id, &"position",
+		)
+		@warning_ignore("integer_division")
+		var disp_rack: int = dpos[&"x"] / Constants.RACK_WIDTH_PU
+		if disp_rack == rack:
+			return disp_id
+	return Constants.INVALID_ID
+
+
+func _find_nearest_dispenser(entity_id: int) -> int:
+	var pos: Dictionary = db.get_component(
+		entity_id, &"position",
+	)
+	var dispensers: Array[int] = db.get_entities_with(
+		&"tuna_dispenser",
+	)
+	var best_id: int = Constants.INVALID_ID
+	var best_dist: int = 999999
+	for disp_id: int in dispensers:
+		var dpos: Dictionary = db.get_component(
+			disp_id, &"position",
+		)
+		var dist: int = (
+			absi(dpos[&"x"] - pos[&"x"])
+			+ absi(dpos[&"y"] - pos[&"y"])
+		)
+		if dist < best_dist:
+			best_dist = dist
+			best_id = disp_id
+	return best_id
+
+
+func _find_nearby_food(entity_id: int) -> int:
+	var pos: Dictionary = db.get_component(
+		entity_id, &"position",
+	)
+	var nearby: Array[int] = db.query_radius(
+		pos[&"x"], pos[&"y"], Constants.ru_to_pu(3),
+	)
+	for other_id: int in nearby:
+		if db.has_component(other_id, &"tuna_can"):
+			var can: Dictionary = db.get_component(
+				other_id, &"tuna_can",
+			)
+			if can[&"state"] == &"opened":
+				return other_id
+	return Constants.INVALID_ID
+
+
+func _find_nearest_box(entity_id: int) -> int:
+	var pos: Dictionary = db.get_component(
+		entity_id, &"position",
+	)
+	var objects: Array[int] = db.get_entities_with(
+		&"object_type",
+	)
+	var best_id: int = Constants.INVALID_ID
+	var best_dist: int = 999999
+	for obj_id: int in objects:
+		var otype: Dictionary = db.get_component(
+			obj_id, &"object_type",
+		)
+		if otype[&"type"] != &"cardboard_box":
+			continue
+		var opos: Dictionary = db.get_component(
+			obj_id, &"position",
+		)
+		var dist: int = (
+			absi(opos[&"x"] - pos[&"x"])
+			+ absi(opos[&"y"] - pos[&"y"])
+		)
+		if dist < best_dist:
+			best_dist = dist
+			best_id = obj_id
+	return best_id
+
+
+func _mark_nearest_can_eaten(entity_id: int) -> void:
+	var food_id: int = _find_nearby_food(entity_id)
+	if food_id != Constants.INVALID_ID:
+		var can: Dictionary = db.get_component(
+			food_id, &"tuna_can",
+		)
+		can[&"state"] = &"eaten"
+		db.set_component(food_id, &"tuna_can", can)
+		db.remove_component(food_id, &"advertisements")

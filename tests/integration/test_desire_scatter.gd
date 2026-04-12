@@ -48,6 +48,8 @@ func _make_cat(rack: int, slot: int) -> int:
 		&"warmth": 200,
 		&"comfort": 800,
 		&"curiosity": 1000,
+		&"hunger": 800,
+		&"attention": 800,
 	})
 	_db.set_component(id, &"personality", {
 		&"warmth_weight": 800,
@@ -71,8 +73,8 @@ func _make_cat(rack: int, slot: int) -> int:
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 func test_cold_cat_near_server_transitions_to_seeking() -> void:
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 25)
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 8)
 
 	# Propagate heat from the server
 	_heat_grid.propagate()
@@ -102,8 +104,8 @@ func test_cold_cat_near_server_transitions_to_seeking() -> void:
 
 
 func test_cat_moves_toward_target_over_ticks() -> void:
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 30)
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 8)
 
 	# Set cat to MOVING_TO with target at server position
 	var server_pos: Dictionary = _db.get_component(
@@ -158,13 +160,13 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 	var end_pos: Dictionary = _db.get_component(cat, &"position")
 	var end_y: int = end_pos[&"y"]
 	assert_lt(end_y, start_y,
-		"Cat should have moved upward (lower Y) toward server at slot 20")
+		"Cat should have moved upward (lower Y) toward server at slot 5")
 
 
 func test_mark_animals_dirty_only_marks_species_entities() -> void:
 	# Non-species entities (servers, objects) should not be marked dirty
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 25)
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 8)
 
 	# Simulate _mark_animals_dirty logic
 	var animals: Array[int] = _db.get_entities_with(&"desires")
@@ -202,8 +204,8 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 
 
 func test_movement_arrival_distance_within_speed() -> void:
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 20)  # Same position as server
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 5)  # Same position as server
 
 	var server_pos: Dictionary = _db.get_component(
 		server, &"position"
@@ -234,3 +236,49 @@ func test_movement_arrival_distance_within_speed() -> void:
 	var dist: int = absi(dx) + absi(dy)
 	assert_lte(dist, 200,
 		"Cat should be within arrival distance")
+
+
+func test_hunger_decays_each_tick() -> void:
+	var cat: int = _make_cat(1, 5)
+	# Verify hunger exists on spawned cat (set by _make_cat)
+	var desires: Dictionary = _db.get_component(cat, &"desires")
+	assert_true(desires.has(&"hunger"),
+		"Cat should have hunger desire from spawn")
+	var before: int = desires[&"hunger"]
+
+	# Simulate one scatter pass: hunger decays at -3 per tick
+	_db.add_all(&"desires", &"hunger", -3)
+	_db.clamp_all(&"desires", &"hunger", 0, 1000)
+
+	var after: Dictionary = _db.get_component(cat, &"desires")
+	assert_eq(after[&"hunger"], before - 3,
+		"Hunger should decay by 3 per tick")
+
+
+func test_attention_decays_faster_than_hunger() -> void:
+	var cat: int = _make_cat(1, 5)
+	# Verify both desires exist on spawned cat
+	var desires: Dictionary = _db.get_component(cat, &"desires")
+	assert_true(desires.has(&"hunger"),
+		"Cat should have hunger desire from spawn")
+	assert_true(desires.has(&"attention"),
+		"Cat should have attention desire from spawn")
+
+	# Set both to 800 for comparison
+	_db.set_field(cat, &"desires", &"hunger", 800)
+	_db.set_field(cat, &"desires", &"attention", 800)
+
+	# Simulate 10 scatter passes
+	for tick: int in 10:
+		_db.add_all(&"desires", &"hunger", -3)
+		_db.add_all(&"desires", &"attention", -8)
+	_db.clamp_all(&"desires", &"hunger", 0, 1000)
+	_db.clamp_all(&"desires", &"attention", 0, 1000)
+
+	var after: Dictionary = _db.get_component(cat, &"desires")
+	assert_eq(after[&"hunger"], 770,
+		"Hunger after 10 ticks: 800 - (3*10) = 770")
+	assert_eq(after[&"attention"], 720,
+		"Attention after 10 ticks: 800 - (8*10) = 720")
+	assert_lt(after[&"attention"], after[&"hunger"],
+		"Attention should decay faster than hunger")
