@@ -8,12 +8,12 @@ Rows are indexed 0 at the top, columns 0 at the left.
 
 | Tile | Col 0 | Col 1 | Col 2 | Col 3 | Col 4 | Col 5 | Col 6 | Col 7 | Col 8 | Col 9 | Col 10 | Col 11 |
 |------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|--------|--------|
-| Row 0 | Ceiling corner | Wall | Wall | Wall | Cable A L | Cable A R | Cable B L | Cable B R | Cable C L | Cable C R | Cable D R | Cable E (U) |
+| Row 0 | Ceiling | Wall | Wall | Wall | Cable A L | Cable A R | Cable B L | Cable B R | Cable C L | Cable C R | Cable D R | Cable E (U) |
 | Row 1 | Wall | Wall | Wall | Wall | -- | -- | Cable B L bot | Cable B R bot | Cable C L bot | Cable C R bot | Cable D R bot | -- |
 | Row 2 | Wall | Wall | Wall | Wall | Orange flowers | Yellow/orange flowers | Leaves | Grass | Orange blossoms | Single blossom | Little grass | -- |
 | Row 3 | Baseboard A | Baseboard B | Baseboard C | Wall (lower) | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | -- |
 | Row 4 | Dark edge | -- | -- | -- | Small plants | -- | -- | -- | -- | -- | -- | -- |
-| Row 5 | -- | -- | -- | -- | Ground surface | Ground surface | Ground surface | Ground surface | -- | -- | -- | -- |
+| Row 5 | -- | -- | -- | -- | Ground surface | Ground surface | Ground surface | Ground surface | Underfloor | Interfloor transition | -- | -- |
 
 `--` = transparent / not registered in the TileSet.
 

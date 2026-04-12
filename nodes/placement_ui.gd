@@ -4,6 +4,9 @@ signal object_selected(object_type: StringName)
 signal remove_toggled(active: bool)
 signal placement_cancelled
 
+const _FONT_SIZE: int = 5
+const _BTN_MIN_SIZE: Vector2 = Vector2(40, 8)
+
 var _selected_type: StringName = &""
 var _remove_mode: bool = false
 var _buttons: Dictionary = {}  # StringName -> Button
@@ -14,14 +17,17 @@ func _ready() -> void:
 
 
 func _build_ui() -> void:
-	# Vertical sidebar on the left
 	var vbox := VBoxContainer.new()
-	vbox.position = Vector2(10, 10)
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.position = Vector2(
+		float(Constants.VIEWPORT_WIDTH) - 50.0,
+		2.0,
+	)
+	vbox.add_theme_constant_override("separation", 1)
 	add_child(vbox)
 
 	var label := Label.new()
 	label.text = "Place:"
+	label.add_theme_font_size_override("font_size", _FONT_SIZE)
 	vbox.add_child(label)
 
 	_add_button(vbox, &"server_2u", "Server [1]")
@@ -29,21 +35,21 @@ func _build_ui() -> void:
 	_add_button(vbox, &"clothes_pile", "Pile [3]")
 
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 16)
+	spacer.custom_minimum_size = Vector2(0, 2)
 	vbox.add_child(spacer)
 
 	var remove_btn := Button.new()
 	remove_btn.text = "Remove [R]"
 	remove_btn.toggle_mode = true
+	remove_btn.add_theme_font_size_override("font_size", _FONT_SIZE)
+	remove_btn.custom_minimum_size = _BTN_MIN_SIZE
 	remove_btn.pressed.connect(_on_remove_pressed)
 	vbox.add_child(remove_btn)
 	_buttons[&"remove"] = remove_btn
 
 	var cancel_label := Label.new()
-	cancel_label.text = "Esc to cancel"
-	cancel_label.add_theme_font_size_override(
-		"font_size", 10
-	)
+	cancel_label.text = "Esc cancel"
+	cancel_label.add_theme_font_size_override("font_size", 4)
 	vbox.add_child(cancel_label)
 
 
@@ -54,6 +60,8 @@ func _add_button(
 ) -> void:
 	var btn := Button.new()
 	btn.text = text
+	btn.add_theme_font_size_override("font_size", _FONT_SIZE)
+	btn.custom_minimum_size = _BTN_MIN_SIZE
 	btn.pressed.connect(_on_type_pressed.bind(type))
 	parent.add_child(btn)
 	_buttons[type] = btn

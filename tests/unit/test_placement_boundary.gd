@@ -14,8 +14,8 @@ func test_snap_just_before_first_rack():
 	var result: Dictionary = Constants.pu_to_bay_rack_slot(
 		Constants.LEFTMOST_RACK_OFFSET_PU - 1, 0
 	)
-	assert_eq(result[&"rack"], -1,
-		"Position before LEFTMOST_RACK_OFFSET should be rack -1")
+	assert_eq(result[&"rack"], 0,
+		"Position before LEFTMOST_RACK_OFFSET should clamp to rack 0")
 
 
 func test_snap_at_last_rack_interior():

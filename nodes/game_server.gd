@@ -1,6 +1,7 @@
 extends Node
 
 const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10Hz)
+const FLOOR_Y_PU: int = Constants.FLOOR_Y * Constants.POSITION_SCALE  # 11200
 
 var db: GameStateDB
 var heat_grid: HeatGrid
@@ -175,17 +176,17 @@ func _move_animals() -> void:
 			})
 		# WANDERING skips nav check — random floor positions are always reachable
 
-		# Move toward target
+		# Move toward target (X only — no jumping/climbing yet, Y stays locked)
+		var floor_y: int = pos[&"y"]
 		var dx: int = target[&"x"] - pos[&"x"]
-		var dy: int = target[&"y"] - pos[&"y"]
-		var dist: int = absi(dx) + absi(dy)
+		var dist: int = absi(dx)
 
 		if dist <= ANIMAL_SPEED_PU:
-			# Arrived
+			# Arrived (keep floor Y)
 			db.set_component(entity_id, &"position", {
-				&"x": target[&"x"], &"y": target[&"y"],
+				&"x": target[&"x"], &"y": floor_y,
 			})
-			db.update_spatial(entity_id, target[&"x"], target[&"y"])
+			db.update_spatial(entity_id, target[&"x"], floor_y)
 
 			# Determine arrival state based on what drew the animal here
 			var arrival_state: StringName = &"IDLE"
@@ -218,24 +219,16 @@ func _move_animals() -> void:
 				_state_timers[entity_id] = 0.0
 				_min_durations_override[entity_id] = arrival_duration
 		else:
-			# Move one step toward target
+			# Move one step toward target (X only)
 			var move_x: int = 0
-			var move_y: int = 0
 			if dx != 0:
 				@warning_ignore("integer_division")
 				move_x = ANIMAL_SPEED_PU * dx / dist
-			if dy != 0:
-				@warning_ignore("integer_division")
-				move_y = ANIMAL_SPEED_PU * dy / dist
-			# Ensure at least 1 unit of movement
 			if move_x == 0 and dx != 0:
 				move_x = 1 if dx > 0 else -1
-			if move_y == 0 and dy != 0:
-				move_y = 1 if dy > 0 else -1
 			var new_x: int = pos[&"x"] + move_x
-			var new_y: int = pos[&"y"] + move_y
-			db.set_component(entity_id, &"position", {&"x": new_x, &"y": new_y})
-			db.update_spatial(entity_id, new_x, new_y)
+			db.set_component(entity_id, &"position", {&"x": new_x, &"y": floor_y})
+			db.update_spatial(entity_id, new_x, floor_y)
 
 
 func _update_ambient_states() -> void:
@@ -460,7 +453,7 @@ func _spawn_starter_entities() -> void:
 	var box_x: int = 0 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
 	@warning_ignore("integer_division")
 	var box_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 4
+		FLOOR_Y_PU
 	)
 	db.set_component(box, &"position", {&"x": box_x, &"y": box_y})
 	db.set_component(box, &"advertisements", {&"list": [
@@ -471,33 +464,11 @@ func _spawn_starter_entities() -> void:
 	)
 	db.update_spatial(box, box_x, box_y)
 
-	# Clothes pile on the floor near rack 2
-	var pile: int = db.create_entity()
-	@warning_ignore("integer_division")
-	var pile_x: int = 2 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
-	@warning_ignore("integer_division")
-	var pile_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 3
-	)
-	db.set_component(pile, &"position", {&"x": pile_x, &"y": pile_y})
-	db.set_component(pile, &"advertisements", {&"list": [
-		{&"desire_type": &"comfort", &"strength": 800, &"radius_ru": 4, &"max_occupants": 3},
-		{&"desire_type": &"warmth", &"strength": 500, &"radius_ru": 3},
-		{
-			&"desire_type": &"curiosity", &"strength": 400, &"radius_ru": 4,
-			&"novelty_duration": 300, &"novelty_cooldown": 200,
-		},
-	]})
-	db.set_component(
-		pile, &"object_type", {&"type": &"clothes_pile"}
-	)
-	db.update_spatial(pile, pile_x, pile_y)
-
 	# Spawn cats from mod definitions
 	if _entity_defs.has_entity(&"tcp_cats:cat"):
 		@warning_ignore("integer_division")
 		var floor_y: int = (
-			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			FLOOR_Y_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
 		)
 		var cat_spawns: Array[Dictionary] = [
@@ -534,7 +505,7 @@ func _spawn_starter_entities() -> void:
 	if _entity_defs.has_entity(&"tcp_ferrets:ferret"):
 		@warning_ignore("integer_division")
 		var floor_y: int = (
-			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			FLOOR_Y_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
 		)
 		var ferret_spawns: Array[Dictionary] = [
@@ -574,7 +545,7 @@ func _spawn_rack_entities() -> void:
 		var rack_entity: int = db.create_entity()
 		@warning_ignore("integer_division")
 		var x: int = rack_idx * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
-		var y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+		var y: int = FLOOR_Y_PU
 		db.set_component(rack_entity, &"position", {&"x": x, &"y": y})
 		db.set_component(rack_entity, &"advertisements", {&"list": [
 			{

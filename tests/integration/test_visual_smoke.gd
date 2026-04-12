@@ -30,15 +30,15 @@ func test_bay_0_not_desaturated():
 		"Bay 0 should NOT have a shader material")
 
 
-func test_peek_bays_have_shader():
+func test_peek_bays_render_same_as_active():
 	var bay_neg: Sprite2D = _client.get_node(
 		"GameClient/World/RackRow/Bay_-1"
 	)
 	var bay_pos: Sprite2D = _client.get_node(
 		"GameClient/World/RackRow/Bay_1"
 	)
-	assert_not_null(bay_neg.material, "Bay -1 desaturated")
-	assert_not_null(bay_pos.material, "Bay 1 desaturated")
+	assert_null(bay_neg.material, "Bay -1 should have no shader")
+	assert_null(bay_pos.material, "Bay 1 should have no shader")
 
 
 func test_environment_tilemap_has_cells():
