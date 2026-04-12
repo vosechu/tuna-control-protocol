@@ -45,6 +45,18 @@ func _ready() -> void:
 	_setup_sound_manager()
 	_setup_placement_ui()
 	_setup_lighting()
+	_setup_hum_bar()
+
+
+func _setup_hum_bar() -> void:
+	var hud := CanvasLayer.new()
+	hud.name = "HUD"
+	add_child(hud)
+	var hum_bar := HumBar.new()
+	hum_bar.position = Vector2(10, 10)
+	hum_bar.name = "HumBar"
+	hud.add_child(hum_bar)
+	hum_bar.initialize(Events)
 
 
 func _setup_lighting() -> void:
