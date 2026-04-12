@@ -44,6 +44,14 @@ func _ready() -> void:
 	_setup_heat_overlay()
 	_setup_sound_manager()
 	_setup_placement_ui()
+	_setup_lighting()
+
+
+func _setup_lighting() -> void:
+	var lighting := LightingSystem.new()
+	lighting.name = "LightingSystem"
+	$World.add_child(lighting)
+	lighting.initialize(Events)
 
 
 func _build_racks() -> void:
