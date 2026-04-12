@@ -11,6 +11,8 @@ var nav_builder: NavGraphBuilder
 var hum_system: HumSystem
 var contentment: Contentment
 var food_system: FoodSystem
+var cat_presence_system: CatPresenceSystem
+var plant_growth_system: PlantGrowthSystem
 var _mod_loader := ModLoader.new()
 var _entity_defs: EntityDefRegistry
 var _verb_resolver := VerbResolver.new()
@@ -40,6 +42,8 @@ func _ready() -> void:
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
+	cat_presence_system = CatPresenceSystem.new(db)
+	plant_growth_system = PlantGrowthSystem.new(db, heat_grid)
 	nav_builder = NavGraphBuilder.new()
 	_register_species_nav()
 	nav_builder.build()
@@ -70,20 +74,33 @@ func _build_nav_for_objects() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	db.advance_tick()
-	heat_grid.propagate()
-	_scatter_desires()
-	contentment.evaluate_all()
-	hum_system.tick_charge()
-	hum_system.drain_idle()
-	_decay_commitment()
-	desire_resolver.mark_all_dirty()
-	desire_resolver.evaluate_budget(_curiosity_trackers)
-	_move_animals()
-	food_system.tick_arms()
-	food_system.tick_cleanup()
-	_update_ambient_states()
-	db.flush_notifications()
+	# AI-DEV: This tick order is load-bearing. If you change it, update
+	# the EXPECTED_ORDER array in tests/integration/test_tick_loop.gd.
+	# Key constraints:
+	#   - heat_grid before _scatter_desires (warmth feeds desire scatter)
+	#   - contentment before hum_system (purring state feeds HUM charge)
+	#   - hum_system before desire_resolver (HUM reserve affects arm actions)
+	#   - _move_animals before cat_presence (reads fresh positions)
+	#   - food_system before cat_presence (food state resolves before presence)
+	#   - cat_presence before plant_growth (reads fresh presence)
+	#   - plant_growth before _update_ambient_states (transitions
+	#     influence next tick's ambient state selection)
+	db.advance_tick()                                       # 1
+	heat_grid.propagate()                                   # 2
+	_scatter_desires()                                      # 3
+	contentment.evaluate_all()                              # 4
+	hum_system.tick_charge()                                # 5
+	hum_system.drain_idle()                                 # 6
+	_decay_commitment()                                     # 7
+	desire_resolver.mark_all_dirty()                        # 8
+	desire_resolver.evaluate_budget(_curiosity_trackers)    # 9
+	_move_animals()                                         # 10
+	food_system.tick_arms()                                 # 11
+	food_system.tick_cleanup()                              # 12
+	cat_presence_system.tick()                              # 13
+	plant_growth_system.tick()                              # 14
+	_update_ambient_states()                                # 15
+	db.flush_notifications()                                # 16
 
 
 func _decay_commitment() -> void:

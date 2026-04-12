@@ -62,9 +62,9 @@ func _setup_sprite(species: Dictionary) -> void:
 	var base_path: String = ""
 	var is_cat: bool = String(species[&"id"]).contains("cat")
 	if is_cat:
-		base_path = "res://mods/tcp_base/sprites/cat/%s" % variant
+		base_path = "res://mods/tcp_cats/sprites/%s" % variant
 	else:
-		base_path = "res://mods/tcp_base/sprites/ferret/%s" % variant
+		base_path = "res://mods/tcp_ferrets/sprites/%s" % variant
 	_sprite.scale = Vector2(2.0, 2.0)
 
 	var idle_tex: Texture2D = load(base_path + "_idle_strip8.png")

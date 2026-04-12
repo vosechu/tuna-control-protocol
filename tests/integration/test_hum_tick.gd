@@ -3,13 +3,13 @@ extends GutTest
 # Integration test: verifies contentment + HUM system wired into the tick loop.
 # Mirrors game_server._physics_process order without requiring a scene tree.
 
-const EventsScript: GDScript = preload("res://engine/core/events.gd")
+const EventsScript: GDScript = preload("res://nodes/events.gd")
 
 var _db: GameStateDB
 var _heat_grid: HeatGrid
 var _contentment: Contentment
 var _hum: HumSystem
-var _events: RefCounted
+var _events: Object
 var _resolver: DesireResolver
 var _desire_scatter: DesireScatter
 

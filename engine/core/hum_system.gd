@@ -8,11 +8,11 @@ const CHARGE_PER_PURRING_CAT: int = 10
 const BROWNOUT_THRESHOLD: int = 250  # 25% of 1000 ratio
 
 var _db: GameStateDB
-var _events: RefCounted
+var _events: Object
 var _was_brownout: bool = false
 
 
-func _init(db: GameStateDB, events: RefCounted = null) -> void:
+func _init(db: GameStateDB, events: Object = null) -> void:
 	_db = db
 	_events = events
 	_db.create_entity_with_id(FACILITY_ID)

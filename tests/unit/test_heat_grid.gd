@@ -57,8 +57,8 @@ func test_heat_falls_off_with_distance():
 
 
 func test_heat_is_zero_beyond_radius():
-	# A source with radius 3 at slot 5 must not heat slot 7+ (beyond 1U down = slot 6).
-	# The upward range: slots 2-5 (3U up). Downward: slot 6 (1U down). Slot 7+ = zero.
+	# A source with radius 3 at slot 5 heats slots 2-5 upward and slot 6 downward.
+	# Slot 1 (4U up) and slot 7 (2U down) must be zero.
 	_make_source(0, 5, 800, 3)
 	_grid.propagate()
 	var cell_beyond: int = Constants.rack_cell(0, 7)
@@ -95,7 +95,7 @@ func test_cross_rack_spillover_is_much_weaker():
 
 
 func test_floor_gets_no_heat_from_distant_server():
-	# A server at slot 5 is far from the floor — no floor heat.
+	# A server at slot 5 is far from the floor (distance 5, radius/3 = 1 — out of range).
 	_make_source(0, 5, 800, 3)
 	_grid.propagate()
 	var floor_idx: int = Constants.floor_cell(0)
@@ -105,7 +105,7 @@ func test_floor_gets_no_heat_from_distant_server():
 
 
 func test_floor_gets_heat_from_bottom_server():
-	# A server at slot 9 (directly above floor) spills heat down.
+	# A server at slot 9 (bottom of 10-slot rack) is 1U from the floor, within radius/3=1.
 	_make_source(0, 9, 800, 3)
 	_grid.propagate()
 	var floor_idx: int = Constants.floor_cell(0)

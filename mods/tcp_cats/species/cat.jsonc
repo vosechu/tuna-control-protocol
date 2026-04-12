@@ -36,21 +36,21 @@
   "states": {
     "idle": {
       "advertisements": [
-        { "type": "warmth", "strength": 300, "radius_ru": 2 },
-        { "type": "curiosity", "strength": 400, "radius_ru": 3, "novelty_duration": 150, "novelty_cooldown": 50 }
+        { "desire_type": "warmth", "strength": 300, "radius_ru": 2 },
+        { "desire_type": "curiosity", "strength": 400, "radius_ru": 3, "novelty_duration": 150, "novelty_cooldown": 50 }
       ]
     },
     "sleeping": {
       "advertisements": [
-        { "type": "warmth", "strength": 400, "radius_ru": 1 },
-        { "type": "comfort", "strength": 300, "radius_ru": 2 }
+        { "desire_type": "warmth", "strength": 400, "radius_ru": 1 },
+        { "desire_type": "comfort", "strength": 300, "radius_ru": 2 }
       ]
     },
     "grooming": { "advertisements": [] },
     "seeking": { "advertisements": [] },
     "startled": {
       "advertisements": [
-        { "type": "noise", "strength": 200, "radius_ru": 3 }
+        { "desire_type": "noise", "strength": 200, "radius_ru": 3 }
       ]
     }
   },

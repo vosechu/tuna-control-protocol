@@ -3,11 +3,11 @@ extends GutTest
 # Integration test: full button→can→arm→eat cycle using wired systems.
 
 const EventsScript: GDScript = preload(
-	"res://engine/core/events.gd"
+	"res://nodes/events.gd"
 )
 
 var _db: GameStateDB
-var _events: RefCounted
+var _events: Object
 var _hum: HumSystem
 var _food: FoodSystem
 

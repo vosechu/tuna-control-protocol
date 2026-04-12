@@ -1,5 +1,5 @@
 @warning_ignore("unused_signal")
-extends RefCounted
+extends Node
 
 
 # Object lifecycle — emitted by GameServer systems, consumed by GameClient systems
@@ -24,3 +24,7 @@ signal food_dispensed(can_id: int)
 signal can_opened(can_id: int)
 signal cat_petted(animal_id: int)
 signal box_squeaked(box_id: int)
+
+# Plant growth
+signal plant_spawned(server_id: int)
+signal plant_despawned(server_id: int)

@@ -32,7 +32,7 @@
     "idle": { "advertisements": [] },
     "sleeping": {
       "advertisements": [
-        { "type": "warmth", "strength": 200, "radius_ru": 1 }
+        { "desire_type": "warmth", "strength": 200, "radius_ru": 1 }
       ]
     },
     "seeking": { "advertisements": [] },

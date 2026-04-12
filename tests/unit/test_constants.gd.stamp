@@ -2,13 +2,13 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: e3b0c442
-verified_at: 2026-04-12T11:31:52Z
+verified_at: 2026-04-12T01:13:26Z
 tests:
-  test_ru_to_pu_converts_correctly: aeec943e
-  test_pu_to_ru_converts_correctly: 4f6358ea
-  test_rack_cell_addressing: 911ff2cb
-  test_floor_cell_addressing: 13f3a428
-  test_to_world_converts_int_to_float: af73480b
-  test_from_world_converts_float_to_int: 139e822e
-  test_grid_dimensions: caff0b72
-  test_rack_stride: 26440df2
+  test_ru_to_pu_converts_correctly: 160e0dd0
+  test_pu_to_ru_converts_correctly: 277355ba
+  test_rack_cell_addressing: 5b53079e
+  test_floor_cell_addressing: 91955849
+  test_to_world_converts_int_to_float: 26c073cd
+  test_from_world_converts_float_to_int: c15fceb7
+  test_grid_dimensions: e6bc2dc0
+  test_rack_stride: d61ace75

@@ -4,11 +4,11 @@ const CAN_DESPAWN_TICKS: int = 100  # ~10 seconds at 10Hz
 
 var _db: GameStateDB
 var _hum: HumSystem
-var _events: RefCounted
+var _events: Object
 
 
 func _init(
-		db: GameStateDB, hum: HumSystem, events: RefCounted,
+		db: GameStateDB, hum: HumSystem, events: Object,
 ) -> void:
 	_db = db
 	_hum = hum

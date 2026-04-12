@@ -8,7 +8,7 @@ var _target_brightness: float = 1.0
 var _target_color: Color = Color.WHITE
 
 
-func initialize(events: RefCounted) -> void:
+func initialize(events: Object) -> void:
 	events.hum_reserve_changed.connect(
 		_on_hum_reserve_changed,
 	)

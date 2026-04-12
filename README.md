@@ -10,6 +10,7 @@ Players build interconnected infrastructure, animals arrive and thrive, and the 
 - [Python 3](https://www.python.org/) (for linting tools)
 - [gitleaks](https://github.com/gitleaks/gitleaks) (secret scanning)
 - [gdtoolkit](https://github.com/Scony/godot-gdscript-toolkit) (GDScript linter)
+- [Git LFS](https://git-lfs.github.com/) (binary asset storage)
 
 ### macOS
 
@@ -28,12 +29,24 @@ pip3 install gdtoolkit
 
 ## Setup
 
-Clone the repo and install the pre-commit hook:
+Clone the repo, set up LFS, and install git hooks:
 
 ```bash
 git clone <repo-url>
 cd tuna-control-protocol
+git lfs install --force
+git lfs pull
 ln -sf ../../script/pre_commit .git/hooks/pre-commit
+ln -sf ../../script/hooks/post-checkout .git/hooks/post-checkout
+ln -sf ../../script/hooks/post-merge .git/hooks/post-merge
+```
+
+The `git lfs install --force` ensures LFS smudge/clean filters are active so binary assets (sprites, sounds) are checked out as real files, not LFS pointers. The post-checkout and post-merge hooks run `git lfs pull` automatically to prevent stale imports.
+
+If Godot shows "Failed loading resource" errors after a pull or rebase, run:
+
+```bash
+script/fix-imports
 ```
 
 Verify everything is working:

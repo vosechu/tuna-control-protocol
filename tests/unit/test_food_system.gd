@@ -1,11 +1,11 @@
 extends GutTest
 
 const EventsScript: GDScript = preload(
-	"res://engine/core/events.gd"
+	"res://nodes/events.gd"
 )
 
 var db: GameStateDB
-var events: RefCounted
+var events: Object
 var hum: HumSystem
 var food: FoodSystem
 

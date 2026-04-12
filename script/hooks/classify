@@ -84,7 +84,7 @@ case "$tool:$cmd" in
   Bash:*"eval \"\$("*|Bash:*"base64 -d"*"|"*"sh"*) block "dynamic code execution" ;;
 
   # Destructive / shared-state git (belt-and-suspenders with Layer 0)
-  Bash:*"git push"*) block "git push — run manually with ! prefix" ;;
+  Bash:*"git push --force"*|Bash:*"git push -f"*) block "force push — run manually with ! prefix" ;;
   Bash:*"git stash"*)
     # Only act if "git stash" is the leading command in the invocation.
     # Embedded in a quoted argument (e.g., a commit message body that

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+
+  // Rack decor vine overlay on bay 0 — ramps from 0 alpha at scene start
+  // to the target alpha over the ramp duration on first plant_spawned.
+  "rack_decor_final_alpha": 700,
+  "rack_decor_ramp_seconds": 3,
+
+  // Peek bay desaturation shader parameters
+  "peek_bay_desaturation": 650,
+  "peek_bay_brightness": 800
+}

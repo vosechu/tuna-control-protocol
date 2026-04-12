@@ -9,7 +9,7 @@ var _bar_bg: ColorRect
 var _glyph_label: Label
 
 
-func initialize(events: RefCounted) -> void:
+func initialize(events: Object) -> void:
 	events.hum_reserve_changed.connect(
 		_on_hum_reserve_changed,
 	)

@@ -10,7 +10,7 @@ var _narrator: Narrator
 
 
 func initialize(
-		events: RefCounted, narrator: Narrator,
+		events: Object, narrator: Narrator,
 ) -> void:
 	_narrator = narrator
 	_build_ui()

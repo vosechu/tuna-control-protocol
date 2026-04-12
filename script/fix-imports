@@ -1,0 +1,36 @@
+#!/bin/bash
+# Recovers from stale .import files after LFS issues.
+#
+# When LFS pointers aren't smudged, Godot sees ASCII text instead of binary
+# data and marks .import files as valid=false. Even after git lfs pull fixes
+# the actual files, the stale valid=false persists. This script pulls LFS,
+# clears the import cache, and reimports everything.
+#
+# Usage: script/fix-imports
+
+set -e
+
+GODOT="/Applications/Godot.app/Contents/MacOS/godot"
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ ! -x "$GODOT" ]; then
+    echo "Godot not found at $GODOT" >&2
+    exit 1
+fi
+
+echo "Pulling LFS files..."
+git lfs pull
+
+echo "Clearing Godot import cache..."
+rm -rf "$PROJECT_ROOT/.godot/imported/"
+rm -f "$PROJECT_ROOT/.godot/uid_cache.bin"
+
+echo "Reimporting all resources..."
+"$GODOT" --headless --path "$PROJECT_ROOT" --import 2>&1 | grep -c "SCRIPT ERROR" | {
+    read -r count
+    if [ "$count" -gt 0 ]; then
+        echo "WARNING: $count script errors during import. Run again or check output."
+    else
+        echo "Done. All resources reimported successfully."
+    fi
+}

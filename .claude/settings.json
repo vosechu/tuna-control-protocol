@@ -1,8 +1,8 @@
 {
   "permissions": {
     "deny": [
-      "Bash(git push)",
-      "Bash(git push *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
 
       "Bash(git stash)",
       "Bash(git stash push*)",
@@ -81,6 +81,10 @@
       "Bash(git worktree list)",
       "Bash(git rev-parse *)",
       "Bash(git switch)", "Bash(git switch *)",
+      "Bash(git add *)", "Bash(git add)",
+      "Bash(git commit *)", "Bash(git commit)",
+      "Bash(git push)", "Bash(git push *)",
+      "Bash(git mv *)", "Bash(git restore *)",
 
       "Bash(mkdir /tmp/*)", "Bash(mkdir -p /tmp/*)",
       "Bash(mkdir tmp/*)",  "Bash(mkdir -p tmp/*)",

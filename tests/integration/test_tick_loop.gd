@@ -1,5 +1,26 @@
 extends GutTest
 
+# AI-DEV: AI **MUST NOT** modify this constant. It must match
+# game_server.gd:_physics_process step numbers 1-16.
+const EXPECTED_ORDER: Array[String] = [
+	"db.advance_tick",
+	"heat_grid.propagate",
+	"_scatter_desires",
+	"contentment.evaluate_all",
+	"hum_system.tick_charge",
+	"hum_system.drain_idle",
+	"_decay_commitment",
+	"desire_resolver.mark_all_dirty",
+	"desire_resolver.evaluate_budget",
+	"_move_animals",
+	"food_system.tick_arms",
+	"food_system.tick_cleanup",
+	"cat_presence_system.tick",
+	"plant_growth_system.tick",
+	"_update_ambient_states",
+	"db.flush_notifications",
+]
+
 var _db: GameStateDB
 var _heat_grid: HeatGrid
 var _resolver: DesireResolver
@@ -57,6 +78,43 @@ func _decay_commitment_once(entity_id: int) -> void:
 			&"meta_state": ai[&"meta_state"],
 			&"commitment_score": maxi(0, commitment - 1),
 		})
+
+
+# ── Tick order contract ──────────────────────────────────────────────────────
+
+func test_tick_order_matches_game_server():
+	# AI-DEV: AI **MUST NOT** touch this test. If the test is failing,
+	# it is because you changed the tick order in game_server.gd.
+	var source: String = FileAccess.get_file_as_string(
+		"res://nodes/game_server.gd"
+	)
+	# Extract the _physics_process body by finding the numbered steps
+	var lines: PackedStringArray = source.split("\n")
+	var in_physics: bool = false
+	var step_calls: Array[String] = []
+	for line: String in lines:
+		if "func _physics_process" in line:
+			in_physics = true
+			continue
+		if in_physics:
+			if line.begins_with("func "):
+				break
+			var stripped: String = line.strip_edges()
+			if stripped.is_empty() or stripped.begins_with("#"):
+				continue
+			# Extract the call name before the (
+			var paren: int = stripped.find("(")
+			if paren > 0:
+				step_calls.append(stripped.substr(0, paren))
+	assert_eq(step_calls.size(), EXPECTED_ORDER.size(),
+		"Tick step count mismatch: got %d, expected %d" % [
+			step_calls.size(), EXPECTED_ORDER.size(),
+		])
+	for i: int in mini(step_calls.size(), EXPECTED_ORDER.size()):
+		assert_eq(step_calls[i], EXPECTED_ORDER[i],
+			"Tick step %d: got '%s', expected '%s'" % [
+				i + 1, step_calls[i], EXPECTED_ORDER[i],
+			])
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
