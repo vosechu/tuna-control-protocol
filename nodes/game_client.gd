@@ -225,6 +225,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			world_pos,
 			_placement_ui_node.get_selected_type(),
 		)
+	else:
+		_try_click_entity(world_pos)
 
 
 func _try_place_at(
@@ -320,6 +322,92 @@ func _create_object_sprite(
 	)
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite
+
+
+func _try_click_entity(world_pos: Vector2) -> void:
+	var click_x: int = Constants.from_world(world_pos.x)
+	var click_y: int = Constants.from_world(world_pos.y)
+	var nearby: Array[int] = game_server.db.query_radius(
+		click_x, click_y, Constants.ru_to_pu(2),
+	)
+	for entity_id: int in nearby:
+		# Click on button → press it
+		if game_server.db.has_component(
+			entity_id, &"tuna_button",
+		):
+			game_server.food_system.press_button(entity_id)
+			return
+		# Click on cat/ferret → pet it
+		if game_server.db.has_component(
+			entity_id, &"species",
+		):
+			_pet_animal(entity_id)
+			return
+		# Click on box → squeak it
+		if game_server.db.has_component(
+			entity_id, &"object_type",
+		):
+			var otype: Dictionary = (
+				game_server.db.get_component(
+					entity_id, &"object_type",
+				)
+			)
+			if otype[&"type"] == &"cardboard_box":
+				_squeak_box(entity_id)
+				return
+
+
+func _pet_animal(entity_id: int) -> void:
+	if not game_server.db.has_component(
+		entity_id, &"desires",
+	):
+		return
+	var attention: int = game_server.db.get_field(
+		entity_id, &"desires", &"attention",
+	)
+	game_server.db.set_field(
+		entity_id, &"desires", &"attention",
+		mini(1000, attention + 500),
+	)
+
+
+func _squeak_box(box_id: int) -> void:
+	var box_pos: Dictionary = game_server.db.get_component(
+		box_id, &"position",
+	)
+	var nearby: Array[int] = game_server.db.query_radius(
+		box_pos[&"x"], box_pos[&"y"],
+		Constants.ru_to_pu(6),
+	)
+	for entity_id: int in nearby:
+		if not game_server.db.has_component(
+			entity_id, &"species",
+		):
+			continue
+		if not game_server.db.has_component(
+			entity_id, &"ai_state",
+		):
+			continue
+		var ai: Dictionary = game_server.db.get_component(
+			entity_id, &"ai_state",
+		)
+		var s: StringName = ai[&"state"]
+		if s == &"PACING" or s == &"HUNGRY" \
+				or s == &"RETURNING" or s == &"EATING":
+			game_server.db.set_component(
+				entity_id, &"ai_state", {
+					&"state": &"RETURNING",
+					&"meta_state": &"GOAL_DIRECTED",
+					&"commitment_score": 200,
+				},
+			)
+			game_server.db.set_component(
+				entity_id, &"target", {
+					&"x": box_pos[&"x"],
+					&"y": box_pos[&"y"],
+					&"entity_id": box_id,
+				},
+			)
 
 
 func _process(delta: float) -> void:
