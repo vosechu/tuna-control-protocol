@@ -112,14 +112,18 @@ func _scatter_desires() -> void:
 		# Warmth desire is satisfaction: 0 = cold/desperate, 1000 = warm/satisfied.
 		# Temperature: 0 = cold, 1000 = hot. They match directly.
 		db.set_field(entity_id, &"desires", &"warmth", temp)
-	# Comfort and curiosity satisfaction decay over time (positive values drop).
+	# Satisfaction decay over time (positive values drop toward 0 = desperate).
 	db.add_all(&"desires", &"comfort", -5)
 	db.add_all(&"desires", &"curiosity", -3)
+	db.add_all(&"desires", &"hunger", -3)
+	db.add_all(&"desires", &"attention", -8)
 	# Satisfaction from nearby object advertisements (warmth, comfort, etc.)
 	desire_scatter.scatter_from_ads()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
+	db.clamp_all(&"desires", &"hunger", 0, 1000)
+	db.clamp_all(&"desires", &"attention", 0, 1000)
 
 
 
@@ -493,6 +497,7 @@ func _spawn_starter_entities() -> void:
 					&"x": Constants.RACK_WIDTH_PU / 2,
 					&"y": floor_y,
 				},
+				&"desires": {&"hunger": 900, &"attention": 600},
 			},
 			{
 				&"name": &"Biscuit",
@@ -501,6 +506,7 @@ func _spawn_starter_entities() -> void:
 						+ Constants.RACK_WIDTH_PU / 4,
 					&"y": floor_y,
 				},
+				&"desires": {&"hunger": 900, &"attention": 600},
 			},
 			{
 				&"name": &"Noodle",
@@ -509,6 +515,7 @@ func _spawn_starter_entities() -> void:
 						+ Constants.RACK_WIDTH_PU / 2,
 					&"y": floor_y,
 				},
+				&"desires": {&"hunger": 900, &"attention": 600},
 			},
 		]
 		for overrides: Dictionary in cat_spawns:

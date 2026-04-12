@@ -48,6 +48,8 @@ func _make_cat(rack: int, slot: int) -> int:
 		&"warmth": 200,
 		&"comfort": 800,
 		&"curiosity": 1000,
+		&"hunger": 800,
+		&"attention": 800,
 	})
 	_db.set_component(id, &"personality", {
 		&"warmth_weight": 800,
@@ -234,3 +236,49 @@ func test_movement_arrival_distance_within_speed() -> void:
 	var dist: int = absi(dx) + absi(dy)
 	assert_lte(dist, 200,
 		"Cat should be within arrival distance")
+
+
+func test_hunger_decays_each_tick() -> void:
+	var cat: int = _make_cat(1, 5)
+	# Verify hunger exists on spawned cat (set by _make_cat)
+	var desires: Dictionary = _db.get_component(cat, &"desires")
+	assert_true(desires.has(&"hunger"),
+		"Cat should have hunger desire from spawn")
+	var before: int = desires[&"hunger"]
+
+	# Simulate one scatter pass: hunger decays at -3 per tick
+	_db.add_all(&"desires", &"hunger", -3)
+	_db.clamp_all(&"desires", &"hunger", 0, 1000)
+
+	var after: Dictionary = _db.get_component(cat, &"desires")
+	assert_eq(after[&"hunger"], before - 3,
+		"Hunger should decay by 3 per tick")
+
+
+func test_attention_decays_faster_than_hunger() -> void:
+	var cat: int = _make_cat(1, 5)
+	# Verify both desires exist on spawned cat
+	var desires: Dictionary = _db.get_component(cat, &"desires")
+	assert_true(desires.has(&"hunger"),
+		"Cat should have hunger desire from spawn")
+	assert_true(desires.has(&"attention"),
+		"Cat should have attention desire from spawn")
+
+	# Set both to 800 for comparison
+	_db.set_field(cat, &"desires", &"hunger", 800)
+	_db.set_field(cat, &"desires", &"attention", 800)
+
+	# Simulate 10 scatter passes
+	for tick: int in 10:
+		_db.add_all(&"desires", &"hunger", -3)
+		_db.add_all(&"desires", &"attention", -8)
+	_db.clamp_all(&"desires", &"hunger", 0, 1000)
+	_db.clamp_all(&"desires", &"attention", 0, 1000)
+
+	var after: Dictionary = _db.get_component(cat, &"desires")
+	assert_eq(after[&"hunger"], 770,
+		"Hunger after 10 ticks: 800 - (3*10) = 770")
+	assert_eq(after[&"attention"], 720,
+		"Attention after 10 ticks: 800 - (8*10) = 720")
+	assert_lt(after[&"attention"], after[&"hunger"],
+		"Attention should decay faster than hunger")

@@ -8,12 +8,16 @@
   "desires": {
     "warmth": 350,
     "comfort": 700,
-    "curiosity": 850
+    "curiosity": 850,
+    "hunger": 700,
+    "attention": 400
   },
   "personality_ranges": {
     "warmth": [300, 400],
     "comfort": [600, 800],
-    "curiosity": [800, 900]
+    "curiosity": [800, 900],
+    "hunger": [600, 800],
+    "attention": [300, 500]
   },
   "physical": { "mass": 1500, "size_ru": 1 },
   "strength": 1500,
