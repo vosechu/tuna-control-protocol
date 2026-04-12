@@ -68,17 +68,25 @@ func _build_nav_for_objects() -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	db.advance_tick()
-	heat_grid.propagate()
-	_scatter_desires()
-	_decay_commitment()
-	desire_resolver.mark_all_dirty()
-	desire_resolver.evaluate_budget(_curiosity_trackers)
-	_move_animals()
-	cat_presence_system.tick()
-	plant_growth_system.tick()
-	_update_ambient_states()
-	db.flush_notifications()
+	# AI-DEV: This tick order is load-bearing. If you change it, update
+	# the EXPECTED_ORDER array in tests/integration/test_tick_loop.gd.
+	# Key constraints:
+	#   - heat_grid before _scatter_desires (warmth feeds desire scatter)
+	#   - _move_animals before cat_presence (reads fresh positions)
+	#   - cat_presence before plant_growth (reads fresh presence)
+	#   - plant_growth before _update_ambient_states (transitions
+	#     influence next tick's ambient state selection)
+	db.advance_tick()                                       # 1
+	heat_grid.propagate()                                   # 2
+	_scatter_desires()                                      # 3
+	_decay_commitment()                                     # 4
+	desire_resolver.mark_all_dirty()                        # 5
+	desire_resolver.evaluate_budget(_curiosity_trackers)    # 6
+	_move_animals()                                         # 7
+	cat_presence_system.tick()                              # 8
+	plant_growth_system.tick()                              # 9
+	_update_ambient_states()                                # 10
+	db.flush_notifications()                                # 11
 
 
 func _decay_commitment() -> void:
