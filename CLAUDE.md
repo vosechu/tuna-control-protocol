@@ -187,28 +187,32 @@ Notable checks: `gdscript_compile` (catches parse errors via `--import`), `gdlin
 
 ---
 
-## Grid & Viewport (Ring 0 Redesign — 2026-03-31)
+## Grid & Viewport
 
 Real-world-proportioned grid. 1 pixel ≈ 0.25 inches. Cats render at native 1x.
 
 | Element | Value | Notes |
 |---|---|---|
-| 1U height | 7px | 1.75" real × 4px/inch |
-| Rack height (42U) | 294px | 73.5" real (6 feet) |
-| Rack width | 76px | 19" real |
-| Rack gap | 4px | Between racks |
+| 1U height | 8px | 2" real × 4px/inch |
+| Rack section (10U) | 80px | 10 slots per rack |
+| Rack width | 23px | Interior face |
+| Rack stride | 31px | 23 + 8 gap |
+| Rack count | 5 per bay | |
+| Bay width | 186px | 5 racks + margins |
+| Bay stride | 366px | Full bay-to-bay spacing |
+| Bay peek | 47px | Visible peek of neighboring bays |
 | Floor strip | ~40px | Below racks |
 | Cat sprite | 40×40px native, **1x scale** | ~10" real sitting cat |
 | Ferret/kitten sprite | 32×32px native, **1x scale** | Smaller than cats |
-| 4U server | 28×76px | 7"×19" real |
 | Internal viewport | **640×360** (16:9) | Scales to any display |
-| Layout | 7 playable racks + 2 decorative half-racks | 7×80 + 2×40 = 640px |
+| Layout | 5 playable racks + 2 peek bays | Active bay + peeks = 186 + 2×47 = 280px visible |
 
 **Scaling:** Godot `canvas_items` stretch mode. 3x→1920×1080, 2x→1280×720, 4x→2560×1440.
 
-**Half racks:** 40px wide decorative racks on each edge. Not playable (no placement grid). Imply the datacenter continues. May have ambient details (cables, moss, kitten paw).
-
-**Infrastructure sprites need regeneration** at the new 7px/U scale.
+**Layout (post 2026-04-10 rescale):** 5 playable racks rendered as a single
+`rack_5set` sprite (186px wide), with 47px peeks of neighboring bays on each
+side. Bay 0 is the only simulated bay in the prototype. `BAY_STRIDE_PX = 366`
+is the single knob for bay spacing.
 
 ---
 
@@ -251,9 +255,6 @@ script/validate
 ## Known Issues (Ring 0)
 
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
-- **Infrastructure sprites at wrong scale:** Generated at 24px/U, need regeneration at 7px/U.
-- **Grid constants don't match spec:** `SLOT_HEIGHT_PX=24` (spec: 7), `RACK_WIDTH_PX=96` (spec: 76), `RACK_COUNT=5` (spec: 7 playable + 2 decorative half-racks). Current values are from the old 24px/U scale. Updating these requires regenerating sprites, adjusting nav graph, heat grid, and all position math. Blocked on sprite regeneration.
-- **Viewport feels too zoomed in:** Even at 1x camera zoom, the 24px/U scale means racks are ~1008px tall vs. the 360px viewport height. The spec's 7px/U scale would make racks 294px tall, fitting naturally. Root cause is the grid constants above.
 
 ## GameStateDB Gotchas
 

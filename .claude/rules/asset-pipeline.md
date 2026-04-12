@@ -80,44 +80,51 @@ The lists below are the original prototype targets. The tracker docs above are t
 
 ## Minimum Prototype Asset List
 
-### Must-Have Sprites (~42 assets)
+### Infrastructure Sprites
 
-| Asset | Frames | Size | Notes |
+| Asset | Size | Frames | Notes |
 |---|---|---|---|
-| **Cats (x3 variants: white, orange, grey)** | | | |
-| cat_{variant}_idle | 4 | 32x32 | Loaf + tail flick + slow blink + stare |
-| cat_{variant}_walk | 6 | 32x32 | Walk cycle |
-| cat_{variant}_sleep | 2 | 32x32 | Breathing loop |
-| cat_{variant}_eat | 3 | 32x32 | Head down, chewing |
-| **Ferrets (x2 variants: sable, albino)** | | | Albino = palette swap |
-| ferret_{variant}_idle | 3 | 32x16 | Sniffing, alert, speed bump |
-| ferret_{variant}_walk | 6 | 32x16 | Low slinky walk |
-| ferret_{variant}_drag | 4 | 32x16 | Dragging tuna can |
-| ferret_{variant}_wardance | 6 | 32x32 | Arched back, sideways hop |
-| ferret_{variant}_deadsleep | 1 | 32x16 | Completely limp. Single frame. |
-| **Objects** | | | |
-| server_2u_off | 1 | 64x16 | Dark, no LEDs |
-| server_2u_on | 2 | 64x16 | LED blink cycle |
-| box_cardboard_new | 1 | 32x32 | Clean box |
-| pile_clothes | 2 | 48x24 | Full + flattened |
-| tuna_can_sealed | 1 | 12x10 | |
-| tuna_can_open | 1 | 12x10 | |
-| furball | 1 | 8x8 | |
-| feather | 1 | 16x16 | |
-| fan_desk | 2 | 16x16 | Blade rotation |
-| pipe_cooling_h/v | 1 each | 64x8 / 8x64 | |
-| pipe_condensation | 3 | 8x16 | Droplet forming + falling |
-| **Robot Arm** | | | |
-| arm_base | 1 | 32x32 | |
-| arm_segment | 1 | 8x48 | Reusable limb piece |
-| arm_claw_open / closed | 1 each | 16x16 | |
-| **HUD** | | | |
-| drawer_frame | 1 | 192x48 | |
-| drawer_{type}_bg (x4) | 1 each | 192x48 | |
-| drawer_paw_poke | 3 | 32x16 | Iconic kitten paw |
-| bar_segment + bar_icons | 1 + 6 | various | |
-| rack_frame | 1 | 96x672 | 42U tall |
-| rack_slot_highlight / deny | 1 each | 96x16 | |
+| rack_single_idle_strip1 | 64x96 | 1 | Single rack frame |
+| rack_5set_idle_strip1 | 186x96 | 1 | Five-rack bay (primary) |
+| rack_single_decor_strip6 | 384x96 | 6 | Vine variants (reserved) |
+| rack_5set_decor_strip1 | 186x96 | 1 | Vine overlay for 5-set |
+| server01_static_strip1 | 23x8 | 1 | Server (static) |
+| server01_idle_strip11 | 253x8 | 11 | Server (blink animation) |
+| server02_static_strip1 | 23x8 | 1 | Server variant B (static) |
+| server02_idle_strip7 | 161x8 | 7 | Server variant B (blink) |
+| rack_slot_highlight | 23x8 | 1 | Placement highlight |
+| rack_slot_deny | 23x8 | 1 | Invalid placement |
+| rack_slot_empty | 23x8 | 1 | Empty slot indicator |
+
+### Object Sprites (tcp_base)
+
+| Asset | Size | Frames | Notes |
+|---|---|---|---|
+| box01_idle_strip1 | 32x16 | 1 | Small box (static) |
+| box01_activated_strip8 | 256x16 | 8 | Small box (activation) |
+| box02_idle_strip1 | 48x32 | 1 | Large box (static) |
+| box02_activated_strip8 | 384x32 | 8 | Large box (activation) |
+| pile_clothes | 48x24 | 1 | Comfort object |
+| dustball01_idle_strip16 | 256x16 | 16 | Dust ball (idle) |
+| dustball01_spin_strip8 | 128x16 | 8 | Dust ball (spin) |
+| dustball02_idle_strip16 | 256x16 | 16 | Variant B |
+| dustball02_spin_strip8 | 128x16 | 8 | Variant B |
+
+Note: dust ball animation support deferred per spec. Sprites imported but render first frame only.
+
+### Environment
+
+| Asset | Size | Frames | Notes |
+|---|---|---|---|
+| tcp_tileset01 | 192x96 | -- | 16x16 tile atlas (12x6 grid) |
+
+### Tilesets
+
+`tcp_environment.tres` -- Godot TileSet resource pointing at `tcp_tileset01.png`. Hand-written text resource. Tile cell positions documented in `tcp_tileset01.md`. `TilePainter` (`engine/environment/tile_painter.gd`) references cells by `Vector2i(col, row)`.
+
+### Mod-specific sprites (reference only)
+
+Cat/ferret sprites in `mods/tcp_cats/sprites/` and `mods/tcp_ferrets/sprites/`. Tuna sprites in `mods/tcp_tuna/sprites/`. Do not add to tcp_base tables.
 
 ### Must-Have Sounds (~15 assets)
 

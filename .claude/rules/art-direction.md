@@ -7,27 +7,32 @@ paths:
 
 # TCP Art Direction — Smudge's Spec
 
+> **Note:** Several commitments in this document were softened or deferred
+> by the 2026-04-10 art scale spec. See the Visual Regression Ledger in
+> `docs/superpowers/specs/2026-04-10-art-scale-and-tilemap-design.md` for
+> the complete list.
+
 ## 1. Pixel Resolution and Base Grid
 
 **Target viewport:** 640×360 internal (16:9), scaled to any display via Godot `canvas_items` stretch mode. 3x→1920×1080, 2x→1280×720, 4x→2560×1440. Tablet and phone friendly.
 
 **Real-world-proportioned grid.** 1 pixel ≈ 0.25 inches. Cat sprites render at native 1x — no scaling artifacts.
 
-**Base unit: 7px per rack unit.** 1U = 1.75 inches real = 7px. A 4U server is 28×76px. A 42U rack is 294px tall. Rack width is **76px** (19" real). 7 playable racks + 2 decorative half-racks = 7×80 + 2×40 = **640px** — exactly fills the viewport width.
+**Base unit: 8px per rack unit.** 1U = 2 inches real = 8px. A 10U rack section is 80px tall. Rack width is **23px**. 5 playable racks rendered as one `rack_5set` sprite (186px wide), with 47px peeks of neighboring bays. Bay stride 366px. Active bay + two peeks fit the 640px viewport.
 
 **Layout:**
 ```
-[half|  1  |  2  |  3  |  4  |  5  |  6  |  7  |half]
- 40px  80px  80px  80px  80px  80px  80px  80px  40px = 640px
+[peek bay -1 | ---- bay 0 (5 racks, 186px) ---- | peek bay +1]
+   47px               186px                          47px
 ```
 
-Half-racks are decorative (no placement grid). They imply the datacenter continues beyond the viewport. May have ambient details: dangling cables, moss, a kitten paw reaching from offscreen.
+Peek bays are decorative (no placement grid). They imply the datacenter continues beyond the viewport. May have ambient details: dangling cables, moss, a kitten paw reaching from offscreen.
 
-**Cat silhouette at this scale:** A sitting cat is 40×40px native — about 5.7U tall. Cats are bigger than servers, which is physically accurate. At 40px, a cat silhouette has room for body shape, ear shape, tail position, and color pattern — highly readable. Five distinct cat models are visually distinguishable.
+**Cat silhouette at this scale:** A sitting cat is 40×40px native — about 5U tall. Cats are bigger than servers, which is physically accurate. At 40px, a cat silhouette has room for body shape, ear shape, tail position, and color pattern — highly readable. Five distinct cat models are visually distinguishable.
 
 **Floor strip:** ~40px tall, running the full width below the racks. This is where ferrets operate, tuna cans sit, and the robot arm station lives.
 
-**Sub-grid for interior (drawer) view:** When a rack slot is clicked and the drawer pulls out, the interior renders at **2x zoom** (14px per U), giving detailed visibility of animals and equipment inside the slot.
+**Sub-grid for interior (drawer) view:** When a rack slot is clicked and the drawer pulls out, the interior renders at **2x zoom** (16px per U), giving detailed visibility of animals and equipment inside the slot.
 
 ---
 
