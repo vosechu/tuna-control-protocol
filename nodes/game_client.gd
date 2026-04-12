@@ -201,7 +201,7 @@ func _setup_heat_overlay() -> void:
 	var overlay: Node2D = Node2D.new()
 	overlay.name = "HeatOverlay"
 	overlay.set_script(HeatOverlayScript)
-	overlay.z_index = _Z_HEAT
+	overlay.z_index = _Z_DEBUG
 	$World.add_child(overlay)
 	overlay.initialize(
 		game_server.db, game_server.heat_grid
