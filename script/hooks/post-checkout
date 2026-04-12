@@ -1,0 +1,5 @@
+#!/bin/bash
+# Ensures LFS files are smudged after checkout/switch.
+# Without this, Godot may see LFS pointer text instead of binary data
+# and mark .import files as valid=false.
+git lfs pull 2>/dev/null
