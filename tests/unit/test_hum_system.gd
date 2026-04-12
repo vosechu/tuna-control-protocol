@@ -130,3 +130,57 @@ func test_get_reserve_ratio():
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", HumSystem.DEFAULT_CAPACITY / 2)
 	assert_eq(_hum.get_reserve_ratio(), 500,
 		"Half reserve should yield ratio 500")
+
+
+# ── tick_charge ────────────────────────────────────────────────────────────
+
+func test_tick_charges_from_purring_cat_near_receiver():
+	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 500)
+	_make_receiver(0, 5, 3)
+	_make_purring_cat(0, 4)
+	_hum.tick_charge()
+	assert_gt(_hum.get_reserve(), 500,
+		"Purring cat within receiver radius should charge the HUM reserve")
+
+
+func test_tick_does_not_charge_from_cat_outside_radius():
+	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 500)
+	_make_receiver(0, 0, 3)
+	_make_purring_cat(2, 0)  # Far away — rack 2 is thousands of PU from rack 0
+	_hum.tick_charge()
+	assert_eq(_hum.get_reserve(), 500,
+		"Purring cat outside receiver radius should not charge the HUM")
+
+
+func test_non_purring_cat_does_not_charge():
+	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 500)
+	_make_receiver(0, 5, 3)
+	var cat_id: int = _make_purring_cat(0, 4)
+	# Override is_purring to 0 (not purring)
+	_db.set_field(cat_id, &"contentment", &"is_purring", 0)
+	_hum.tick_charge()
+	assert_eq(_hum.get_reserve(), 500,
+		"Non-purring cat should not charge the HUM")
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+func _make_receiver(rack: int, slot: int, radius_ru: int) -> int:
+	var id: int = _db.create_entity()
+	var x: int = rack * Constants.RACK_WIDTH_PU
+	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	_db.set_component(id, &"position", {&"x": x, &"y": y})
+	_db.set_component(id, &"hum_receiver", {&"radius_ru": radius_ru})
+	_db.update_spatial(id, x, y)
+	return id
+
+
+func _make_purring_cat(rack: int, slot: int) -> int:
+	var id: int = _db.create_entity()
+	var x: int = rack * Constants.RACK_WIDTH_PU
+	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	_db.set_component(id, &"position", {&"x": x, &"y": y})
+	_db.set_component(id, &"contentment", {&"is_purring": 1})
+	_db.set_component(id, &"species", {&"id": &"tcp_cats:cat", &"variant": &"cat01", &"name": &"Test"})
+	_db.update_spatial(id, x, y)
+	return id
