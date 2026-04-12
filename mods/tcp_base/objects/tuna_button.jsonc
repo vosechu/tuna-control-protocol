@@ -1,0 +1,14 @@
+{
+  // Button — triggers the TUNA dispenser in the same rack.
+  // 1U. Player clicks or ferret presses.
+  "schema_version": 1,
+  "id": "tcp_base:tuna_button",
+  "name": "TUNA Button",
+  "size_ru": 1,
+  "placement": "rack",
+  "tuna_button": {
+    "tethered_to": "tcp_base:tuna_dispenser"
+  },
+  "physical": { "mass": 2000, "size_ru": 1 },
+  "advertisements": []
+}
