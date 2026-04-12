@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="TileSet" path="res://mods/tcp_base/sprites/environment/tcp_environment.tres" id="1_tileset"]
+
+[node name="EnvironmentTileMap" type="TileMap"]
+tile_set = ExtResource("1_tileset")
+format = 2

@@ -26,10 +26,10 @@ func register_cat(entity_id: int) -> void:
 
 func _setup_audio_players() -> void:
 	var purr_stream_1: AudioStream = load(
-		"res://mods/tcp_base/sounds/cat/purr_loop_01.wav"
+		"res://mods/tcp_cats/sounds/purr_loop_01.wav"
 	)
 	var purr_stream_2: AudioStream = load(
-		"res://mods/tcp_base/sounds/cat/purr_loop_02.wav"
+		"res://mods/tcp_cats/sounds/purr_loop_02.wav"
 	)
 
 	# Enable looping on WAV streams

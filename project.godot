@@ -16,7 +16,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 
 [autoload]
 
-Events="*res://engine/core/events.gd"
+Events="*res://nodes/events.gd"
 
 [display]
 
