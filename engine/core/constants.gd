@@ -92,8 +92,9 @@ static func rack_slot_to_pu(bay_index: int, rack_in_bay: int, slot: int) -> Vect
 static func pu_to_bay_rack_slot(pu_x: int, pu_y: int) -> Dictionary:
 	var bay_index: int = int(floor(float(pu_x) / float(BAY_STRIDE_PU)))
 	var bay_local_x: int = pu_x - (bay_index * BAY_STRIDE_PU)
-	@warning_ignore("integer_division")
-	var rack_in_bay: int = (bay_local_x - LEFTMOST_RACK_OFFSET_PU) / RACK_STRIDE_PU
+	var rack_in_bay: int = int(floori(
+		float(bay_local_x - LEFTMOST_RACK_OFFSET_PU) / float(RACK_STRIDE_PU)
+	))
 	@warning_ignore("integer_division")
 	var slot: int = pu_y / SLOT_HEIGHT_PU
 	return {&"bay": bay_index, &"rack": rack_in_bay, &"slot": slot}
