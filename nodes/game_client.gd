@@ -46,6 +46,16 @@ func _ready() -> void:
 	_setup_placement_ui()
 	_setup_lighting()
 	_setup_hum_bar()
+	_setup_narrator_panel()
+
+
+func _setup_narrator_panel() -> void:
+	var narrator := Narrator.new()
+	var panel := NarratorPanel.new()
+	panel.position = Vector2(10, 340)
+	panel.name = "NarratorPanel"
+	$HUD.add_child(panel)
+	panel.initialize(Events, narrator)
 
 
 func _setup_hum_bar() -> void:
