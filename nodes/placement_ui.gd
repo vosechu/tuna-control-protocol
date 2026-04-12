@@ -27,6 +27,10 @@ func _build_ui() -> void:
 	_add_button(vbox, &"server_2u", "Server [1]")
 	_add_button(vbox, &"cardboard_box", "Box [2]")
 	_add_button(vbox, &"clothes_pile", "Pile [3]")
+	_add_button(vbox, &"hum_device", "HUM [4]")
+	_add_button(vbox, &"tuna_dispenser", "TUNA [5]")
+	_add_button(vbox, &"tuna_button", "Button [6]")
+	_add_button(vbox, &"arm", "ARM [7]")
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 16)
@@ -83,6 +87,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				_on_type_pressed(&"cardboard_box")
 			KEY_3:
 				_on_type_pressed(&"clothes_pile")
+			KEY_4:
+				_on_type_pressed(&"hum_device")
+			KEY_5:
+				_on_type_pressed(&"tuna_dispenser")
+			KEY_6:
+				_on_type_pressed(&"tuna_button")
+			KEY_7:
+				_on_type_pressed(&"arm")
 			KEY_R:
 				var btn: Button = _buttons[&"remove"]
 				btn.button_pressed = not btn.button_pressed

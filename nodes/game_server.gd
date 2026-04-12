@@ -517,6 +517,40 @@ func place_object(
 					&"max_occupants": 3,
 				}],
 			})
+		&"hum_device":
+			db.set_component(entity, &"hum_receiver", {
+				&"radius_ru": 4,
+			})
+		&"tuna_dispenser":
+			db.set_component(entity, &"tuna_dispenser", {
+				&"hum_cost": 50,
+				&"can_type": &"tcp_tuna:tuna_can",
+			})
+			db.set_component(entity, &"advertisements", {
+				&"list": [{
+					&"desire_type": &"hunger",
+					&"strength": 300,
+					&"radius_ru": 6,
+				}],
+			})
+		&"tuna_button":
+			var disp_id: int = _find_dispenser_in_rack(
+				world_x, world_y,
+			)
+			if disp_id != Constants.INVALID_ID:
+				db.set_component(entity, &"tuna_button", {
+					&"dispenser_id": disp_id,
+				})
+			else:
+				push_error(
+					"No TUNA dispenser in this rack"
+				)
+		&"arm":
+			db.set_component(entity, &"arm", {
+				&"radius_ru": 3,
+				&"hum_cost": 30,
+				&"open_duration_ticks": 20,
+			})
 
 	db.set_component(
 		entity, &"object_type", {&"type": object_type}
@@ -719,6 +753,25 @@ func _spawn_rack_entities() -> void:
 			},
 		]})
 		db.update_spatial(rack_entity, x, y)
+
+
+func _find_dispenser_in_rack(
+		world_x: int, _world_y: int,
+) -> int:
+	@warning_ignore("integer_division")
+	var rack: int = world_x / Constants.RACK_WIDTH_PU
+	var dispensers: Array[int] = db.get_entities_with(
+		&"tuna_dispenser",
+	)
+	for disp_id: int in dispensers:
+		var dpos: Dictionary = db.get_component(
+			disp_id, &"position",
+		)
+		@warning_ignore("integer_division")
+		var disp_rack: int = dpos[&"x"] / Constants.RACK_WIDTH_PU
+		if disp_rack == rack:
+			return disp_id
+	return Constants.INVALID_ID
 
 
 func _find_nearest_dispenser(entity_id: int) -> int:

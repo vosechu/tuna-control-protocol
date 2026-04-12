@@ -245,15 +245,33 @@ func _try_place_at(
 	var place_x: int
 	var place_y: int
 
-	if object_type == &"server_2u":
-		# Servers go in racks
+	var is_rack_object: bool = (
+		object_type == &"server_2u"
+		or object_type == &"hum_device"
+		or object_type == &"tuna_dispenser"
+		or object_type == &"tuna_button"
+	)
+	if is_rack_object:
+		var size_ru: int = 1
+		if object_type == &"hum_device":
+			size_ru = 6
+		elif object_type == &"server_2u":
+			size_ru = 2
 		slot = clampi(
 			slot,
 			Constants.TOR_SWITCH_SLOTS,
-			Constants.SLOTS_PER_RACK - 2,
+			Constants.SLOTS_PER_RACK - size_ru,
 		)
 		place_x = rack * Constants.RACK_WIDTH_PU
 		place_y = slot * Constants.SLOT_HEIGHT_PU
+	elif object_type == &"arm":
+		# ARM goes on the floor
+		place_x = rack * Constants.RACK_WIDTH_PU
+		@warning_ignore("integer_division")
+		place_y = (
+			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			+ Constants.FLOOR_HEIGHT_PU / 2
+		)
 	else:
 		# Boxes and piles go on the floor
 		@warning_ignore("integer_division")
