@@ -90,6 +90,19 @@ func set_field(entity_id: int, component: StringName, field: StringName, value: 
 	_mark_dirty(entity_id, component)
 
 
+func add_field(entity_id: int, component: StringName, field: StringName, delta: int) -> void:
+	var value: int = get_field(entity_id, component, field)
+	set_field(entity_id, component, field, value + delta)
+
+
+func clamp_field(
+		entity_id: int, component: StringName,
+		field: StringName, min_val: int, max_val: int,
+) -> void:
+	var value: int = get_field(entity_id, component, field)
+	set_field(entity_id, component, field, clampi(value, min_val, max_val))
+
+
 # ── Batch operations (hot path) ───────────────────────────────────────────────
 
 func add_all(component: StringName, field: StringName, delta: int) -> void:
