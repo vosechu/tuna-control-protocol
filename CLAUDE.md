@@ -255,6 +255,12 @@ script/validate
 - **Grid constants don't match spec:** `SLOT_HEIGHT_PX=24` (spec: 7), `RACK_WIDTH_PX=96` (spec: 76), `RACK_COUNT=5` (spec: 7 playable + 2 decorative half-racks). Current values are from the old 24px/U scale. Updating these requires regenerating sprites, adjusting nav graph, heat grid, and all position math. Blocked on sprite regeneration.
 - **Viewport feels too zoomed in:** Even at 1x camera zoom, the 24px/U scale means racks are ~1008px tall vs. the 360px viewport height. The spec's 7px/U scale would make racks 294px tall, fitting naturally. Root cause is the grid constants above.
 
+## GameStateDB Gotchas
+
+- **`get_component()` returns a reference, not a copy.** The spec says "row view assembled from columns" but the current implementation returns the internal dict directly. If you need a snapshot for comparison across ticks/mutations, capture the specific int value, not the dict.
+- **`set_field()` only accepts `int` values.** Components with StringName fields (like `ai_state.state` or `plant_growth.state`) must be updated via `get_component()` → modify dict → `set_component()`. Passing a StringName to `set_field()` is a compile error.
+- **Events autoload lives at `nodes/events.gd`** (extends Node), not `engine/core/`. The `no_node_in_core` check blocks Node types in `engine/`.
+
 ## Workarounds Without Root Causes
 
 <!-- AI-DEV: Items in this section are **empirical fixes found by trial and error**. We do NOT understand the root causes. Do NOT present these as facts about how Godot works. If a problem recurs, start from first principles rather than assuming these workarounds are correct. -->
