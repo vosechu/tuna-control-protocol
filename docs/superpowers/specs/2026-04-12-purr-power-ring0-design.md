@@ -1,6 +1,6 @@
 # Purr-Power Ring 0 Design Spec
 
-> **Status:** brainstormed 2026-04-12. Team-reviewed (Mochi, Bramble, Parcel, Rumble, Pebble, Willow, Noodle). Ready for implementation planning.
+> **Status:** brainstormed 2026-04-12. Team-reviewed x2 (Mochi, Bramble, Parcel, Rumble, Pebble, Willow, Noodle). Fixes folded. Ready for implementation planning.
 
 ---
 
@@ -33,7 +33,7 @@ Racks are **10U** (10 slots). This is a change from the previous 42U spec. All r
 | Server | 1U | Heat source (warmth) |
 | Box | 2U | Comfort source, cat sits in it |
 | TUNA dispenser | 1U | Drops tuna cans when button is pressed, requires HUM |
-| Button | 1U | Tethered to dispenser by short cable, player clicks or ferret presses |
+| Button | 1U | Tethered to dispenser by short cable, player clicks or ferret presses. Must be in the same rack as its dispenser (adjacent slot preferred but not required). |
 | ARM | Floor object | Fixed placement, opens tuna cans that land nearby |
 
 ### Example Rack Configurations
@@ -105,7 +105,7 @@ The HUM is a global resource pool within a bay. All HUM devices contribute. All 
 
 - **Idle:** lights and ambient hum drain a small constant amount per tick.
 - **Actions:** each TUNA dispense and ARM can-opening costs a fixed amount.
-- **Drain slows as reserve decreases.** The drain curve flattens approaching zero. This prevents instant death spirals but does NOT prevent reaching zero — it just takes longer.
+- **Idle drain slows as reserve decreases.** The idle drain curve flattens approaching zero. This prevents instant death spirals but does NOT prevent reaching zero — it just takes longer. **Action costs (TUNA dispense, ARM open) are fixed and punch through regardless of reserve level.** This is how 0% stays reachable even with drain slowdown — a player who keeps pressing the button will drain the pool.
 
 ### HUM States and Feedback
 
@@ -147,6 +147,10 @@ When a cat's hunger drops below threshold and no food is available:
 
 The meow warning precedes the light warning. Audio-first, visual-second. The player who listens catches problems before they cascade.
 
+**Meow cadence:** 1 pacing cat = one mew every ~4 seconds. 2-3 cats = overlapping at random offset (not synchronized). 4+ cats = aggregate meow bus (same layering pattern as purr aggregation — louder, denser, but not N individual voices). Pacing cats also show a visual exclamation badge on-sprite for deaf players.
+
+**Squeak sound:** a short, bright chirp — rubber toy being squeezed. ~1-2kHz fundamental, 0.3s duration, slight pitch randomization per press. Warm, not shrill. Should feel like shaking a treat bag, not blowing a whistle.
+
 ---
 
 ## Player Verbs
@@ -173,13 +177,13 @@ The meow warning precedes the light warning. Audio-first, visual-second. The pla
 | **PACING** | At dispenser, no food available | No | Paces near dispenser, meows |
 | **EATING** | Food available nearby | No | At food, eating |
 | **RETURNING** | Just ate or responding to squeak | No | Walking back toward a box |
-| **SETTLING** | Arrived at box | Transitioning | Circling, kneading, curling up |
+| **SETTLING** | Arrived at box | No | Circling, kneading, curling up (anticipation beat — purr-start on CONTENT is the payoff) |
 | **STARTLED** | Loud noise, sudden change | No | Brief freeze, then flee to box |
 
 ### Transition notes
 
 - CONTENT → HUNGRY: hunger bar drops below threshold. Cat stands up, leaves box.
-- HUNGRY → PACING: cat arrives at dispenser, no food. Meows.
+- HUNGRY → PACING: cat arrives at dispenser, no food. Meows. If no dispenser exists, cat wanders aimlessly and meows (functionally PACING without a location anchor).
 - PACING → EATING: food appears (player/ferret pressed button, ARM opened can).
 - EATING → RETURNING: hunger bar refilled. Cat heads back.
 - RETURNING can be accelerated by squeak (click target box).
@@ -206,6 +210,8 @@ The HUM device is 6U tall, composed of:
 
 The crystal rotation speed could also indicate charge level (faster = more charge, stopped = empty).
 
+**HUM device sound:** The device itself emits a warm resonant tone — the 27Hz carrier filtered up to be audible (~80-120Hz hum). Volume and richness scale with reserve level. At full charge: a gentle, warm hum. At empty: silence. This is the spatial anchor for the power system — a player walking past a HUM device can hear whether it's charged.
+
 ---
 
 ## Purr Contribution Visual
@@ -230,7 +236,7 @@ Per Pebble's review — every feedback channel needs a non-audio, non-color back
 | HUM level | Ambient hum volume | HUD bar with numeric %, glyph state, sparkline |
 | Cat purring | Purr audio | On-sprite musical note indicator |
 | Brownout | Dim lights | Desaturation + vignette + BROWNOUT glyph on HUD |
-| Meow warning | Cat meow audio | Cats visibly pacing at dispenser |
+| Meow warning | Cat meow audio | Cats visibly pacing at dispenser + exclamation badge on sprite |
 | Discovery moment | First flicker + sound | Guaranteed exaggerated first brownout (dim + glyph + pinned robot log) |
 | HUM contribution | Purr volume from direction | On-sprite purr visual near receiver |
 
@@ -242,7 +248,13 @@ Per Pebble's review — every feedback channel needs a non-audio, non-color back
 
 ### Robot narrator panel
 
-Needs a physical surface — proposed: a cracked CRT welded to the ARM base, or a dedicated panel on the rack. Scrolling log, player can glance at it. Historical entries accessible via a button. Not a floating UI overlay — diegetic.
+A cracked CRT welded to the ARM base. Diegetic — not a floating UI overlay. Specifics:
+
+- **Max visible lines:** 3 lines on the CRT surface at Z0, expanding to 8 at Z1.
+- **Scroll behavior:** new entries push old ones up. Auto-scrolls. No player scroll needed at Z0.
+- **History:** accessible via a button press (controller: select ARM, press Y). Opens a full-screen log overlay. Screen-reader accessible — log entries are programmatic text nodes, not rendered pixels.
+- **Pin behavior:** first-ever brownout log is pinned (does not scroll away) until the player acknowledges it. All other logs auto-scroll normally.
+- **Screen reader:** new log entries fire an accessibility announce event. No timing-based auto-dismiss — pinned logs stay until acknowledged.
 
 ### Robot log triggers (Ring 0)
 
@@ -257,12 +269,13 @@ Needs a physical surface — proposed: a cracked CRT welded to the ARM base, or 
 | Recovery | "Acoustic baseline restored. Logging this event as ROUTINE BROWNOUT, CAUSE: SNACK." |
 | TUNA dispense | "Deploying negotiation asset. The devices have pressed the button." |
 | ARM opens can | "Seal altered. Contents: reconfigured. Chemical plume detected." |
+| First pet | "UNIT-C01 reporting anomalous external stimulus. Satisfaction metrics... improving? Logging as MANUAL CALIBRATION." |
 
 ### Voice rules
 
 - **Status voice** (curt, timestamped): routine events, nominal states
 - **First-person voice** (no timestamp, lowercase, gentle): only when reserve < 40%. The tonal shift IS the brownout tell.
-- **Never name individual units during brownouts.** Attribution allowlist: SNACK, FIRMWARE UPDATE, SCHEDULED MAINTENANCE, UNKNOWN, COSMIC RAY.
+- **Never name individual units during brownouts.** Attribution allowlist: SNACK, FIRMWARE UPDATE, SCHEDULED MAINTENANCE, UNKNOWN, COSMIC RAY, THERMAL RECALIBRATION. When multiple cats depart simultaneously, batch departure logs ("Multiple devices entering standby") rather than naming each one — prevents scapegoat identification through timing correlation.
 - **Boot log:** first launch of a save prints a cold-start log the player reads at their own pace. Backstory delivery vehicle.
 
 ---
@@ -273,7 +286,18 @@ Needs a physical surface — proposed: a cracked CRT welded to the ARM base, or 
 - **Purr volume should track HUM reserve, not cat count.** Count feeds reserve; reserve drives mix. Otherwise a cat standing up dims the room instantly (breaks commitment #1).
 - **sound_manager.gd needs decomposition** into: HumBus (reserve-driven parameters), PurrAggregator (counts + feeds bus), AmbientLayer, ArmAudio, DiagnosticPing.
 - **Lullaby ping (Ring 2):** at 20% reserve, robot emits ~27Hz tone. Novel DSP — deferred past Ring 0.
-- **Can-pop payoff:** ARM completion needs a two-layer sample: mechanical pop + warm hum tail.
+- **Can-pop payoff:** ARM completion needs a two-layer sample: mechanical pop + warm hum tail. In scope for Ring 0 — it's the reward beat for the food loop closing.
+
+### New audio assets required for Ring 0
+
+| Asset | Description |
+|---|---|
+| `cat_meow_pacing_01.wav` | Hungry/demanding meow for PACING state |
+| `squeak_toy_01.wav` | Rubber toy chirp for squeak verb (~1-2kHz, 0.3s) |
+| `can_pop_01.wav` | Mechanical pop + warm hum tail for ARM can-opening |
+| `hum_device_tone.wav` | Warm 80-120Hz resonance loop for HUM device |
+| `cat_settle_01.wav` | Soft kneading/circling sounds for SETTLING state |
+| `button_click_01.wav` | Satisfying mechanical click for TUNA button press |
 
 ---
 
