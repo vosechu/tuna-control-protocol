@@ -111,6 +111,13 @@ func _build_message_2(
 				+ " The devices have pressed"
 				+ " the button.",
 			)
+	return _build_message_3(event_type)
+
+
+func _build_message_3(
+		event_type: StringName,
+) -> String:
+	match event_type:
 		&"arm_opens_can":
 			return format_status(
 				"Seal altered. Contents:"
