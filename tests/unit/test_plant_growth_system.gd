@@ -7,7 +7,7 @@ const _STATE := preload("res://engine/growth/plant_growth_state.gd")
 class _FakeHeatGrid:
 	var _temp: int = 0
 
-	func get_temperature_for_slot(_slot_key: int) -> int:
+	func get_temperature(_slot_key: int) -> int:
 		return _temp
 
 	func set_temp(t: int) -> void:

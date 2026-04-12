@@ -2,7 +2,7 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: b39a73c3
-verified_at: 2026-04-12T07:52:42Z
+verified_at: 2026-04-12T11:00:05Z
 tests:
   test_dormant_with_cold_slot_stays_dormant: 17b0083a
   test_dormant_with_warm_slot_and_cats_arms: bd2a2e9e

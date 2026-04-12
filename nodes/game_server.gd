@@ -8,6 +8,8 @@ var desire_resolver: DesireResolver
 var desire_scatter: DesireScatter
 var object_state_manager: ObjectStateManager
 var nav_builder: NavGraphBuilder
+var cat_presence_system: CatPresenceSystem
+var plant_growth_system: PlantGrowthSystem
 var _mod_loader := ModLoader.new()
 var _entity_defs: EntityDefRegistry
 var _verb_resolver := VerbResolver.new()
@@ -34,6 +36,8 @@ func _ready() -> void:
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
+	cat_presence_system = CatPresenceSystem.new(db)
+	plant_growth_system = PlantGrowthSystem.new(db, heat_grid)
 	nav_builder = NavGraphBuilder.new()
 	_register_species_nav()
 	nav_builder.build()
@@ -71,6 +75,8 @@ func _physics_process(_delta: float) -> void:
 	desire_resolver.mark_all_dirty()
 	desire_resolver.evaluate_budget(_curiosity_trackers)
 	_move_animals()
+	cat_presence_system.tick()
+	plant_growth_system.tick()
 	_update_ambient_states()
 	db.flush_notifications()
 

@@ -24,7 +24,7 @@ func _evaluate(entity_id: int) -> void:
 
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	var slot_key: int = _slot_key_for(pos)
-	var warmth: int = _heat_grid.get_temperature_for_slot(slot_key)
+	var warmth: int = _heat_grid.get_temperature(slot_key)
 
 	var cat_presence: Dictionary = _db.get_component(entity_id, &"cat_presence")
 	var cats_here: bool = cat_presence[&"seconds"] > 0
