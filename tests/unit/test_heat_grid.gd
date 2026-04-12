@@ -36,20 +36,20 @@ func test_empty_grid_is_all_zeros():
 
 
 func test_single_source_heats_own_cell_to_full_value():
-	# A source at slot 20, rack 0 should receive its full heat value at distance 0.
-	_make_source(0, 20, 800, 3)
+	# A source at slot 5, rack 0 should receive its full heat value at distance 0.
+	_make_source(0, 5, 800, 3)
 	_grid.propagate()
-	var cell: int = Constants.rack_cell(0, 20)
+	var cell: int = Constants.rack_cell(0, 5)
 	assert_eq(_grid.get_temperature(cell), 800,
 		"Source cell must receive full heat value (distance 0)")
 
 
 func test_heat_falls_off_with_distance():
 	# Cell at distance 1 must be weaker than cell at distance 0.
-	_make_source(0, 20, 800, 3)
+	_make_source(0, 5, 800, 3)
 	_grid.propagate()
-	var cell_source: int = Constants.rack_cell(0, 20)
-	var cell_adjacent: int = Constants.rack_cell(0, 19)  # 1U up from source
+	var cell_source: int = Constants.rack_cell(0, 5)
+	var cell_adjacent: int = Constants.rack_cell(0, 4)  # 1U up from source
 	assert_gt(_grid.get_temperature(cell_source), _grid.get_temperature(cell_adjacent),
 		"Heat must decrease with distance from source")
 	assert_gt(_grid.get_temperature(cell_adjacent), 0,
@@ -57,24 +57,24 @@ func test_heat_falls_off_with_distance():
 
 
 func test_heat_is_zero_beyond_radius():
-	# A source with radius 3 at slot 20 must not heat slot 24+ (beyond 1U down = slot 21).
-	# The upward range: slots 17-20 (3U up). Downward: slot 21 (1U down). Slot 22+ = zero.
-	_make_source(0, 20, 800, 3)
+	# A source with radius 3 at slot 5 heats slots 2-5 upward and slot 6 downward.
+	# Slot 1 (4U up) and slot 7 (2U down) must be zero.
+	_make_source(0, 5, 800, 3)
 	_grid.propagate()
-	var cell_beyond: int = Constants.rack_cell(0, 22)
+	var cell_beyond: int = Constants.rack_cell(0, 7)
 	assert_eq(_grid.get_temperature(cell_beyond), 0,
-		"Slot 22 (2U below source, beyond 1U downward range) must be 0")
-	var cell_far_up: int = Constants.rack_cell(0, 16)
+		"Slot 7 (2U below source, beyond 1U downward range) must be 0")
+	var cell_far_up: int = Constants.rack_cell(0, 1)
 	assert_eq(_grid.get_temperature(cell_far_up), 0,
-		"Slot 16 (4U above source, beyond 3U upward range) must be 0")
+		"Slot 1 (4U above source, beyond 3U upward range) must be 0")
 
 
 func test_two_overlapping_sources_stack_and_clamp():
 	# Two sources heating the same cell: values add but clamp at 1000.
-	_make_source(0, 20, 700, 3)
-	_make_source(0, 20, 700, 3)
+	_make_source(0, 5, 700, 3)
+	_make_source(0, 5, 700, 3)
 	_grid.propagate()
-	var cell: int = Constants.rack_cell(0, 20)
+	var cell: int = Constants.rack_cell(0, 5)
 	# 700 + 700 = 1400 → clamped to 1000
 	assert_eq(_grid.get_temperature(cell), 1000,
 		"Overlapping sources must stack and clamp at 1000")
@@ -82,10 +82,10 @@ func test_two_overlapping_sources_stack_and_clamp():
 
 func test_cross_rack_spillover_is_much_weaker():
 	# Same slot in adjacent rack should receive heat, but less than half of same-rack cell.
-	_make_source(1, 20, 800, 3)
+	_make_source(1, 5, 800, 3)
 	_grid.propagate()
-	var cell_same_rack: int = Constants.rack_cell(1, 20)
-	var cell_adj_rack: int = Constants.rack_cell(0, 20)
+	var cell_same_rack: int = Constants.rack_cell(1, 5)
+	var cell_adj_rack: int = Constants.rack_cell(0, 5)
 	var same_temp: int = _grid.get_temperature(cell_same_rack)
 	var adj_temp: int = _grid.get_temperature(cell_adj_rack)
 	assert_gt(adj_temp, 0,
@@ -95,8 +95,8 @@ func test_cross_rack_spillover_is_much_weaker():
 
 
 func test_floor_gets_no_heat_from_distant_server():
-	# A server at slot 20 is far from the floor — no floor heat.
-	_make_source(0, 20, 800, 3)
+	# A server at slot 5 is far from the floor (distance 5, radius/3 = 1 — out of range).
+	_make_source(0, 5, 800, 3)
 	_grid.propagate()
 	var floor_idx: int = Constants.floor_cell(0)
 	var floor_temp: int = _grid.get_temperature(floor_idx)
@@ -105,8 +105,8 @@ func test_floor_gets_no_heat_from_distant_server():
 
 
 func test_floor_gets_heat_from_bottom_server():
-	# A server at slot 41 (directly above floor) spills heat down.
-	_make_source(0, 41, 800, 3)
+	# A server at slot 9 (bottom of 10-slot rack) is 1U from the floor, within radius/3=1.
+	_make_source(0, 9, 800, 3)
 	_grid.propagate()
 	var floor_idx: int = Constants.floor_cell(0)
 	var floor_temp: int = _grid.get_temperature(floor_idx)
@@ -118,9 +118,9 @@ func test_floor_gets_heat_from_bottom_server():
 
 func test_propagation_resets_each_tick():
 	# Add a source, propagate — then remove it, propagate again: grid should be all zeros.
-	var id: int = _make_source(0, 20, 800, 3)
+	var id: int = _make_source(0, 5, 800, 3)
 	_grid.propagate()
-	var cell: int = Constants.rack_cell(0, 20)
+	var cell: int = Constants.rack_cell(0, 5)
 	assert_gt(_grid.get_temperature(cell), 0, "Grid must be non-zero after first propagation")
 
 	_db.destroy_entity(id)
@@ -131,9 +131,9 @@ func test_propagation_resets_each_tick():
 
 
 func test_heat_applies_downward_one_unit():
-	# Source at slot 20 with radius 3 must heat slot 21 (1U down).
-	_make_source(0, 20, 800, 3)
+	# Source at slot 5 with radius 3 must heat slot 6 (1U down).
+	_make_source(0, 5, 800, 3)
 	_grid.propagate()
-	var cell_down: int = Constants.rack_cell(0, 21)
+	var cell_down: int = Constants.rack_cell(0, 6)
 	assert_gt(_grid.get_temperature(cell_down), 0,
 		"Slot 1U below source must receive heat")

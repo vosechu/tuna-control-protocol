@@ -1,5 +1,5 @@
 @warning_ignore("unused_signal")
-extends RefCounted
+extends Node
 
 
 # Object lifecycle — emitted by GameServer systems, consumed by GameClient systems
