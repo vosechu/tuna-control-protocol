@@ -8,6 +8,8 @@ var desire_resolver: DesireResolver
 var desire_scatter: DesireScatter
 var object_state_manager: ObjectStateManager
 var nav_builder: NavGraphBuilder
+var hum_system: HumSystem
+var contentment: Contentment
 var _mod_loader := ModLoader.new()
 var _entity_defs: EntityDefRegistry
 var _verb_resolver := VerbResolver.new()
@@ -31,6 +33,8 @@ func _ready() -> void:
 	)
 	_entity_defs = mod_result["entity_defs"]
 	heat_grid = HeatGrid.new(db)
+	contentment = Contentment.new(db)
+	hum_system = HumSystem.new(db, Events)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
@@ -67,6 +71,9 @@ func _physics_process(_delta: float) -> void:
 	db.advance_tick()
 	heat_grid.propagate()
 	_scatter_desires()
+	contentment.evaluate_all()
+	hum_system.tick_charge()
+	hum_system.drain_idle()
 	_decay_commitment()
 	desire_resolver.mark_all_dirty()
 	desire_resolver.evaluate_budget(_curiosity_trackers)
@@ -351,6 +358,7 @@ func place_object(
 					&"max_occupants": 1,
 				}],
 			})
+			db.set_component(entity, &"hum_receiver", {&"radius_ru": 5})
 		&"cardboard_box":
 			db.set_component(entity, &"advertisements", {
 				&"list": [
@@ -439,6 +447,7 @@ func _spawn_starter_entities() -> void:
 	db.set_component(server, &"advertisements", {&"list": [
 		{&"desire_type": &"warmth", &"strength": 800, &"radius_ru": 8, &"max_occupants": 1}
 	]})
+	db.set_component(server, &"hum_receiver", {&"radius_ru": 5})
 	db.set_component(
 		server, &"object_type", {&"type": &"server_2u"}
 	)
