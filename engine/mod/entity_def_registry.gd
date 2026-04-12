@@ -101,6 +101,9 @@ func spawn(
 	# Desires + personality (species only)
 	if def.has("desires") and not def["desires"].is_empty():
 		var base_desires: Dictionary = def["desires"]
+		var desire_overrides: Dictionary = overrides.get(
+			&"desires", {},
+		)
 		var personality: Dictionary = {}
 		var initial_desires: Dictionary = {}
 		for key: String in base_desires:
@@ -115,7 +118,11 @@ func spawn(
 			else:
 				personality[StringName(key + "_weight")] = \
 					int(base_desires[key])
-			initial_desires[skey] = 200
+			# Deep-merge: override wins if present, else default
+			if desire_overrides.has(skey):
+				initial_desires[skey] = int(desire_overrides[skey])
+			else:
+				initial_desires[skey] = 200
 		db.set_component(id, &"desires", initial_desires)
 		db.set_component(id, &"personality", personality)
 

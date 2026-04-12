@@ -21,6 +21,9 @@ const _BOX_TEX := preload(
 const _PILE_TEX := preload(
 	"res://mods/tcp_base/sprites/objects/pile_clothes.png"
 )
+const _HUM_TEX := preload(
+	"res://mods/tcp_base/sprites/infrastructure/server/hum_device_static_strip1.png"
+)
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
 
 const _VISIBLE_BAY_INDICES: Array[int] = [-1, 0, 1]
@@ -57,7 +60,37 @@ func _ready() -> void:
 	_setup_heat_overlay()
 	_setup_sound_manager()
 	_setup_placement_ui()
+	_setup_lighting()
+	_setup_hum_bar()
+	_setup_narrator_panel()
 	# Camera position/zoom handled by camera_controller.gd
+
+
+func _setup_narrator_panel() -> void:
+	var narrator := Narrator.new()
+	var panel := NarratorPanel.new()
+	panel.position = Vector2(10, 340)
+	panel.name = "NarratorPanel"
+	$HUD.add_child(panel)
+	panel.initialize(Events, narrator)
+
+
+func _setup_hum_bar() -> void:
+	var hud := CanvasLayer.new()
+	hud.name = "HUD"
+	add_child(hud)
+	var hum_bar := HumBar.new()
+	hum_bar.position = Vector2(10, 10)
+	hum_bar.name = "HumBar"
+	hud.add_child(hum_bar)
+	hum_bar.initialize(Events)
+
+
+func _setup_lighting() -> void:
+	var lighting := LightingSystem.new()
+	lighting.name = "LightingSystem"
+	$World.add_child(lighting)
+	lighting.initialize(Events)
 
 
 func _build_environment_tilemap() -> void:
@@ -219,7 +252,7 @@ func _setup_sound_manager() -> void:
 	sm.name = "SoundManager"
 	sm.set_script(SoundManagerScript)
 	add_child(sm)
-	sm.initialize(game_server.db)
+	sm.initialize(game_server.db, Events)
 	# Register cat entities with the sound manager
 	var db: GameStateDB = game_server.db
 	var animals: Array[int] = db.get_entities_with(
@@ -296,6 +329,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			world_pos,
 			_placement_ui_node.get_selected_type(),
 		)
+	else:
+		_try_click_entity(world_pos)
 
 
 func _try_place_at(
@@ -316,15 +351,33 @@ func _try_place_at(
 	var place_x: int
 	var place_y: int
 
-	if object_type == &"server_2u":
-		# Servers go in racks
+	var is_rack_object: bool = (
+		object_type == &"server_2u"
+		or object_type == &"hum_device"
+		or object_type == &"tuna_dispenser"
+		or object_type == &"tuna_button"
+	)
+	if is_rack_object:
+		var size_ru: int = 1
+		if object_type == &"hum_device":
+			size_ru = 6
+		elif object_type == &"server_2u":
+			size_ru = 2
 		slot = clampi(
 			slot,
 			Constants.TOR_SWITCH_SLOTS,
-			Constants.SLOTS_PER_RACK - 2,
+			Constants.SLOTS_PER_RACK - size_ru,
 		)
 		place_x = rack * Constants.RACK_WIDTH_PU
 		place_y = slot * Constants.SLOT_HEIGHT_PU
+	elif object_type == &"arm":
+		# ARM goes on the floor
+		place_x = rack * Constants.RACK_WIDTH_PU
+		@warning_ignore("integer_division")
+		place_y = (
+			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+			+ Constants.FLOOR_HEIGHT_PU / 2
+		)
 	else:
 		# Boxes and piles go on the floor
 		@warning_ignore("integer_division")
@@ -399,6 +452,8 @@ func _create_object_sprite(
 			sprite.texture = _BOX_TEX
 		&"clothes_pile":
 			sprite.texture = _PILE_TEX
+		&"hum_device":
+			sprite.texture = _HUM_TEX
 	sprite.centered = false
 	sprite.position = Vector2(
 		Constants.to_world(pu_x),
@@ -406,6 +461,99 @@ func _create_object_sprite(
 	)
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite
+
+
+func _try_click_entity(world_pos: Vector2) -> void:
+	var click_x: int = Constants.from_world(world_pos.x)
+	var click_y: int = Constants.from_world(world_pos.y)
+	var nearby: Array[int] = game_server.db.query_radius(
+		click_x, click_y, Constants.ru_to_pu(2),
+	)
+	for entity_id: int in nearby:
+		# Click on button → press it
+		if game_server.db.has_component(
+			entity_id, &"tuna_button",
+		):
+			var can_id: int = (
+				game_server.food_system.press_button(
+					entity_id,
+				)
+			)
+			if can_id != Constants.INVALID_ID:
+				Events.food_dispensed.emit(can_id)
+			return
+		# Click on cat/ferret → pet it
+		if game_server.db.has_component(
+			entity_id, &"species",
+		):
+			_pet_animal(entity_id)
+			return
+		# Click on box → squeak it
+		if game_server.db.has_component(
+			entity_id, &"object_type",
+		):
+			var otype: Dictionary = (
+				game_server.db.get_component(
+					entity_id, &"object_type",
+				)
+			)
+			if otype[&"type"] == &"cardboard_box":
+				_squeak_box(entity_id)
+				return
+
+
+func _pet_animal(entity_id: int) -> void:
+	if not game_server.db.has_component(
+		entity_id, &"desires",
+	):
+		return
+	var attention: int = game_server.db.get_field(
+		entity_id, &"desires", &"attention",
+	)
+	game_server.db.set_field(
+		entity_id, &"desires", &"attention",
+		mini(1000, attention + 500),
+	)
+
+
+func _squeak_box(box_id: int) -> void:
+	Events.box_squeaked.emit(box_id)
+	var box_pos: Dictionary = game_server.db.get_component(
+		box_id, &"position",
+	)
+	var nearby: Array[int] = game_server.db.query_radius(
+		box_pos[&"x"], box_pos[&"y"],
+		Constants.ru_to_pu(6),
+	)
+	for entity_id: int in nearby:
+		if not game_server.db.has_component(
+			entity_id, &"species",
+		):
+			continue
+		if not game_server.db.has_component(
+			entity_id, &"ai_state",
+		):
+			continue
+		var ai: Dictionary = game_server.db.get_component(
+			entity_id, &"ai_state",
+		)
+		var s: StringName = ai[&"state"]
+		if s == &"PACING" or s == &"HUNGRY" \
+				or s == &"RETURNING" or s == &"EATING":
+			game_server.db.set_component(
+				entity_id, &"ai_state", {
+					&"state": &"RETURNING",
+					&"meta_state": &"GOAL_DIRECTED",
+					&"commitment_score": 200,
+				},
+			)
+			game_server.db.set_component(
+				entity_id, &"target", {
+					&"x": box_pos[&"x"],
+					&"y": box_pos[&"y"],
+					&"entity_id": box_id,
+				},
+			)
 
 
 func _process(delta: float) -> void:

@@ -2,11 +2,11 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: e4963ed6
-verified_at: 2026-04-11T20:50:22Z
+verified_at: 2026-04-12T11:31:53Z
 tests:
   test_floor_nodes_exist: 31b82fdb
   test_floor_nodes_connected: 976d7978
-  test_cat_can_jump_to_rack_slot: b515ed2a
-  test_ferret_cannot_jump_to_rack_slot: 14fca2ee
-  test_remove_rack_slot: 25594c60
-  test_adjacent_slots_connected: d9e10b28
+  test_cat_can_jump_to_rack_slot: c83feedb
+  test_ferret_cannot_jump_to_rack_slot: 83ff8168
+  test_remove_rack_slot: 1d51eb79
+  test_adjacent_slots_connected: e35a02cb

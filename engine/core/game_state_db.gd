@@ -26,6 +26,14 @@ func create_entity() -> int:
 	return id
 
 
+func create_entity_with_id(entity_id: int) -> void:
+	assert(not _entities.has(entity_id),
+			"create_entity_with_id: entity %d already exists" % entity_id)
+	_entities[entity_id] = {}
+	if entity_id >= _next_id:
+		_next_id = entity_id + 1
+
+
 func destroy_entity(entity_id: int) -> void:
 	assert(_entities.has(entity_id), "destroy_entity: unknown entity %d" % entity_id)
 	_entities.erase(entity_id)
@@ -80,6 +88,19 @@ func set_field(entity_id: int, component: StringName, field: StringName, value: 
 			"set_field: entity %d has no component '%s'" % [entity_id, component])
 	_entities[entity_id][component][field] = value
 	_mark_dirty(entity_id, component)
+
+
+func add_field(entity_id: int, component: StringName, field: StringName, delta: int) -> void:
+	var value: int = get_field(entity_id, component, field)
+	set_field(entity_id, component, field, value + delta)
+
+
+func clamp_field(
+		entity_id: int, component: StringName,
+		field: StringName, min_val: int, max_val: int,
+) -> void:
+	var value: int = get_field(entity_id, component, field)
+	set_field(entity_id, component, field, clampi(value, min_val, max_val))
 
 
 # ── Batch operations (hot path) ───────────────────────────────────────────────
