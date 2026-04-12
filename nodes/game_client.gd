@@ -15,6 +15,9 @@ const _BOX_TEX := preload(
 const _PILE_TEX := preload(
 	"res://mods/tcp_base/sprites/objects/pile_clothes.png"
 )
+const _HUM_TEX := preload(
+	"res://mods/tcp_base/sprites/infrastructure/server/hum_device_static_strip1.png"
+)
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
 
 # Floor tile extracted from tileset atlas — dark ground strip at y=48
@@ -363,6 +366,8 @@ func _create_object_sprite(
 			sprite.texture = _BOX_TEX
 		&"clothes_pile":
 			sprite.texture = _PILE_TEX
+		&"hum_device":
+			sprite.texture = _HUM_TEX
 	sprite.centered = false
 	sprite.position = Vector2(
 		Constants.to_world(pu_x),

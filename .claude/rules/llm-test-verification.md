@@ -156,6 +156,8 @@ A narrow exception exists for changes that demonstrably do not affect what the t
 
 If all four conditions hold, run `script/stamp_tests <file>` to refresh the seal. The commit message must state which condition forced the change (e.g. "lint fix: wrap long lines in test_desire_resolver.gd; behavior unchanged").
 
+**Transparency requirement:** When re-stamping under this exception, explicitly state in your response to the user: (a) that you are re-stamping without full re-verification, (b) which condition applies, and (c) what the specific change was. Do not silently re-stamp and move on — the user should be able to challenge the judgment call. A silent re-stamp that turns out to be wrong is worse than a verbose one that gets caught.
+
 **When in doubt, run the full Phase 2-5 cycle.** The cost of an unnecessary re-verification is small. The cost of re-stamping a behavior change without re-verification is silently shipping a broken test.
 
 **This exception does not apply to:**
