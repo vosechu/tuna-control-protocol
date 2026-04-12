@@ -71,8 +71,8 @@ func _make_cat(rack: int, slot: int) -> int:
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 func test_cold_cat_near_server_transitions_to_seeking() -> void:
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 25)
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 8)
 
 	# Propagate heat from the server
 	_heat_grid.propagate()
@@ -102,8 +102,8 @@ func test_cold_cat_near_server_transitions_to_seeking() -> void:
 
 
 func test_cat_moves_toward_target_over_ticks() -> void:
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 30)
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 8)
 
 	# Set cat to MOVING_TO with target at server position
 	var server_pos: Dictionary = _db.get_component(
@@ -158,13 +158,13 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 	var end_pos: Dictionary = _db.get_component(cat, &"position")
 	var end_y: int = end_pos[&"y"]
 	assert_lt(end_y, start_y,
-		"Cat should have moved upward (lower Y) toward server at slot 20")
+		"Cat should have moved upward (lower Y) toward server at slot 5")
 
 
 func test_mark_animals_dirty_only_marks_species_entities() -> void:
 	# Non-species entities (servers, objects) should not be marked dirty
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 25)
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 8)
 
 	# Simulate _mark_animals_dirty logic
 	var animals: Array[int] = _db.get_entities_with(&"desires")
@@ -202,8 +202,8 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 
 
 func test_movement_arrival_distance_within_speed() -> void:
-	var server: int = _make_server(2, 20)
-	var cat: int = _make_cat(2, 20)  # Same position as server
+	var server: int = _make_server(2, 5)
+	var cat: int = _make_cat(2, 5)  # Same position as server
 
 	var server_pos: Dictionary = _db.get_component(
 		server, &"position"

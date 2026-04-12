@@ -2,15 +2,15 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: 48a743de
-verified_at: 2026-04-11T20:50:21Z
+verified_at: 2026-04-12T11:31:53Z
 tests:
   test_empty_grid_is_all_zeros: df4e12f6
-  test_single_source_heats_own_cell_to_full_value: 5d90f025
-  test_heat_falls_off_with_distance: 26b66468
-  test_heat_is_zero_beyond_radius: 5816ed57
-  test_two_overlapping_sources_stack_and_clamp: 460fb80d
-  test_cross_rack_spillover_is_much_weaker: 6f189fba
-  test_floor_gets_no_heat_from_distant_server: 0b530034
-  test_floor_gets_heat_from_bottom_server: 2dcb1f96
-  test_propagation_resets_each_tick: 4c6b6626
-  test_heat_applies_downward_one_unit: fbbed183
+  test_single_source_heats_own_cell_to_full_value: da4f907f
+  test_heat_falls_off_with_distance: e8ed3680
+  test_heat_is_zero_beyond_radius: be9fe0a6
+  test_two_overlapping_sources_stack_and_clamp: 1f371ce0
+  test_cross_rack_spillover_is_much_weaker: 320b0df3
+  test_floor_gets_no_heat_from_distant_server: 02b9e538
+  test_floor_gets_heat_from_bottom_server: da283721
+  test_propagation_resets_each_tick: bb99d5bd
+  test_heat_applies_downward_one_unit: 079e9a4d

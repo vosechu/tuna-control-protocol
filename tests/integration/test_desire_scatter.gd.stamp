@@ -2,9 +2,9 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: b8612ad4
-verified_at: 2026-04-11T20:50:18Z
+verified_at: 2026-04-12T11:31:53Z
 tests:
-  test_cold_cat_near_server_transitions_to_seeking: f61231da
-  test_cat_moves_toward_target_over_ticks: dc4af216
-  test_mark_animals_dirty_only_marks_species_entities: 441600d2
-  test_movement_arrival_distance_within_speed: ce625a17
+  test_cold_cat_near_server_transitions_to_seeking: 8117b171
+  test_cat_moves_toward_target_over_ticks: 0a7920ff
+  test_mark_animals_dirty_only_marks_species_entities: bb534e4d
+  test_movement_arrival_distance_within_speed: 76a70e4d

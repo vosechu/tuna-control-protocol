@@ -15,13 +15,13 @@ func test_pu_to_ru_converts_correctly():
 
 func test_rack_cell_addressing():
 	assert_eq(Constants.rack_cell(0, 0), 0, "Rack 0 slot 0 = cell 0")
-	assert_eq(Constants.rack_cell(1, 0), 42, "Rack 1 slot 0 = cell 42")
-	assert_eq(Constants.rack_cell(6, 41), 293, "Rack 6 slot 41 = cell 293")
+	assert_eq(Constants.rack_cell(1, 0), 10, "Rack 1 slot 0 = cell 10")
+	assert_eq(Constants.rack_cell(6, 9), 69, "Rack 6 slot 9 = cell 69")
 
 
 func test_floor_cell_addressing():
-	assert_eq(Constants.floor_cell(0), 294, "Floor rack 0 = cell 294")
-	assert_eq(Constants.floor_cell(6), 300, "Floor rack 6 = cell 300")
+	assert_eq(Constants.floor_cell(0), 70, "Floor rack 0 = cell 70")
+	assert_eq(Constants.floor_cell(6), 76, "Floor rack 6 = cell 76")
 
 
 func test_to_world_converts_int_to_float():
@@ -35,8 +35,8 @@ func test_from_world_converts_float_to_int():
 
 
 func test_grid_dimensions():
-	assert_eq(Constants.HEAT_CELLS_TOTAL, 301, "294 rack + 7 floor = 301 cells")
-	assert_eq(Constants.SLOTS_PER_RACK, 42, "42 U per rack")
+	assert_eq(Constants.HEAT_CELLS_TOTAL, 77, "70 rack + 7 floor = 77 cells")
+	assert_eq(Constants.SLOTS_PER_RACK, 10, "10 U per rack")
 	assert_eq(Constants.RACK_COUNT, 7, "7 racks")
 
 
