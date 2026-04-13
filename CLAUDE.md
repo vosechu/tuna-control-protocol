@@ -189,30 +189,7 @@ Notable checks: `gdscript_compile` (catches parse errors via `--import`), `gdlin
 
 ## Grid & Viewport
 
-Real-world-proportioned grid. 1 pixel ≈ 0.25 inches. Cats render at native 1x.
-
-| Element | Value | Notes |
-|---|---|---|
-| 1U height | 8px | 2" real × 4px/inch |
-| Rack section (10U) | 80px | 10 slots per rack |
-| Rack width | 23px | Interior face |
-| Rack stride | 31px | 23 + 8 gap |
-| Rack count | 5 per bay | |
-| Bay width | 186px | 5 racks + margins |
-| Bay stride | 366px | Full bay-to-bay spacing |
-| Bay peek | 47px | Visible peek of neighboring bays |
-| Floor strip | ~40px | Below racks |
-| Cat sprite | 40×40px native, **1x scale** | ~10" real sitting cat |
-| Ferret/kitten sprite | 32×32px native, **1x scale** | Smaller than cats |
-| Internal viewport | **640×360** (16:9) | Scales to any display |
-| Layout | 5 playable racks + 2 peek bays | Active bay + peeks = 186 + 2×47 = 280px visible |
-
-**Scaling:** Godot `canvas_items` stretch mode. 3x→1920×1080, 2x→1280×720, 4x→2560×1440.
-
-**Layout (post 2026-04-10 rescale):** 5 playable racks rendered as a single
-`rack_5set` sprite (186px wide), with 47px peeks of neighboring bays on each
-side. Bay 0 is the only simulated bay in the prototype. `BAY_STRIDE_PX = 366`
-is the single knob for bay spacing.
+Internal viewport: **224×128** (14×8 tiles). Layout constants in `engine/core/constants.gd`, visual details in `.claude/rules/art-direction.md`. Key fact: `FLOOR_Y = 112`, animals walk at this Y in X only. Camera controlled by `camera_controller.gd`.
 
 ---
 
@@ -255,6 +232,10 @@ script/validate
 ## Known Issues (Ring 0)
 
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
+- **LightingSystem (CanvasModulate) disabled:** Washes out colors at 224×128 viewport. Needs redesign.
+- **HUM bar shows wrong percentage:** Raw reserve emitted instead of 0-1000 ratio. Display shows 900%+ instead of ~90%.
+- **PU coordinate system adds unnecessary complexity:** `POSITION_SCALE=100` multiplier makes coordinate math confusing. Candidate for removal refactor.
+- **Heat overlay alignment is empirical:** Offsets tuned by eye, not derived from constants. Fragile if layout changes.
 
 ## GameStateDB Gotchas
 

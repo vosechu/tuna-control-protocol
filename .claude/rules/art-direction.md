@@ -14,19 +14,21 @@ paths:
 
 ## 1. Pixel Resolution and Base Grid
 
-**Target viewport:** 640×360 internal (16:9), scaled to any display via Godot `canvas_items` stretch mode. 3x→1920×1080, 2x→1280×720, 4x→2560×1440. Tablet and phone friendly.
+**Target viewport:** 224×128 internal (14×8 tiles, 1.75:1), scaled to any display via Godot `canvas_items` stretch mode. 8x→1792×1024. Fullscreen by default.
 
 **Real-world-proportioned grid.** 1 pixel ≈ 0.25 inches. Cat sprites render at native 1x — no scaling artifacts.
 
-**Base unit: 8px per rack unit.** 1U = 2 inches real = 8px. A 10U rack section is 80px tall. Rack width is **23px**. 5 playable racks rendered as one `rack_5set` sprite (186px wide), with 47px peeks of neighboring bays. Bay stride 366px. Active bay + two peeks fit the 640px viewport.
+**Base unit: 8px per rack unit.** 1U = 2 inches real = 8px. A 10U rack section is 80px tall. Rack width is **23px**. 5 playable racks rendered as one `rack_5set` sprite (186px wide). Bay stride 226px. Neighboring bays visible at viewport edges.
 
-**Layout:**
+**Layout (8 tile rows):**
 ```
-[peek bay -1 | ---- bay 0 (5 racks, 186px) ---- | peek bay +1]
-   47px               186px                          47px
+Row 0:   ceiling
+Rows 1-5: wall (rack sprite overlays most of this)
+Row 6:   baseboard (behind rack bottom frame)
+Row 7:   floor (animals walk here at y=112)
 ```
 
-Peek bays are decorative (no placement grid). They imply the datacenter continues beyond the viewport. May have ambient details: dangling cables, moss, a kitten paw reaching from offscreen.
+Rack sprite placed at y=16 (RACK_TOP_Y). Neighboring bays are visible at the viewport edges and render identically (no desaturation).
 
 **Cat silhouette at this scale:** A sitting cat is 40×40px native — about 5U tall. Cats are bigger than servers, which is physically accurate. At 40px, a cat silhouette has room for body shape, ear shape, tail position, and color pattern — highly readable. Five distinct cat models are visually distinguishable.
 
