@@ -9,8 +9,8 @@ const FLOOR_LINE_COLOR := Color(0.2, 1.0, 0.5, 0.5)
 
 func _draw() -> void:
 	# Rack slot area starts after 4px frame at top of rack sprite
-	var x_offset: float = float(Constants.LEFTMOST_RACK_OFFSET_PX) - 4.0
-	var y_offset: float = float(Constants.RACK_TOP_Y) + 12.0
+	var x_offset: float = float(Constants.LEFTMOST_RACK_OFFSET_PX)
+	var y_offset: float = float(Constants.RACK_SLOT0_Y)
 	var rack_area_width: float = float(
 		Constants.RACK_COUNT * Constants.RACK_STRIDE_PX
 	)

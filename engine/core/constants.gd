@@ -33,6 +33,8 @@ const FLOOR_HEIGHT_PU: int = FLOOR_HEIGHT_PX * POSITION_SCALE  # 1600
 
 const CEILING_Y: int = 0         # row 0
 const RACK_TOP_Y: int = 16       # row 1 — rack sprite top edge
+const RACK_FRAME_PX: int = 4     # border between rack sprite top and slot 0
+const RACK_SLOT0_Y: int = RACK_TOP_Y + RACK_FRAME_PX  # world Y of slot 0 top
 const RACK_BOTTOM_Y: int = 112   # row 7 — rack sprite bottom (16 + 96)
 const FLOOR_Y: int = 112         # top of row 7 — floor surface
 const VIEWPORT_BOTTOM: int = 128 # row 8
@@ -121,6 +123,38 @@ static func bay_center(bay_index: int) -> Vector2:
 	var bay_x: int = bay_index * BAY_STRIDE_PX + BAY_WIDTH_PX / 2
 	var center_y: int = VIEWPORT_HEIGHT / 2
 	return Vector2(float(bay_x), float(center_y))
+
+
+# ── World pixel ↔ rack/slot conversion ──
+
+## Convert a world-pixel click position to rack/slot indices.
+## bay: which bay the camera is viewing.
+## Returns {&"rack": int, &"slot": int}.
+static func world_to_rack_slot(
+	world_x: float, world_y: float, bay: int = 0,
+) -> Dictionary:
+	var bay_px: int = bay * BAY_STRIDE_PX
+	var local_x: float = world_x - float(bay_px) - float(LEFTMOST_RACK_OFFSET_PX)
+	var rack: int = int(local_x) / RACK_STRIDE_PX
+	rack = clampi(rack, 0, RACK_COUNT - 1)
+	var slot_y: float = world_y - float(RACK_SLOT0_Y)
+	var slot: int = int(slot_y) / SLOT_HEIGHT_PX
+	slot = clampi(slot, 0, SLOTS_PER_RACK - 1)
+	return {&"rack": rack, &"slot": slot}
+
+
+## Convert rack/slot to world-pixel position for rendering.
+## Returns top-left corner of the slot in world coordinates.
+static func rack_slot_to_world(
+	bay: int, rack: int, slot: int,
+) -> Vector2:
+	var x: float = float(
+		bay * BAY_STRIDE_PX
+		+ LEFTMOST_RACK_OFFSET_PX
+		+ rack * RACK_STRIDE_PX
+	)
+	var y: float = float(RACK_SLOT0_Y + slot * SLOT_HEIGHT_PX)
+	return Vector2(x, y)
 
 
 # ── Float / int conversion at rendering boundary ──

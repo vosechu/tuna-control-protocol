@@ -179,15 +179,7 @@ func _build_starter_objects() -> void:
 	var server_sprite := Sprite2D.new()
 	server_sprite.texture = _SERVER_TEX
 	server_sprite.centered = false
-	var server_pu: Vector2i = Constants.rack_slot_to_pu(
-		0, 1, 8
-	)
-	# Server Y: rack top + 4px frame + slot position in PU
-	server_sprite.position = Vector2(
-		Constants.to_world(server_pu.x)
-			- float(Constants.RACK_WIDTH_PX) / 2.0,
-		Constants.to_world(server_pu.y) + float(Constants.RACK_TOP_Y) + 4.0,
-	)
+	server_sprite.position = Constants.rack_slot_to_world(0, 1, 8)
 	$World/PlacedObjects.add_child(server_sprite)
 	_starter_sprites.append(server_sprite)
 
@@ -337,14 +329,11 @@ func _try_place_at(
 	world_pos: Vector2,
 	object_type: StringName,
 ) -> void:
-	var total_rack_px: int = (
-		Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX
+	var layout: Dictionary = Constants.world_to_rack_slot(
+		world_pos.x, world_pos.y, 0
 	)
-	var rack: int = int(world_pos.x) / total_rack_px
-	rack = clampi(rack, 0, Constants.RACK_COUNT - 1)
-	var slot: int = (
-		int(world_pos.y) / Constants.SLOT_HEIGHT_PX
-	)
+	var rack: int = int(layout[&"rack"])
+	var slot: int = int(layout[&"slot"])
 
 	var place_x: int
 	var place_y: int
@@ -366,23 +355,27 @@ func _try_place_at(
 			Constants.TOR_SWITCH_SLOTS,
 			Constants.SLOTS_PER_RACK - size_ru,
 		)
-		place_x = rack * Constants.RACK_WIDTH_PU
-		place_y = slot * Constants.SLOT_HEIGHT_PU
+		var pos: Vector2i = Constants.rack_slot_to_pu(
+			0, rack, slot
+		)
+		place_x = pos.x
+		place_y = pos.y
 	elif object_type == &"arm":
 		# ARM goes on the floor
-		place_x = rack * Constants.RACK_WIDTH_PU
+		var pos: Vector2i = Constants.rack_slot_to_pu(
+			0, rack, Constants.SLOTS_PER_RACK
+		)
+		place_x = pos.x
 		place_y = (
 			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
 		)
 	else:
 		# Boxes and piles go on the floor
-		var half_rack: int = (
-			Constants.RACK_WIDTH_PU / 2
+		var pos: Vector2i = Constants.rack_slot_to_pu(
+			0, rack, 0
 		)
-		place_x = (
-			rack * Constants.RACK_WIDTH_PU + half_rack
-		)
+		place_x = pos.x
 		var floor_third: int = (
 			Constants.FLOOR_HEIGHT_PU / 3
 		)
@@ -450,9 +443,13 @@ func _create_object_sprite(
 		&"hum_device":
 			sprite.texture = _HUM_TEX
 	sprite.centered = false
-	sprite.position = Vector2(
-		Constants.to_world(pu_x),
-		Constants.to_world(pu_y) + float(Constants.RACK_TOP_Y) + 4.0,
+	var layout: Dictionary = Constants.pu_to_bay_rack_slot(
+		pu_x, pu_y
+	)
+	sprite.position = Constants.rack_slot_to_world(
+		int(layout[&"bay"]),
+		int(layout[&"rack"]),
+		int(layout[&"slot"]),
 	)
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite
