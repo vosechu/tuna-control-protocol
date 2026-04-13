@@ -60,7 +60,6 @@ func _update_display(ratio: int) -> void:
 	else:
 		_bar_fill.color = Color(0.9, 0.2, 0.1)
 
-	@warning_ignore("integer_division")
 	var pct: int = ratio / 10
 	_reserve_label.text = "HUM: %d%%" % pct
 

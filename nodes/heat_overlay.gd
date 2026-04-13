@@ -43,7 +43,6 @@ func _draw() -> void:
 			color.a = 0.9
 			draw_rect(rect, color)
 			# Hatch pattern for color-blind accessibility
-			@warning_ignore("integer_division")
 			var density: int = temp / 200
 			for i: int in density:
 				var hatch_offset: float = float(i + 1) * float(Constants.SLOT_HEIGHT_PX) / float(density + 1)

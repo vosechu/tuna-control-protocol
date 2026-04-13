@@ -36,7 +36,6 @@ func test_floor_nodes_connected() -> void:
 
 func test_cat_can_jump_to_rack_slot() -> void:
 	builder.add_rack_slot(2, 8)
-	@warning_ignore("integer_division")
 	var slot_pos: Vector2 = Vector2(
 		float(
 			2 * Constants.RACK_STRIDE_PU
@@ -56,7 +55,6 @@ func test_cat_can_jump_to_rack_slot() -> void:
 
 func test_ferret_cannot_jump_to_rack_slot() -> void:
 	builder.add_rack_slot(2, 8)
-	@warning_ignore("integer_division")
 	var slot_pos: Vector2 = Vector2(
 		float(
 			2 * Constants.RACK_STRIDE_PU
@@ -87,7 +85,6 @@ func test_remove_rack_slot() -> void:
 func test_adjacent_slots_connected() -> void:
 	builder.add_rack_slot(1, 5)
 	builder.add_rack_slot(1, 6)
-	@warning_ignore("integer_division")
 	var slot5_pos: Vector2 = Vector2(
 		float(
 			1 * Constants.RACK_STRIDE_PU
@@ -95,7 +92,6 @@ func test_adjacent_slots_connected() -> void:
 		),
 		float(5 * Constants.SLOT_HEIGHT_PU),
 	)
-	@warning_ignore("integer_division")
 	var slot6_pos: Vector2 = Vector2(
 		float(
 			1 * Constants.RACK_STRIDE_PU

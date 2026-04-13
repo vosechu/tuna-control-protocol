@@ -340,10 +340,8 @@ func _try_place_at(
 	var total_rack_px: int = (
 		Constants.RACK_WIDTH_PX + Constants.RACK_GAP_PX
 	)
-	@warning_ignore("integer_division")
 	var rack: int = int(world_pos.x) / total_rack_px
 	rack = clampi(rack, 0, Constants.RACK_COUNT - 1)
-	@warning_ignore("integer_division")
 	var slot: int = (
 		int(world_pos.y) / Constants.SLOT_HEIGHT_PX
 	)
@@ -373,21 +371,18 @@ func _try_place_at(
 	elif object_type == &"arm":
 		# ARM goes on the floor
 		place_x = rack * Constants.RACK_WIDTH_PU
-		@warning_ignore("integer_division")
 		place_y = (
 			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
 		)
 	else:
 		# Boxes and piles go on the floor
-		@warning_ignore("integer_division")
 		var half_rack: int = (
 			Constants.RACK_WIDTH_PU / 2
 		)
 		place_x = (
 			rack * Constants.RACK_WIDTH_PU + half_rack
 		)
-		@warning_ignore("integer_division")
 		var floor_third: int = (
 			Constants.FLOOR_HEIGHT_PU / 3
 		)

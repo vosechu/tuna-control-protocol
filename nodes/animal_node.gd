@@ -147,7 +147,6 @@ func _add_strip_animation(
 	frames.add_animation(anim_name)
 	frames.set_animation_speed(anim_name, fps)
 	frames.set_animation_loop(anim_name, true)
-	@warning_ignore("integer_division")
 	var frame_width: int = sheet.get_width() / frame_count
 	var frame_height: int = sheet.get_height()
 	for i: int in frame_count:

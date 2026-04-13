@@ -2,22 +2,22 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: adc4b111
-verified_at: 2026-04-12T16:58:27Z
+verified_at: 2026-04-13T01:00:23Z
 tests:
   test_facility_entity_created_on_init: c2f83863
   test_initial_reserve_is_at_capacity: de09ea0c
   test_charge_adds_to_reserve: 2b758901
   test_charge_clamps_at_capacity: ca2a8ee6
   test_drain_idle_reduces_reserve: dff31e3d
-  test_drain_idle_slows_at_low_reserve: 44eecd40
-  test_drain_action_is_fixed_cost: ef9908b4
+  test_drain_idle_slows_at_low_reserve: 15fd80f6
+  test_drain_action_is_fixed_cost: 418b450b
   test_drain_action_can_reach_zero: 7f578edf
   test_reserve_never_goes_negative: a44056d6
   test_has_reserve_for_action: 5af97154
-  test_get_reserve_ratio: 35cfc5d7
+  test_get_reserve_ratio: 5fd5d121
   test_tick_charges_from_purring_cat_near_receiver: f6282475
   test_tick_does_not_charge_from_cat_outside_radius: 526f2893
   test_non_purring_cat_does_not_charge: c3100b85
   test_charge_emits_hum_reserve_changed: edcc5a76
-  test_brownout_entered_emitted_at_threshold: 747df893
-  test_brownout_recovered_emitted_on_recovery: 33443542
+  test_brownout_entered_emitted_at_threshold: f9dfdfe9
+  test_brownout_recovered_emitted_on_recovery: d319f254

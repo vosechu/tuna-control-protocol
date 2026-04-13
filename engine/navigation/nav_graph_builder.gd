@@ -39,7 +39,6 @@ func _build_floor_nodes() -> void:
 	for rack: int in Constants.RACK_COUNT:
 		var nav_id: int = _next_nav_id
 		_next_nav_id += 1
-		@warning_ignore("integer_division")
 		var x: float = float(rack * Constants.RACK_STRIDE_PU + Constants.RACK_STRIDE_PU / 2)
 		var y: float = float(
 			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
@@ -63,7 +62,6 @@ func add_rack_slot(rack: int, slot: int) -> void:
 		return  # already exists
 	var nav_id: int = _next_nav_id
 	_next_nav_id += 1
-	@warning_ignore("integer_division")
 	var x: float = float(rack * Constants.RACK_STRIDE_PU + Constants.RACK_STRIDE_PU / 2)
 	var y: float = float(slot * Constants.SLOT_HEIGHT_PU)
 	_slot_nodes[key] = nav_id

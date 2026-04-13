@@ -74,7 +74,6 @@ func test_paint_bay_one_offsets_right():
 	var max_x: int = -99999
 	for cell in mock.cells:
 		max_x = maxi(max_x, cell[&"coords"].x)
-	@warning_ignore("integer_division")
 	var expected_min: int = Constants.BAY_STRIDE_PX / 16
 	assert_gt(max_x, expected_min, "Bay 1 cells should be at positive x beyond BAY_STRIDE_PX")
 

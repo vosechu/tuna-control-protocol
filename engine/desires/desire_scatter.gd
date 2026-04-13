@@ -65,8 +65,6 @@ func scatter_from_ads() -> void:
 			if not desires.has(dtype):
 				continue
 			var current: int = desires[dtype]
-			@warning_ignore("integer_division")
 			var gain: int = best[dtype] * (1000 - current) / 1000
-			@warning_ignore("integer_division")
 			var new_val: int = mini(1000, current + gain / 10)
 			_db.set_field(entity_id, &"desires", dtype, new_val)

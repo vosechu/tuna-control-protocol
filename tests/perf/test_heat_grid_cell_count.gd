@@ -23,7 +23,6 @@ func test_heat_grid_propagation_under_budget():
 	var start: int = Time.get_ticks_usec()
 	for _i: int in 100:
 		heat.propagate()
-	@warning_ignore("integer_division")
 	var avg_us: int = (Time.get_ticks_usec() - start) / 100
 	assert_lt(avg_us, 200,
 		"Propagation avg %dus should be <200us" % avg_us)

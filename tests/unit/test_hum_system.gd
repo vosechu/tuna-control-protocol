@@ -60,7 +60,6 @@ func test_drain_idle_slows_at_low_reserve():
 	var drain_at_full: int = full_reserve - _hum.get_reserve()
 
 	# Drain at 25% capacity
-	@warning_ignore("integer_division")
 	var quarter_reserve: int = HumSystem.DEFAULT_CAPACITY / 4
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", quarter_reserve)
 	_hum.drain_idle()
@@ -81,7 +80,6 @@ func test_drain_action_is_fixed_cost():
 	var drain_from_full: int = HumSystem.DEFAULT_CAPACITY - after_full
 
 	# Drain 50 at 10% reserve
-	@warning_ignore("integer_division")
 	var ten_pct: int = HumSystem.DEFAULT_CAPACITY / 10
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", ten_pct)
 	_hum.drain_action(50)
@@ -130,7 +128,6 @@ func test_get_reserve_ratio():
 		"Empty reserve should yield ratio 0")
 
 	# Half
-	@warning_ignore("integer_division")
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", HumSystem.DEFAULT_CAPACITY / 2)
 	assert_eq(_hum.get_reserve_ratio(), 500,
 		"Half reserve should yield ratio 500")
@@ -185,7 +182,6 @@ func test_brownout_entered_emitted_at_threshold():
 	_events.hum_brownout_entered.connect(func() -> void: entered[0] += 1)
 	# Set reserve just above the 25% brownout threshold, then drain below
 	var capacity: int = _db.get_field(HumSystem.FACILITY_ID, &"hum", &"capacity")
-	@warning_ignore("integer_division")
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", capacity / 4 + 1)
 	_hum.drain_action(10)
 	assert_eq(entered[0], 1, "Should emit brownout_entered when crossing below 25%%")
@@ -199,7 +195,6 @@ func test_brownout_recovered_emitted_on_recovery():
 	_hum.drain_action(1)  # triggers brownout_entered, sets _was_brownout
 	# Charge back above threshold
 	var capacity: int = _db.get_field(HumSystem.FACILITY_ID, &"hum", &"capacity")
-	@warning_ignore("integer_division")
 	_hum.charge(capacity / 4 + 100)
 	assert_eq(recovered[0], 1, "Should emit brownout_recovered when crossing above 25%%")
 

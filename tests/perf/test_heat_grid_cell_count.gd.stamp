@@ -2,7 +2,7 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: e3b0c442
-verified_at: 2026-04-12T11:43:26Z
+verified_at: 2026-04-13T01:00:23Z
 tests:
   test_heat_grid_has_55_cells: 47ba4d82
-  test_heat_grid_propagation_under_budget: bfc56fed
+  test_heat_grid_propagation_under_budget: 71f3c131

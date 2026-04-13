@@ -84,10 +84,8 @@ func score_ad(
 	if dist_pu > radius_pu:
 		return 0
 
-	@warning_ignore("integer_division")
 	var dist_factor: int = 1000 - (dist_pu * 1000 / radius_pu) if radius_pu > 0 else 1000
 
-	@warning_ignore("integer_division")
 	return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
 
 
@@ -204,7 +202,6 @@ func pop_highest_deficit() -> int:
 
 func _random_floor_position() -> Dictionary:
 	var rack: int = randi_range(0, Constants.RACK_COUNT - 1)
-	@warning_ignore("integer_division")
 	var x: int = rack * Constants.RACK_WIDTH_PU + randi_range(0, Constants.RACK_WIDTH_PU)
 	var y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
 	return {&"x": x, &"y": y}

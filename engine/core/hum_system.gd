@@ -35,7 +35,6 @@ func drain_idle() -> void:
 	if old_reserve <= 0 or capacity <= 0:
 		return
 	# Idle drain scales with reserve ratio: full drain at 100%, near-zero at 0%
-	@warning_ignore("integer_division")
 	var drain: int = maxi(1, IDLE_DRAIN_BASE * old_reserve / capacity)
 	_db.set_field(FACILITY_ID, &"hum", &"reserve", maxi(0, old_reserve - drain))
 	_emit_if_changed(old_reserve)
@@ -83,7 +82,6 @@ func get_reserve_ratio() -> int:
 	if capacity <= 0:
 		return 0
 	var reserve: int = _db.get_field(FACILITY_ID, &"hum", &"reserve")
-	@warning_ignore("integer_division")
 	return reserve * 1000 / capacity
 
 

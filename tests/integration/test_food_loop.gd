@@ -148,7 +148,6 @@ func _make_button(
 func _make_arm(rack: int) -> int:
 	var id: int = _db.create_entity()
 	var x: int = rack * Constants.RACK_WIDTH_PU
-	@warning_ignore("integer_division")
 	var y: int = (
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
 		+ Constants.FLOOR_HEIGHT_PU / 2

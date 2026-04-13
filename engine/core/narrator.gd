@@ -14,9 +14,7 @@ func set_tick(tick: int) -> void:
 
 
 func format_status(message: String) -> String:
-	@warning_ignore("integer_division")
 	var minutes: int = _tick / 600
-	@warning_ignore("integer_division")
 	var seconds: int = (_tick / 10) % 60
 	return "[%02d:%02d] %s" % [minutes, seconds, message]
 

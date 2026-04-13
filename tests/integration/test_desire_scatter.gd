@@ -81,9 +81,7 @@ func test_cold_cat_near_server_transitions_to_seeking() -> void:
 
 	# Scatter warmth desire based on heat at cat's position
 	var pos: Dictionary = _db.get_component(cat, &"position")
-	@warning_ignore("integer_division")
 	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
-	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 	var cell: int = Constants.rack_cell(
 		clampi(rack, 0, Constants.RACK_COUNT - 1),
@@ -143,10 +141,8 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 		var move_x: int = 0
 		var move_y: int = 0
 		if dx != 0:
-			@warning_ignore("integer_division")
 			move_x = 200 * dx / dist
 		if dy != 0:
-			@warning_ignore("integer_division")
 			move_y = 200 * dy / dist
 		if move_x == 0 and dx != 0:
 			move_x = 1 if dx > 0 else -1
@@ -178,9 +174,7 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 	# Propagate heat + scatter warmth
 	_heat_grid.propagate()
 	var pos: Dictionary = _db.get_component(cat, &"position")
-	@warning_ignore("integer_division")
 	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
-	@warning_ignore("integer_division")
 	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
 	var cell: int = Constants.rack_cell(
 		clampi(rack, 0, Constants.RACK_COUNT - 1),

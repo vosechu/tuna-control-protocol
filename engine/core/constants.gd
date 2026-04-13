@@ -71,7 +71,6 @@ static func ru_to_pu(ru: int) -> int:
 
 
 static func pu_to_ru(pu: int) -> int:
-	@warning_ignore("integer_division")
 	return pu / SLOT_HEIGHT_PU
 
 
@@ -96,14 +95,12 @@ static func rack_interior_pu(bay_index: int, rack_in_bay: int) -> int:
 
 
 static func rack_slot_to_pu(bay_index: int, rack_in_bay: int, slot: int) -> Vector2i:
-	@warning_ignore("integer_division")
 	var x: int = rack_interior_pu(bay_index, rack_in_bay) + (RACK_WIDTH_PU / 2)
 	var y: int = slot * SLOT_HEIGHT_PU
 	return Vector2i(x, y)
 
 
 static func _floordiv(a: int, b: int) -> int:
-	@warning_ignore("integer_division")
 	var q: int = a / b
 	if (a ^ b) < 0 and q * b != a:
 		q -= 1
@@ -121,9 +118,7 @@ static func pu_to_bay_rack_slot(pu_x: int, pu_y: int) -> Dictionary:
 
 
 static func bay_center(bay_index: int) -> Vector2:
-	@warning_ignore("integer_division")
 	var bay_x: int = bay_index * BAY_STRIDE_PX + BAY_WIDTH_PX / 2
-	@warning_ignore("integer_division")
 	var center_y: int = VIEWPORT_HEIGHT / 2
 	return Vector2(float(bay_x), float(center_y))
 

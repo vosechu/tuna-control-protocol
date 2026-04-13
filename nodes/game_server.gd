@@ -267,7 +267,6 @@ func _move_animals() -> void:
 			# Move one step toward target (X only)
 			var move_x: int = 0
 			if dx != 0:
-				@warning_ignore("integer_division")
 				move_x = ANIMAL_SPEED_PU * dx / dist
 			if move_x == 0 and dx != 0:
 				move_x = 1 if dx > 0 else -1
@@ -565,9 +564,7 @@ func place_object(
 		entity, &"object_type", {&"type": object_type}
 	)
 	db.update_spatial(entity, world_x, world_y)
-	@warning_ignore("integer_division")
 	var rack: int = world_x / Constants.RACK_WIDTH_PU
-	@warning_ignore("integer_division")
 	var slot: int = world_y / Constants.SLOT_HEIGHT_PU
 	# Add nav node if object is in a rack slot (not on the floor)
 	if slot < Constants.SLOTS_PER_RACK:
@@ -627,9 +624,7 @@ func _spawn_starter_entities() -> void:
 
 	# Pre-placed cardboard box on the floor near rack 0
 	var box: int = db.create_entity()
-	@warning_ignore("integer_division")
 	var box_x: int = 0 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
-	@warning_ignore("integer_division")
 	var box_y: int = (
 		FLOOR_Y_PU
 	)
@@ -644,7 +639,6 @@ func _spawn_starter_entities() -> void:
 
 	# Spawn cats from mod definitions
 	if _entity_defs.has_entity(&"tcp_cats:cat"):
-		@warning_ignore("integer_division")
 		var floor_y: int = (
 			FLOOR_Y_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
@@ -684,7 +678,6 @@ func _spawn_starter_entities() -> void:
 
 	# Spawn ferrets from mod definitions
 	if _entity_defs.has_entity(&"tcp_ferrets:ferret"):
-		@warning_ignore("integer_division")
 		var floor_y: int = (
 			FLOOR_Y_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
@@ -724,7 +717,6 @@ func _spawn_starter_entities() -> void:
 func _spawn_rack_entities() -> void:
 	for rack_idx: int in Constants.RACK_COUNT:
 		var rack_entity: int = db.create_entity()
-		@warning_ignore("integer_division")
 		var x: int = rack_idx * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
 		var y: int = FLOOR_Y_PU
 		db.set_component(rack_entity, &"position", {&"x": x, &"y": y})
@@ -743,7 +735,6 @@ func _spawn_rack_entities() -> void:
 func _find_dispenser_in_rack(
 		world_x: int, _world_y: int,
 ) -> int:
-	@warning_ignore("integer_division")
 	var rack: int = world_x / Constants.RACK_WIDTH_PU
 	var dispensers: Array[int] = db.get_entities_with(
 		&"tuna_dispenser",
@@ -752,7 +743,6 @@ func _find_dispenser_in_rack(
 		var dpos: Dictionary = db.get_component(
 			disp_id, &"position",
 		)
-		@warning_ignore("integer_division")
 		var disp_rack: int = dpos[&"x"] / Constants.RACK_WIDTH_PU
 		if disp_rack == rack:
 			return disp_id

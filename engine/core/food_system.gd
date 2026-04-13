@@ -36,11 +36,9 @@ func press_button(button_id: int) -> int:
 	var disp_pos: Dictionary = _db.get_component(
 		dispenser_id, &"position",
 	)
-	@warning_ignore("integer_division")
 	var button_rack: int = (
 		button_pos[&"x"] / Constants.RACK_WIDTH_PU
 	)
-	@warning_ignore("integer_division")
 	var disp_rack: int = (
 		disp_pos[&"x"] / Constants.RACK_WIDTH_PU
 	)
@@ -59,7 +57,6 @@ func press_button(button_id: int) -> int:
 	_hum.drain_action(cost)
 	var can_id: int = _db.create_entity()
 	var can_x: int = disp_pos[&"x"]
-	@warning_ignore("integer_division")
 	var can_y: int = (
 		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
 		+ Constants.FLOOR_HEIGHT_PU / 4

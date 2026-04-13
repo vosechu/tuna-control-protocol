@@ -72,9 +72,7 @@ func _init(tilemap: Object, seed_value: int = 42) -> void:
 #   Row 6: baseboard (behind rack bottom frame)
 #   Row 7: floor
 func paint_bay(bay_index: int) -> void:
-	@warning_ignore("integer_division")
 	var start_x: int = (bay_index * Constants.BAY_STRIDE_PX) / _CELL_SIZE_PX
-	@warning_ignore("integer_division")
 	var end_x: int = ((bay_index + 1) * Constants.BAY_STRIDE_PX) / _CELL_SIZE_PX
 
 	# Row 0: ceiling
@@ -109,9 +107,7 @@ func paint_bay(bay_index: int) -> void:
 
 
 func clear_bay(bay_index: int) -> void:
-	@warning_ignore("integer_division")
 	var start_x: int = (bay_index * Constants.BAY_STRIDE_PX) / _CELL_SIZE_PX
-	@warning_ignore("integer_division")
 	var end_x: int = ((bay_index + 1) * Constants.BAY_STRIDE_PX) / _CELL_SIZE_PX
 	for y: int in range(0, 8):
 		for x: int in range(start_x, end_x + 1):
