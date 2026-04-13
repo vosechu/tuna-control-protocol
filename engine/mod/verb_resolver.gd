@@ -95,6 +95,7 @@ func _score_desire_affinity(
 		var desire_val: int = int(
 			desires.get(StringName(channel), 0),
 		)
+		@warning_ignore("integer_division")
 		var score: int = affinity * desire_val / 1000
 		if score > max_score:
 			max_score = score
