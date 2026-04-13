@@ -611,8 +611,9 @@ func remove_object(entity_id: int) -> void:
 func _spawn_starter_entities() -> void:
 	# Pre-placed server at rack 1, slot 8 (bottom of rack, right above floor, near Mochi)
 	var server: int = db.create_entity()
-	var server_x: int = 1 * Constants.RACK_WIDTH_PU
-	var server_y: int = 8 * Constants.SLOT_HEIGHT_PU
+	var server_pos: Vector2i = Constants.rack_slot_to_pu(0, 1, 8)
+	var server_x: int = server_pos.x
+	var server_y: int = server_pos.y
 	db.set_component(server, &"position", {&"x": server_x, &"y": server_y})
 	db.set_component(server, &"heat_source", {&"value": 1000, &"radius_ru": 5})
 	db.set_component(server, &"advertisements", {&"list": [
