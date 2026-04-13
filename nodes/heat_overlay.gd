@@ -24,8 +24,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _draw() -> void:
 	if not _visible or _heat_grid == null:
 		return
-	var x_offset: float = float(Constants.LEFTMOST_RACK_OFFSET_PX) - 4.0
-	var y_offset: float = float(Constants.RACK_TOP_Y) + 12.0
+	var x_offset: float = float(Constants.LEFTMOST_RACK_OFFSET_PX)
+	var y_offset: float = float(Constants.RACK_TOP_Y) + 4.0
 	for rack: int in Constants.RACK_COUNT:
 		for slot: int in Constants.SLOTS_PER_RACK:
 			var cell: int = Constants.rack_cell(rack, slot)
