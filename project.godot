@@ -35,6 +35,10 @@ enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 common/physics_ticks_per_second=10
 
+[debug]
+
+gdscript/warnings/integer_division=0
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
