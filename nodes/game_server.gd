@@ -66,12 +66,9 @@ func _build_nav_for_objects() -> void:
 	var objects: Array[int] = db.get_entities_with(&"object_type")
 	for entity_id: int in objects:
 		var pos: Dictionary = db.get_component(entity_id, &"position")
-		@warning_ignore("integer_division")
-		var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
-		@warning_ignore("integer_division")
-		var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
-		if slot < Constants.SLOTS_PER_RACK:
-			nav_builder.add_rack_slot(rack, slot)
+		var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
+		if layout[&"slot"] < Constants.SLOTS_PER_RACK:
+			nav_builder.add_rack_slot(layout[&"rack"], layout[&"slot"])
 
 
 func _physics_process(_delta: float) -> void:
@@ -125,18 +122,14 @@ func _scatter_desires() -> void:
 		if not db.has_component(entity_id, &"position"):
 			continue
 		var pos: Dictionary = db.get_component(entity_id, &"position")
-		@warning_ignore("integer_division")
-		var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
-		@warning_ignore("integer_division")
-		var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
+		var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
+		var rack: int = layout[&"rack"]
+		var slot: int = layout[&"slot"]
 		var cell: int
-		if slot >= Constants.SLOTS_PER_RACK:
-			cell = Constants.floor_cell(clampi(rack, 0, Constants.RACK_COUNT - 1))
+		if pos[&"y"] >= Constants.FLOOR_Y * Constants.POSITION_SCALE:
+			cell = Constants.floor_cell(rack)
 		else:
-			cell = Constants.rack_cell(
-				clampi(rack, 0, Constants.RACK_COUNT - 1),
-				clampi(slot, 0, Constants.SLOTS_PER_RACK - 1)
-			)
+			cell = Constants.rack_cell(rack, slot)
 		var temp: int = heat_grid.get_temperature(cell)
 		# Warmth desire is satisfaction: 0 = cold/desperate, 1000 = warm/satisfied.
 		# Temperature: 0 = cold, 1000 = hot. They match directly.
@@ -606,14 +599,11 @@ func remove_object(entity_id: int) -> void:
 			&"commitment_score": 0,
 		})
 		_state_timers[other_id] = 0.0
-	@warning_ignore("integer_division")
-	var rack: int = pos[&"x"] / Constants.RACK_WIDTH_PU
-	@warning_ignore("integer_division")
-	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
+	var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
 	# Remove nav node if object was in a rack slot
-	if slot < Constants.SLOTS_PER_RACK:
-		nav_builder.remove_rack_slot(rack, slot)
-	Events.object_removed.emit(entity_id, rack, slot)
+	if layout[&"slot"] < Constants.SLOTS_PER_RACK:
+		nav_builder.remove_rack_slot(layout[&"rack"], layout[&"slot"])
+	Events.object_removed.emit(entity_id, layout[&"rack"], layout[&"slot"])
 	db.remove_spatial(entity_id)
 	db.destroy_entity(entity_id)
 

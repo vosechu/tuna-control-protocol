@@ -14,9 +14,10 @@ func before_each() -> void:
 
 func _make_source(rack: int, slot: int, value: int, radius: int) -> int:
 	var id: int = _db.create_entity()
+	var pos: Vector2i = Constants.rack_slot_to_pu(0, rack, slot)
 	_db.set_component(id, &"position", {
-		&"x": rack * Constants.RACK_STRIDE_PU,
-		&"y": slot * Constants.SLOT_HEIGHT_PU,
+		&"x": pos.x,
+		&"y": pos.y,
 	})
 	_db.set_component(id, &"heat_source", {
 		&"value": value,

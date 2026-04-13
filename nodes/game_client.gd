@@ -69,28 +69,28 @@ func _ready() -> void:
 func _setup_narrator_panel() -> void:
 	var narrator := Narrator.new()
 	var panel := NarratorPanel.new()
-	panel.position = Vector2(10, 340)
+	panel.position = Vector2(2, 118)
 	panel.name = "NarratorPanel"
 	$HUD.add_child(panel)
 	panel.initialize(Events, narrator)
 
 
 func _setup_hum_bar() -> void:
-	var hud := CanvasLayer.new()
-	hud.name = "HUD"
-	add_child(hud)
+	if not has_node("HUD"):
+		var hud := CanvasLayer.new()
+		hud.name = "HUD"
+		add_child(hud)
 	var hum_bar := HumBar.new()
-	hum_bar.position = Vector2(10, 10)
+	hum_bar.position = Vector2(2, 2)
 	hum_bar.name = "HumBar"
-	hud.add_child(hum_bar)
+	$HUD.add_child(hum_bar)
 	hum_bar.initialize(Events)
 
 
 func _setup_lighting() -> void:
-	var lighting := LightingSystem.new()
-	lighting.name = "LightingSystem"
-	$World.add_child(lighting)
-	lighting.initialize(Events)
+	# Disabled — CanvasModulate washes out colors at 224x128 viewport.
+	# Needs redesign for the new viewport scale.
+	pass
 
 
 func _build_environment_tilemap() -> void:

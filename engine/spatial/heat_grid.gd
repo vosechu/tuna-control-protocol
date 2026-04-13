@@ -34,10 +34,9 @@ func _apply_source(entity_id: int) -> void:
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	var hs: Dictionary = _db.get_component(entity_id, &"heat_source")
 
-	@warning_ignore("integer_division")
-	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
-	@warning_ignore("integer_division")
-	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
+	var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
+	var rack: int = layout[&"rack"]
+	var slot: int = layout[&"slot"]
 	var value: int = hs[&"value"]
 	var radius: int = hs[&"radius_ru"]
 
