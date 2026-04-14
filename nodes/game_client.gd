@@ -128,6 +128,7 @@ func _build_ru_grid_overlay() -> void:
 	overlay.name = "RuGridOverlay"
 	overlay.set_script(OverlayScript)
 	overlay.z_index = _Z_DEBUG
+	overlay.visible = false
 	$World.add_child(overlay)
 
 
@@ -186,11 +187,10 @@ func _build_starter_objects() -> void:
 	var box_sprite := Sprite2D.new()
 	box_sprite.texture = _BOX_TEX
 	box_sprite.centered = false
-	# Box is 16px tall, centered=false (top-left at position).
-	# Place top-left so bottom edge sits on the floor surface.
+	var box_world_x: float = Constants.rack_slot_to_world(0, 0, 0).x
 	box_sprite.position = Vector2(
-		float(Constants.LEFTMOST_RACK_OFFSET_PX),
-		float(Constants.FLOOR_Y) - 16.0,
+		box_world_x,
+		float(Constants.FLOOR_Y) - float(box_sprite.texture.get_height()),
 	)
 	$World/PlacedObjects.add_child(box_sprite)
 	_starter_sprites.append(box_sprite)
@@ -339,7 +339,7 @@ func _try_place_at(
 	var place_y: int
 
 	var is_rack_object: bool = (
-		object_type == &"server_2u"
+		object_type == &"server_1u"
 		or object_type == &"hum_device"
 		or object_type == &"tuna_dispenser"
 		or object_type == &"tuna_button"
@@ -348,8 +348,6 @@ func _try_place_at(
 		var size_ru: int = 1
 		if object_type == &"hum_device":
 			size_ru = 6
-		elif object_type == &"server_2u":
-			size_ru = 2
 		slot = clampi(
 			slot,
 			Constants.TOR_SWITCH_SLOTS,
@@ -395,14 +393,11 @@ func _try_place_at(
 
 
 func _try_remove_at(world_pos: Vector2) -> void:
-	var click_pu_x: int = Constants.from_world(
-		world_pos.x
-	)
-	var click_pu_y: int = Constants.from_world(
-		world_pos.y
+	var click_pu: Vector2i = Constants.world_to_pu(
+		world_pos.x, world_pos.y
 	)
 	var nearby: Array[int] = game_server.db.query_radius(
-		click_pu_x, click_pu_y, Constants.ru_to_pu(2)
+		click_pu.x, click_pu.y, Constants.ru_to_pu(2)
 	)
 	for entity_id: int in nearby:
 		if not game_server.db.has_component(
@@ -434,7 +429,7 @@ func _create_object_sprite(
 ) -> void:
 	var sprite := Sprite2D.new()
 	match object_type:
-		&"server_2u":
+		&"server_1u":
 			sprite.texture = _SERVER_TEX
 		&"cardboard_box":
 			sprite.texture = _BOX_TEX
@@ -443,23 +438,33 @@ func _create_object_sprite(
 		&"hum_device":
 			sprite.texture = _HUM_TEX
 	sprite.centered = false
-	var layout: Dictionary = Constants.pu_to_bay_rack_slot(
-		pu_x, pu_y
-	)
-	sprite.position = Constants.rack_slot_to_world(
-		int(layout[&"bay"]),
-		int(layout[&"rack"]),
-		int(layout[&"slot"]),
-	)
+	var floor_pu_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+	if pu_y >= floor_pu_y:
+		# Floor object: render at floor level
+		sprite.position = Vector2(
+			Constants.to_world(pu_x),
+			float(Constants.FLOOR_Y) - float(sprite.texture.get_height()),
+		)
+	else:
+		# Rack object: convert PU → rack/slot → world pixels
+		var layout: Dictionary = Constants.pu_to_bay_rack_slot(
+			pu_x, pu_y
+		)
+		sprite.position = Constants.rack_slot_to_world(
+			int(layout[&"bay"]),
+			int(layout[&"rack"]),
+			int(layout[&"slot"]),
+		)
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite
 
 
 func _try_click_entity(world_pos: Vector2) -> void:
-	var click_x: int = Constants.from_world(world_pos.x)
-	var click_y: int = Constants.from_world(world_pos.y)
+	var click_pu: Vector2i = Constants.world_to_pu(
+		world_pos.x, world_pos.y
+	)
 	var nearby: Array[int] = game_server.db.query_radius(
-		click_x, click_y, Constants.ru_to_pu(2),
+		click_pu.x, click_pu.y, Constants.ru_to_pu(2),
 	)
 	for entity_id: int in nearby:
 		# Click on button → press it

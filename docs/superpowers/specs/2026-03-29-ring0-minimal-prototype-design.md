@@ -737,7 +737,7 @@ This gives animals something to react to immediately while still leaving most of
 | Cats (5 variants) | 23 animations each, 40x40px frames | catset pack (itch.io) |
 | Kittens (5 variants) | 17 animations each, 32x32px frames | kittens pack (itch.io) |
 | Ferret (1 variant) | 20 animations, 32x32px frames | lilotter pack (itch.io, otter stand-in) |
-| Infrastructure | rack_frame, server_2u_off, pipe_cooling_vertical | Generated (Pillow) |
+| Infrastructure | rack_frame, server_1u_off, pipe_cooling_vertical | Generated (Pillow) |
 | Objects | box_cardboard_new, pile_clothes, tuna_can_sealed/open, furball, feather, fan_desk, bedding_scraps | Generated (Pillow) |
 | Robot | arm_station | Generated (Pillow) |
 | Environment | floor_tile | Generated (Pillow) |

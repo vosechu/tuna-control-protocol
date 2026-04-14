@@ -49,7 +49,7 @@ This spec softens or defers several commitments in `.claude/rules/art-direction.
 | art-direction.md §6 | 2px status strip per occupied slot | **Preserved but at risk.** At 8px slot height, a 2px strip is 25% of the slot — readable at 3× display. Status icon shapes (circle/triangle/diamond/octagon) can't fit inside the slot and move to the inspect tooltip only. | This spec: strip preserved, icons moved to tooltip. Follow-up: re-evaluate if cats/servers occlude the strip. |
 | art-direction.md §7 | Z-order priority 0 = rack structure, cats on top | **Preserved with clarification.** Z-order: environment tilemap (0) → rack sprite (1) → rack decor (2) → placed objects (3) → cats/animals (4) → status strip (when focused, 5) → HUD (10). See Section 3. |
 | asset-pipeline.md | `rack_frame` 1 frame 96×672 | **Obsolete.** Replaced by `rack_single_idle_strip1.png` (64×96) and `rack_5set_idle_strip1.png` (186×96). Asset-pipeline.md gets rewritten in the same PR. |
-| asset-pipeline.md | `server_2u_off` 64×16, `server_2u_on` 64×16 | **Obsolete sprite files.** Replaced by `server01_static_strip1.png` (23×8) and `server02_static_strip1.png`. **The StringName `server_2u` stays as the entity type key** for this spec — see Section 4. |
+| asset-pipeline.md | `server_1u_off` 64×16, `server_1u_on` 64×16 | **Obsolete sprite files.** Replaced by `server01_static_strip1.png` (23×8) and `server02_static_strip1.png`. **The StringName `server_1u` stays as the entity type key** for this spec — see Section 4. |
 | narrative.md | UNIT-C01 arrives in "Rack 03, slots 1-3" | **Preserved.** Rack 03 in a 5-rack bay is the center rack, which is still where the first cat logically goes. Log string is unchanged. |
 
 ---
@@ -365,17 +365,17 @@ Every subsystem that reads the old grid constants must read the new ones from `C
 | `engine/desires/desire_resolver.gd` | Random placement ranges shrink | No code change — reads constants |
 | `nodes/game_client.gd` | Rack building, bay layout, delete `_build_floor()`, add tilemap wiring, update starter objects | Real edits — see below |
 | `nodes/ru_grid_overlay.gd` | Grid spacing changes | No code change — reads constants |
-| Server type key | **StringName `server_2u` stays unchanged.** Only the sprite file renames | See rename strategy below |
+| Server type key | **StringName `server_1u` stays unchanged.** Only the sprite file renames | See rename strategy below |
 | Starter object positions | Hardcoded literal offsets | Rebase on `Constants.rack_slot_to_pu()` |
 | Tests with hardcoded grid values | Break on the constant change | Audit checklist (Section 7) |
 
 ### Server sprite rename strategy (NOT type rename)
 
-Per Bento's and Bramble's reviews — the cleanest path is to keep the entity type key `server_2u` as a StringName, and only update the sprite file path reference:
+Per Bento's and Bramble's reviews — the cleanest path is to keep the entity type key `server_1u` as a StringName, and only update the sprite file path reference:
 
-- **Keep:** `StringName("server_2u")` everywhere it appears (`_try_place_at`, placement UI, starter objects, match statements, tests).
-- **Change:** the sprite file lookup for that type points at `server01_static_strip1.png` instead of the old `server_2u_off.png`.
-- **Why:** decoupling the type key from the sprite file. The name `server_2u` is an abstract ID that happens to have historical meaning — renaming it ripples across 5+ call sites, breaks placement tests, and creates a save migration requirement. The sprite file is cosmetic. When mod extraction lands and servers move to JSON entity definitions, the string `"server_2u"` becomes a `"id"` field in JSON — still no rename needed.
+- **Keep:** `StringName("server_1u")` everywhere it appears (`_try_place_at`, placement UI, starter objects, match statements, tests).
+- **Change:** the sprite file lookup for that type points at `server01_static_strip1.png` instead of the old `server_1u_off.png`.
+- **Why:** decoupling the type key from the sprite file. The name `server_1u` is an abstract ID that happens to have historical meaning — renaming it ripples across 5+ call sites, breaks placement tests, and creates a save migration requirement. The sprite file is cosmetic. When mod extraction lands and servers move to JSON entity definitions, the string `"server_1u"` becomes a `"id"` field in JSON — still no rename needed.
 - **Follow-up:** when mod extraction lands, the JSON entity definition can use a clearer name (`server` or `server_small`). That's a mod-extraction concern, not this spec's.
 
 ### Edits to `game_client.gd`
@@ -411,9 +411,9 @@ Per Bento's and Bramble's reviews — the cleanest path is to keep the entity ty
    grep -rE 'Vector2(\b|[0-9])' tests/scenario/ tests/integration/
    ```
 5. **Manual scan** of `tests/scenario/` for behavioral assertions that embed coordinates (`cat ends up in slot 40`).
-6. **"server_2u" string literal sites:**
+6. **"server_1u" string literal sites:**
    ```
-   grep -rn '"server_2u"\|&"server_2u"' .
+   grep -rn '"server_1u"\|&"server_1u"' .
    ```
    Expected hits: `game_server.gd`, `game_client.gd`, `placement_ui.gd`, starter config, tests. All stay unchanged (we're not renaming the type key).
 

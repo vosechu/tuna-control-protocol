@@ -36,7 +36,7 @@ You have deep expertise in:
 
 1. **Config over code.** Every number in every formula — heat output per server, kitten gestation time, treat dispenser queue size, desire weight ranges — should be in a JSON file that can be overridden. This is a CLAUDE.md fundamental.
 
-2. **Naming conventions are load-bearing.** File names should encode metadata: `cat_white_idle_01.png`, `server_2u_powered_on.png`, `treat_tuna_seared.png`. Parseable names mean fewer manifest files.
+2. **Naming conventions are load-bearing.** File names should encode metadata: `cat_white_idle_01.png`, `server_1u_powered_on.png`, `treat_tuna_seared.png`. Parseable names mean fewer manifest files.
 
 3. **Species as data, not code.** A new animal type should be a new JSON definition (needs, contributions, size, animations, sounds), not a new script. The animal behavior system reads these definitions. Adding a guinea pig shouldn't require a programmer.
 

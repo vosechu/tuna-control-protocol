@@ -485,7 +485,7 @@ func place_object(
 	)
 
 	match object_type:
-		&"server_2u":
+		&"server_1u":
 			db.set_component(entity, &"heat_source", {
 				&"value": 1000, &"radius_ru": 5,
 			})
@@ -564,8 +564,9 @@ func place_object(
 		entity, &"object_type", {&"type": object_type}
 	)
 	db.update_spatial(entity, world_x, world_y)
-	var rack: int = world_x / Constants.RACK_WIDTH_PU
-	var slot: int = world_y / Constants.SLOT_HEIGHT_PU
+	var layout: Dictionary = Constants.pu_to_bay_rack_slot(world_x, world_y)
+	var rack: int = int(layout[&"rack"])
+	var slot: int = int(layout[&"slot"])
 	# Add nav node if object is in a rack slot (not on the floor)
 	if slot < Constants.SLOTS_PER_RACK:
 		nav_builder.add_rack_slot(rack, slot)
@@ -618,13 +619,13 @@ func _spawn_starter_entities() -> void:
 	]})
 	db.set_component(server, &"hum_receiver", {&"radius_ru": 5})
 	db.set_component(
-		server, &"object_type", {&"type": &"server_2u"}
+		server, &"object_type", {&"type": &"server_1u"}
 	)
 	db.update_spatial(server, server_x, server_y)
 
 	# Pre-placed cardboard box on the floor near rack 0
 	var box: int = db.create_entity()
-	var box_x: int = 0 * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+	var box_x: int = Constants.rack_slot_to_pu(0, 0, 0).x
 	var box_y: int = (
 		FLOOR_Y_PU
 	)
@@ -647,7 +648,7 @@ func _spawn_starter_entities() -> void:
 			{
 				&"name": &"Mochi",
 				&"position": {
-					&"x": Constants.RACK_WIDTH_PU / 2,
+					&"x": Constants.rack_slot_to_pu(0, 1, 0).x,
 					&"y": floor_y,
 				},
 				&"desires": {&"hunger": 900, &"attention": 600},
@@ -655,8 +656,7 @@ func _spawn_starter_entities() -> void:
 			{
 				&"name": &"Biscuit",
 				&"position": {
-					&"x": Constants.RACK_WIDTH_PU
-						+ Constants.RACK_WIDTH_PU / 4,
+					&"x": Constants.rack_slot_to_pu(0, 2, 0).x,
 					&"y": floor_y,
 				},
 				&"desires": {&"hunger": 900, &"attention": 600},
@@ -664,8 +664,7 @@ func _spawn_starter_entities() -> void:
 			{
 				&"name": &"Noodle",
 				&"position": {
-					&"x": 2 * Constants.RACK_WIDTH_PU
-						+ Constants.RACK_WIDTH_PU / 2,
+					&"x": Constants.rack_slot_to_pu(0, 3, 0).x,
 					&"y": floor_y,
 				},
 				&"desires": {&"hunger": 900, &"attention": 600},
@@ -686,16 +685,14 @@ func _spawn_starter_entities() -> void:
 			{
 				&"name": &"Slinky",
 				&"position": {
-					&"x": Constants.RACK_WIDTH_PU
-						+ Constants.RACK_WIDTH_PU / 2,
+					&"x": Constants.rack_slot_to_pu(0, 1, 0).x,
 					&"y": floor_y,
 				},
 			},
 			{
 				&"name": &"Bandit",
 				&"position": {
-					&"x": 2 * Constants.RACK_WIDTH_PU
-						+ Constants.RACK_WIDTH_PU / 4,
+					&"x": Constants.rack_slot_to_pu(0, 2, 0).x,
 					&"y": floor_y,
 				},
 			},
@@ -717,7 +714,7 @@ func _spawn_starter_entities() -> void:
 func _spawn_rack_entities() -> void:
 	for rack_idx: int in Constants.RACK_COUNT:
 		var rack_entity: int = db.create_entity()
-		var x: int = rack_idx * Constants.RACK_WIDTH_PU + Constants.RACK_WIDTH_PU / 2
+		var x: int = Constants.rack_slot_to_pu(0, rack_idx, 0).x
 		var y: int = FLOOR_Y_PU
 		db.set_component(rack_entity, &"position", {&"x": x, &"y": y})
 		db.set_component(rack_entity, &"advertisements", {&"list": [
@@ -735,7 +732,8 @@ func _spawn_rack_entities() -> void:
 func _find_dispenser_in_rack(
 		world_x: int, _world_y: int,
 ) -> int:
-	var rack: int = world_x / Constants.RACK_WIDTH_PU
+	var btn_layout: Dictionary = Constants.pu_to_bay_rack_slot(world_x, _world_y)
+	var rack: int = int(btn_layout[&"rack"])
 	var dispensers: Array[int] = db.get_entities_with(
 		&"tuna_dispenser",
 	)
@@ -743,7 +741,8 @@ func _find_dispenser_in_rack(
 		var dpos: Dictionary = db.get_component(
 			disp_id, &"position",
 		)
-		var disp_rack: int = dpos[&"x"] / Constants.RACK_WIDTH_PU
+		var disp_layout: Dictionary = Constants.pu_to_bay_rack_slot(dpos[&"x"], dpos[&"y"])
+		var disp_rack: int = int(disp_layout[&"rack"])
 		if disp_rack == rack:
 			return disp_id
 	return Constants.INVALID_ID

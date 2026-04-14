@@ -77,6 +77,41 @@ failing_filter() {
     '
 }
 
+# Concise failure summary: extracts "file:line  test_name" from GUT's
+# Run Summary section. Parses the format:
+#   res://tests/path/file.gd
+#   - test_name
+#       [Failed]: message
+#             at line 42
+# and emits:
+#   tests/path/file.gd:42  test_name
+failure_summary() {
+    # Strip ANSI first so regexes don't need to handle escape codes
+    strip_ansi | awk '
+        /^= Run Summary/ { in_summary=1; next }
+        /^Totals/        { in_summary=0 }
+        !in_summary      { next }
+        /^res:\/\// {
+            sub(/^res:\/\//, "")
+            current_file=$0
+            next
+        }
+        /^- test_/ {
+            current_test=$0
+            sub(/^- /, "", current_test)
+            next
+        }
+        /at line [0-9]+/ {
+            match($0, /at line [0-9]+/)
+            line=substr($0, RSTART+8, RLENGTH-8)
+            if (current_file != "" && current_test != "") {
+                printf "  %s:%s  %s\n", current_file, line, current_test
+                current_test=""
+            }
+        }
+    '
+}
+
 # Run Godot and emit output with the requested filters applied.
 # Always prints the full output on failure unless --failing-only is set.
 present_output() {
@@ -115,6 +150,9 @@ run_tests_dir() {
     echo ""
     echo "===== FAIL: $name tests ====="
     present_output "$OUTPUT"
+    echo ""
+    echo "Failing tests:"
+    printf '%s' "$OUTPUT" | failure_summary
     return 1
 }
 
@@ -144,6 +182,9 @@ run_tests_file() {
     echo ""
     echo "===== FAIL: $file ====="
     present_output "$OUTPUT"
+    echo ""
+    echo "Failing tests:"
+    printf '%s' "$OUTPUT" | failure_summary
     return 1
 }
 

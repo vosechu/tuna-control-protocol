@@ -33,8 +33,10 @@ const FLOOR_HEIGHT_PU: int = FLOOR_HEIGHT_PX * POSITION_SCALE  # 1600
 
 const CEILING_Y: int = 0         # row 0
 const RACK_TOP_Y: int = 16       # row 1 — rack sprite top edge
-const RACK_FRAME_PX: int = 4     # border between rack sprite top and slot 0
-const RACK_SLOT0_Y: int = RACK_TOP_Y + RACK_FRAME_PX  # world Y of slot 0 top
+# Sprite has 8px transparent padding above the visible rack + 4px visible frame
+# = 12px from sprite top-left to slot 0 interior (measured from sprite pixels)
+const RACK_FRAME_PX: int = 12    # sprite top-left to slot 0 interior
+const RACK_SLOT0_Y: int = RACK_TOP_Y + RACK_FRAME_PX  # world Y of slot 0 top (28)
 const RACK_BOTTOM_Y: int = 112   # row 7 — rack sprite bottom (16 + 96)
 const FLOOR_Y: int = 112         # top of row 7 — floor surface
 const VIEWPORT_BOTTOM: int = 128 # row 8
@@ -165,3 +167,12 @@ static func to_world(v: int) -> float:
 
 static func from_world(v: float) -> int:
 	return roundi(v * float(POSITION_SCALE))
+
+
+## Convert world-pixel position to PU coordinates.
+## Accounts for RACK_SLOT0_Y offset on Y axis.
+static func world_to_pu(world_x: float, world_y: float) -> Vector2i:
+	return Vector2i(
+		from_world(world_x),
+		from_world(world_y - float(RACK_SLOT0_Y)),
+	)

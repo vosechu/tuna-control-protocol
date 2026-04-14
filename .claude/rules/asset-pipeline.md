@@ -17,7 +17,7 @@ mods/tcp_base/
 │   ├── cat/              # cat_white_idle.png, cat_orange_walk.png, etc.
 │   ├── ferret/           # ferret_sable_idle.png, ferret_albino_drag.png, etc.
 │   ├── infrastructure/
-│   │   ├── server/       # server_2u_off.png, server_2u_on.png
+│   │   ├── server/       # server_1u_off.png, server_1u_on.png
 │   │   ├── rack/         # rack_frame.png, rack_slot_empty.png, rack_slot_highlight.png
 │   │   ├── cables/       # cable_ethernet_segment.png, cable_power_segment.png
 │   │   └── pipes/        # pipe_cooling_horizontal.png, pipe_condensation_drop.png
@@ -37,7 +37,7 @@ mods/tcp_base/
 ├── species/              # cat.json, ferret.json
 ├── items/                # cardboard_box.json, tuna_can.json, comfy_pile.json
 ├── desires/              # hunger.json, warmth.json, social.json, comfort.json, curiosity.json
-├── infrastructure/       # server_2u.json, pdu.json, cooling_pipe.json, gerbil_tube.json
+├── infrastructure/       # server_1u.json, pdu.json, cooling_pipe.json, gerbil_tube.json
 ├── behaviors/            # seek.json, consume.json, rest.json, play.json, wander.json, teach.json
 ├── config/               # balance.json, teaching.json, desire_thresholds.json, spawn_conditions.json
 └── locale/               # en.json

@@ -70,7 +70,7 @@ func test_threshold_boundary_one_below_threshold_fails():
 
 func test_non_cat_entities_ignored():
 	var id: int = _db.create_entity()
-	_db.set_component(id, &"object_type", {&"id": &"tcp_base:server_2u"})
+	_db.set_component(id, &"object_type", {&"id": &"tcp_base:server_1u"})
 	_contentment.evaluate_all()
 	assert_false(_db.has_component(id, &"contentment"),
 		"Entity without species+desires should not get a contentment component")

@@ -202,6 +202,8 @@ func pop_highest_deficit() -> int:
 
 func _random_floor_position() -> Dictionary:
 	var rack: int = randi_range(0, Constants.RACK_COUNT - 1)
-	var x: int = rack * Constants.RACK_WIDTH_PU + randi_range(0, Constants.RACK_WIDTH_PU)
+	var center_x: int = Constants.rack_slot_to_pu(0, rack, 0).x
+	var jitter: int = randi_range(-Constants.RACK_WIDTH_PU / 2, Constants.RACK_WIDTH_PU / 2)
+	var x: int = center_x + jitter
 	var y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
 	return {&"x": x, &"y": y}

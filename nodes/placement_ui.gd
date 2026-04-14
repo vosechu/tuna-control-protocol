@@ -30,7 +30,7 @@ func _build_ui() -> void:
 	label.add_theme_font_size_override("font_size", _FONT_SIZE)
 	vbox.add_child(label)
 
-	_add_button(vbox, &"server_2u", "Server [1]")
+	_add_button(vbox, &"server_1u", "Server [1]")
 	_add_button(vbox, &"cardboard_box", "Box [2]")
 	_add_button(vbox, &"clothes_pile", "Pile [3]")
 	_add_button(vbox, &"hum_device", "HUM [4]")
@@ -90,7 +90,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_1:
-				_on_type_pressed(&"server_2u")
+				_on_type_pressed(&"server_1u")
 			KEY_2:
 				_on_type_pressed(&"cardboard_box")
 			KEY_3:

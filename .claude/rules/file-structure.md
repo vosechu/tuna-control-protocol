@@ -51,7 +51,7 @@ res://
       species/                     # cat.json, ferret.json
       items/                       # cardboard_box.json, tuna_can.json, comfy_pile.json
       desires/                     # hunger.json, warmth.json, social.json, comfort.json, curiosity.json
-      infrastructure/              # server_2u.json, pdu.json, cooling_pipe.json, gerbil_tube.json
+      infrastructure/              # server_1u.json, pdu.json, cooling_pipe.json, gerbil_tube.json
       behaviors/                   # seek.json, consume.json, rest.json, play.json, wander.json, teach.json
       sounds/                      # cat/purr_low.ogg, ferret/dook.ogg, robot/servo.ogg, etc.
       sprites/                     # cat/idle.png, ferret/idle.png, etc.

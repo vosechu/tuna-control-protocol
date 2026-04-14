@@ -300,7 +300,7 @@ func test_threshold_boundary_one_below_threshold_fails():
 
 func test_non_cat_entities_ignored():
 	var server_id: int = db.create_entity()
-	db.set_component(server_id, &"object_type", {&"type": &"server_2u"})
+	db.set_component(server_id, &"object_type", {&"type": &"server_1u"})
 	# No desires, no species — should not crash
 	contentment.evaluate_all()
 	assert_false(db.has_component(server_id, &"contentment"),

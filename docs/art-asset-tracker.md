@@ -71,8 +71,8 @@ Mix of 32x16 and 32x32. Strip format: `lilotter_{action}_strip{N}.png`
 | Rack slot empty | `infrastructure/rack/rack_slot_empty.png` | Done |
 | Rack slot highlight | `infrastructure/rack/rack_slot_highlight.png` | Done |
 | Rack slot deny | `infrastructure/rack/rack_slot_deny.png` | Done |
-| Server 2U off | `infrastructure/server/server_2u_off.png` | Done |
-| Server 2U on | `infrastructure/server/server_2u_on.png` | Done |
+| Server 2U off | `infrastructure/server/server_1u_off.png` | Done |
+| Server 2U on | `infrastructure/server/server_1u_on.png` | Done |
 
 ### Objects
 

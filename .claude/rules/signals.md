@@ -392,7 +392,7 @@ GameClient sends intent to GameServer:
   └─ GameServer.ObjectRegistry validates placement (slots 5-6 clear? yes)
   └─ ObjectRegistry creates server_04, assigns to rack 0, slots 5-6
   └─ HeatGrid.add_source(rack 0, slots 5-6, heat_value from config)
-  └─ Events.object_placed.emit(server_04_id, 0, 5, "server_2u")
+  └─ Events.object_placed.emit(server_04_id, 0, 5, "server_1u")
       ├─ NavGraph._on_object_placed():
       │   └─ Adds RACK_SLOT_NODEs for slots 5-6
       │   └─ Connects edges to adjacent nodes (slot 4, slot 7, floor)
