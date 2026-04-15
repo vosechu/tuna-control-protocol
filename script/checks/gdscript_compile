@@ -13,9 +13,24 @@ fi
 
 OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" --import 2>&1)
 
-if echo "$OUTPUT" | grep -qiE "Parse Error|Failed to load script|Cannot load source code"; then
-    echo "GDScript compilation errors found:"
-    echo "$OUTPUT" | grep -iE "Parse Error|Failed to load script|Cannot load source code" | head -20
+# Strip ANSI color codes and boot-progress noise. Keep everything else so
+# we surface anything Godot prints — not just patterns we pre-guess at.
+CLEANED=$(printf '%s\n' "$OUTPUT" \
+    | sed 's/\x1b\[[0-9;]*m//g' \
+    | grep -vE '^\[[[:space:]]+[0-9]+%[[:space:]]+\]' \
+    | grep -vE '^\[[[:space:]]*DONE[[:space:]]*\]' \
+    | grep -vE '^Godot Engine v' \
+    | grep -vE '^[[:space:]]*$')
+
+# Print everything that survived the noise filter. If Godot emits a
+# warning we didn't anticipate, we'll see it here.
+if [ -n "$CLEANED" ]; then
+    printf '%s\n' "$CLEANED"
+fi
+
+# Fail only on genuine compile errors. Warnings pass the check but are
+# visible in output above.
+if printf '%s\n' "$CLEANED" | grep -qiE "Parse Error|Failed to load script|Cannot load source code|SCRIPT ERROR"; then
     exit 1
 fi
 
