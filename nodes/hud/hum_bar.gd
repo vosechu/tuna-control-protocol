@@ -1,7 +1,7 @@
 class_name HumBar extends Control
 
-const BAR_WIDTH: int = 120
-const BAR_HEIGHT: int = 12
+const BAR_WIDTH: int = 40
+const BAR_HEIGHT: int = 3
 
 var _reserve_label: Label
 var _bar_fill: ColorRect
@@ -29,16 +29,16 @@ func _build_ui() -> void:
 	add_child(_bar_fill)
 
 	_reserve_label = Label.new()
-	_reserve_label.position = Vector2(BAR_WIDTH + 8, -2)
+	_reserve_label.position = Vector2(BAR_WIDTH + 2, -2)
 	_reserve_label.add_theme_font_size_override(
-		"font_size", 10,
+		"font_size", 5,
 	)
 	add_child(_reserve_label)
 
 	_glyph_label = Label.new()
-	_glyph_label.position = Vector2(-16, -2)
+	_glyph_label.position = Vector2(-6, -2)
 	_glyph_label.add_theme_font_size_override(
-		"font_size", 10,
+		"font_size", 5,
 	)
 	add_child(_glyph_label)
 

@@ -623,12 +623,11 @@ func _spawn_starter_entities() -> void:
 	)
 	db.update_spatial(server, server_x, server_y)
 
-	# Pre-placed cardboard box on the floor near rack 0
+	# Pre-placed cardboard box in rack 0, slot 8 (2U tall)
 	var box: int = db.create_entity()
-	var box_x: int = Constants.rack_slot_to_pu(0, 0, 0).x
-	var box_y: int = (
-		FLOOR_Y_PU
-	)
+	var box_pos: Vector2i = Constants.rack_slot_to_pu(0, 0, 8)
+	var box_x: int = box_pos.x
+	var box_y: int = box_pos.y
 	db.set_component(box, &"position", {&"x": box_x, &"y": box_y})
 	db.set_component(box, &"advertisements", {&"list": [
 		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4, &"max_occupants": 1}
@@ -730,9 +729,9 @@ func _spawn_rack_entities() -> void:
 
 
 func _find_dispenser_in_rack(
-		world_x: int, _world_y: int,
+		world_x: int, world_y: int,
 ) -> int:
-	var btn_layout: Dictionary = Constants.pu_to_bay_rack_slot(world_x, _world_y)
+	var btn_layout: Dictionary = Constants.pu_to_bay_rack_slot(world_x, world_y)
 	var rack: int = int(btn_layout[&"rack"])
 	var dispensers: Array[int] = db.get_entities_with(
 		&"tuna_dispenser",

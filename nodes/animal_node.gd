@@ -171,7 +171,7 @@ func _physics_process(_delta: float) -> void:
 		float(Constants.FLOOR_Y)
 	)
 
-	# Update animation and state label based on AI state
+	# Update animation based on AI state
 	if _db.has_component(entity_id, &"ai_state"):
 		var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
@@ -179,7 +179,7 @@ func _physics_process(_delta: float) -> void:
 		if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(anim):
 			if _sprite.animation != anim:
 				_sprite.play(anim)
-		_state_label.text = String(state).to_lower().replace("_", " ")
+		_state_label.visible = false
 
 		# Ferret footstep audio — play when moving, restart when clip ends
 		if _footstep_player:

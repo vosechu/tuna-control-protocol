@@ -4,8 +4,8 @@ signal object_selected(object_type: StringName)
 signal remove_toggled(active: bool)
 signal placement_cancelled
 
-const _FONT_SIZE: int = 5
-const _BTN_MIN_SIZE: Vector2 = Vector2(40, 8)
+const _FONT_SIZE: int = 4
+const _BTN_MIN_SIZE: Vector2 = Vector2(20, 6)
 
 var _selected_type: StringName = &""
 var _remove_mode: bool = false
@@ -19,10 +19,10 @@ func _ready() -> void:
 func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.position = Vector2(
-		float(Constants.VIEWPORT_WIDTH) - 50.0,
+		float(Constants.VIEWPORT_WIDTH) - 35.0,
 		2.0,
 	)
-	vbox.add_theme_constant_override("separation", 1)
+	vbox.add_theme_constant_override("separation", 0)
 	add_child(vbox)
 
 	var label := Label.new()
@@ -38,10 +38,6 @@ func _build_ui() -> void:
 	_add_button(vbox, &"tuna_button", "Button [6]")
 	_add_button(vbox, &"arm", "ARM [7]")
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 2)
-	vbox.add_child(spacer)
-
 	var remove_btn := Button.new()
 	remove_btn.text = "Remove [R]"
 	remove_btn.toggle_mode = true
@@ -53,7 +49,7 @@ func _build_ui() -> void:
 
 	var cancel_label := Label.new()
 	cancel_label.text = "Esc cancel"
-	cancel_label.add_theme_font_size_override("font_size", 4)
+	cancel_label.add_theme_font_size_override("font_size", _FONT_SIZE)
 	vbox.add_child(cancel_label)
 
 

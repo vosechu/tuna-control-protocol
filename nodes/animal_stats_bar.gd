@@ -8,8 +8,8 @@ const DESIRE_COLORS: Dictionary = {
 	&"purpose": Color(0.4, 0.8, 0.8),
 }
 const _BAR_BG := Color(0.15, 0.15, 0.2)
-const BAR_WIDTH: int = 40
-const BAR_HEIGHT: int = 4
+const BAR_WIDTH: int = 14
+const BAR_HEIGHT: int = 2
 
 var _db: GameStateDB
 var _animal_ids: Array[int] = []
@@ -34,19 +34,19 @@ func _build_panels() -> void:
 func _create_panel(entity_id: int) -> PanelContainer:
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.15, 0.85)
-	style.corner_radius_top_left = 3
-	style.corner_radius_top_right = 3
-	style.corner_radius_bottom_left = 3
-	style.corner_radius_bottom_right = 3
-	style.content_margin_left = 4
-	style.content_margin_right = 4
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
+	style.bg_color = Color(0.1, 0.1, 0.15, 0.7)
+	style.corner_radius_top_left = 1
+	style.corner_radius_top_right = 1
+	style.corner_radius_bottom_left = 1
+	style.corner_radius_bottom_right = 1
+	style.content_margin_left = 1
+	style.content_margin_right = 1
+	style.content_margin_top = 0
+	style.content_margin_bottom = 0
 	panel.add_theme_stylebox_override("panel", style)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 1)
+	vbox.add_theme_constant_override("separation", 0)
 	panel.add_child(vbox)
 
 	var species: Dictionary = _db.get_component(
@@ -55,7 +55,7 @@ func _create_panel(entity_id: int) -> PanelContainer:
 	var name_label := Label.new()
 	name_label.name = "NameLabel"
 	name_label.text = String(species.get(&"name", &"???"))
-	name_label.add_theme_font_size_override("font_size", 9)
+	name_label.add_theme_font_size_override("font_size", 6)
 	var is_cat: bool = String(species[&"id"]).contains("cat")
 	var name_color := Color(0.9, 0.8, 0.6)
 	if not is_cat:
@@ -63,18 +63,9 @@ func _create_panel(entity_id: int) -> PanelContainer:
 	name_label.add_theme_color_override("font_color", name_color)
 	vbox.add_child(name_label)
 
-	var state_label := Label.new()
-	state_label.name = "StateLabel"
-	state_label.text = "idle"
-	state_label.add_theme_font_size_override("font_size", 7)
-	state_label.add_theme_color_override(
-		"font_color", Color(0.6, 0.6, 0.6),
-	)
-	vbox.add_child(state_label)
-
 	var bars := VBoxContainer.new()
 	bars.name = "Bars"
-	bars.add_theme_constant_override("separation", 1)
+	bars.add_theme_constant_override("separation", 0)
 	vbox.add_child(bars)
 
 	if _db.has_component(entity_id, &"desires"):
@@ -150,18 +141,12 @@ func _update_panel(
 	panel: PanelContainer, entity_id: int,
 ) -> void:
 	var vbox: VBoxContainer = panel.get_child(0)
-	if _db.has_component(entity_id, &"ai_state"):
-		var ai: Dictionary = _db.get_component(
-			entity_id, &"ai_state",
-		)
-		var state_label: Label = vbox.get_child(1)
-		state_label.text = String(ai[&"state"]).to_lower()
-
 	if _db.has_component(entity_id, &"desires"):
 		var desires: Dictionary = _db.get_component(
 			entity_id, &"desires",
 		)
-		var bars: VBoxContainer = vbox.get_child(2)
+		# vbox children: [0]=NameLabel, [1]=Bars
+		var bars: VBoxContainer = vbox.get_child(1)
 		var bar_idx: int = 0
 		for dtype: StringName in desires:
 			if bar_idx >= bars.get_child_count():

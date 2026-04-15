@@ -15,7 +15,10 @@ const _PEEK_BAY_SHADER := preload(
 const _SERVER_TEX := preload(
 	"res://mods/tcp_base/sprites/infrastructure/server/server01_static_strip1.png"
 )
-const _BOX_TEX := preload(
+const _BOX_RACK_TEX := preload(
+	"res://mods/tcp_base/sprites/objects/box01_rack_idle_strip1.png"
+)
+const _BOX_FLOOR_TEX := preload(
 	"res://mods/tcp_base/sprites/objects/box01_idle_strip1.png"
 )
 const _PILE_TEX := preload(
@@ -62,6 +65,7 @@ func _ready() -> void:
 	_setup_placement_ui()
 	_setup_lighting()
 	_setup_hum_bar()
+	_setup_stats_bar()
 	_setup_narrator_panel()
 	# Camera position/zoom handled by camera_controller.gd
 
@@ -85,6 +89,19 @@ func _setup_hum_bar() -> void:
 	hum_bar.name = "HumBar"
 	$HUD.add_child(hum_bar)
 	hum_bar.initialize(Events)
+
+
+func _setup_stats_bar() -> void:
+	var StatsBarScript: GDScript = preload(
+		"res://nodes/animal_stats_bar.gd"
+	)
+	var stats_bar: HBoxContainer = HBoxContainer.new()
+	stats_bar.set_script(StatsBarScript)
+	stats_bar.name = "StatsBar"
+	stats_bar.position = Vector2(2, 14)
+	stats_bar.add_theme_constant_override("separation", 2)
+	$HUD.add_child(stats_bar)
+	stats_bar.initialize(game_server.db, $Camera)
 
 
 func _setup_lighting() -> void:
@@ -185,13 +202,10 @@ func _build_starter_objects() -> void:
 	_starter_sprites.append(server_sprite)
 
 	var box_sprite := Sprite2D.new()
-	box_sprite.texture = _BOX_TEX
+	box_sprite.texture = _BOX_RACK_TEX
 	box_sprite.centered = false
-	var box_world_x: float = Constants.rack_slot_to_world(0, 0, 0).x
-	box_sprite.position = Vector2(
-		box_world_x,
-		float(Constants.FLOOR_Y) - float(box_sprite.texture.get_height()),
-	)
+	# Starter box is in rack 0, slot 8 (2U tall — slots 8+9)
+	box_sprite.position = Constants.rack_slot_to_world(0, 0, 8)
 	$World/PlacedObjects.add_child(box_sprite)
 	_starter_sprites.append(box_sprite)
 
@@ -338,16 +352,31 @@ func _try_place_at(
 	var place_x: int
 	var place_y: int
 
-	var is_rack_object: bool = (
+	# Detect floor click: below the rack slot area
+	var rack_bottom_y: float = float(
+		Constants.RACK_SLOT0_Y
+		+ Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PX
+	)
+	var is_floor_click: bool = world_pos.y >= rack_bottom_y
+
+	var always_rack: bool = (
 		object_type == &"server_1u"
 		or object_type == &"hum_device"
 		or object_type == &"tuna_dispenser"
 		or object_type == &"tuna_button"
 	)
-	if is_rack_object:
+	var place_in_rack: bool = always_rack or (
+		not is_floor_click and object_type != &"arm"
+	)
+
+	if place_in_rack:
 		var size_ru: int = 1
 		if object_type == &"hum_device":
 			size_ru = 6
+		elif object_type == &"cardboard_box":
+			size_ru = 2
+		elif object_type == &"clothes_pile":
+			size_ru = 2
 		slot = clampi(
 			slot,
 			Constants.TOR_SWITCH_SLOTS,
@@ -358,29 +387,15 @@ func _try_place_at(
 		)
 		place_x = pos.x
 		place_y = pos.y
-	elif object_type == &"arm":
-		# ARM goes on the floor
+	else:
+		# Floor placement (box, pile, arm)
 		var pos: Vector2i = Constants.rack_slot_to_pu(
-			0, rack, Constants.SLOTS_PER_RACK
+			0, rack, 0
 		)
 		place_x = pos.x
 		place_y = (
 			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
 			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
-	else:
-		# Boxes and piles go on the floor
-		var pos: Vector2i = Constants.rack_slot_to_pu(
-			0, rack, 0
-		)
-		place_x = pos.x
-		var floor_third: int = (
-			Constants.FLOOR_HEIGHT_PU / 3
-		)
-		place_y = (
-			Constants.SLOTS_PER_RACK
-			* Constants.SLOT_HEIGHT_PU
-			+ floor_third
 		)
 
 	var entity_id: int = game_server.place_object(
@@ -428,18 +443,19 @@ func _create_object_sprite(
 	pu_y: int,
 ) -> void:
 	var sprite := Sprite2D.new()
+	var floor_pu_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
+	var is_on_floor: bool = pu_y >= floor_pu_y
 	match object_type:
 		&"server_1u":
 			sprite.texture = _SERVER_TEX
 		&"cardboard_box":
-			sprite.texture = _BOX_TEX
+			sprite.texture = _BOX_FLOOR_TEX if is_on_floor else _BOX_RACK_TEX
 		&"clothes_pile":
 			sprite.texture = _PILE_TEX
 		&"hum_device":
 			sprite.texture = _HUM_TEX
 	sprite.centered = false
-	var floor_pu_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-	if pu_y >= floor_pu_y:
+	if is_on_floor:
 		# Floor object: render at floor level
 		sprite.position = Vector2(
 			Constants.to_world(pu_x),
