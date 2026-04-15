@@ -191,6 +191,34 @@ Notable checks: `gdscript_compile` (catches parse errors via `--import`), `gdlin
 
 Internal viewport: **224×128** (14×8 tiles). Layout constants in `engine/core/constants.gd`, visual details in `.claude/rules/art-direction.md`. Key fact: `FLOOR_Y = 112`, animals walk at this Y in X only. Camera controlled by `camera_controller.gd`.
 
+### Coordinate system — use canonical helpers
+
+Two coordinate spaces: **PU** (position units, `POSITION_SCALE=100`, used by GameStateDB/AI/physics) and **world pixels** (used for rendering/input). Never do ad-hoc math with rack/slot offsets — always use the helpers in `constants.gd`:
+
+- `rack_slot_to_pu(bay, rack, slot) -> Vector2i` — canonical PU position (X at rack center)
+- `pu_to_bay_rack_slot(pu_x, pu_y) -> Dictionary` — inverse
+- `rack_slot_to_world(bay, rack, slot) -> Vector2` — world pixels for sprite rendering
+- `world_to_rack_slot(world_x, world_y, bay) -> Dictionary` — click position to rack/slot
+- `world_to_pu(world_x, world_y) -> Vector2i` — click position to PU (accounts for RACK_SLOT0_Y offset)
+- `to_world(pu) -> float` / `from_world(w) -> int` — scalar conversion only
+
+`RACK_SLOT0_Y` accounts for the rack sprite's 8px transparent padding + 4px visible frame = 12px offset from `RACK_TOP_Y`. Dividing PU X by `RACK_WIDTH_PU` is wrong (it omits `LEFTMOST_RACK_OFFSET_PU` and uses width instead of stride). Always use the helpers.
+
+### Tilemap layout (tcp_environment tileset)
+
+8 tile rows: ceiling, walls (1-5), baseboard (6), floor (7). Floor tiles use a two-layer theme:
+
+- Row 7 `_WALL_LAYER`: substrate `(7,5)` — always
+- Row 7 `_PLANT_LAYER`: opaque row-3 grass variant — 15% of tiles
+- Row 6 `_PLANT_LAYER`: edge cap — `(7,4)` bare (85%) or `(4,4)` small plants (15%, paired with grass)
+
+The row-6 edge cap's 16 black pixels (y=15 in tile) render at world y=111 — the horizontal black line at the top of the floor. Pairing ensures themes are consistent: bare-edge above bare-substrate, or plants-edge above grass-surface.
+
+### GDScript warnings
+
+- `integer_division` is disabled project-wide in `project.godot`. Do not add per-line `@warning_ignore("integer_division")`.
+- Godot 4.6's CLI does **not** emit editor parse warnings (unused_variable, shadowed_variable, etc.) via `--import`, `--check-only`, or any other flag. These warnings exist only in the editor GUI. `gdscript_compile` surfaces all non-boot output so real errors are caught, but editor-only warnings stay editor-only.
+
 ---
 
 ## Godot CLI
@@ -234,8 +262,8 @@ script/validate
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
 - **LightingSystem (CanvasModulate) disabled:** Washes out colors at 224×128 viewport. Needs redesign.
 - **HUM bar shows wrong percentage:** `hum_reserve_changed` emits raw reserve (0-10000) but HumBar treats it as 0-1000 ratio. Display shows 1000% instead of ~100%. Either emit the ratio or convert in the bar.
-- **PU coordinate system adds unnecessary complexity:** `POSITION_SCALE=100` multiplier makes coordinate math confusing. Candidate for removal refactor.
-- **Heat overlay alignment is empirical:** Offsets tuned by eye, not derived from constants. Fragile if layout changes.
+- **PU coordinate system adds unnecessary complexity:** `POSITION_SCALE=100` multiplier makes coordinate math confusing. Candidate for removal refactor. Animals hardcode Y to `FLOOR_Y - 1`; proper rack climbing will need real Y handling.
+- **Heat overlay alignment uses RACK_SLOT0_Y now** (was empirical `+4.0`). Other overlay positions may still be fragile.
 
 ## GameStateDB Gotchas
 
