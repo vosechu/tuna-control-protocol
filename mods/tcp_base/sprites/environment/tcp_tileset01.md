@@ -11,9 +11,9 @@ Rows are indexed 0 at the top, columns 0 at the left.
 | Row 0 | Ceiling | Wall | Wall | Wall | Cable A L | Cable A R | Cable B L | Cable B R | Cable C L | Cable C R | Cable D R | Cable E (U) |
 | Row 1 | Wall | Wall | Wall | Wall | -- | -- | Cable B L bot | Cable B R bot | Cable C L bot | Cable C R bot | Cable D R bot | -- |
 | Row 2 | Wall | Wall | Wall | Wall | Orange flowers | Yellow/orange flowers | Leaves | Grass | Orange blossoms | Single blossom | Little grass | -- |
-| Row 3 | Baseboard A | Baseboard B | Baseboard C | Wall (lower) | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | Ground surface | -- |
-| Row 4 | Dark edge | -- | -- | -- | Small plants | -- | -- | -- | -- | -- | -- | -- |
-| Row 5 | -- | -- | -- | -- | Ground surface | Ground surface | Ground surface | Ground surface | Underfloor | Interfloor transition | -- | -- |
+| Row 3 | Baseboard A | Baseboard B | Baseboard C | Wall (lower) | Ground w/ plants | Ground w/ plants | Ground w/ plants | Ground w/ plants | Ground w/ plants | Ground w/ plants | Ground w/ plants | -- |
+| Row 4 | Dark edge | -- | -- | -- | Small plants | Ground (bare) | Ground (bare) | Ground (bare) | -- | -- | -- | -- |
+| Row 5 | -- | -- | -- | -- | Substrate | Substrate | Substrate | Substrate | Underfloor | Interfloor transition | -- | -- |
 
 `--` = transparent / not registered in the TileSet.
 
@@ -23,9 +23,11 @@ Rows are indexed 0 at the top, columns 0 at the left.
 - **Ceiling corner:** (0, 0) -- only used at the leftmost edge of bay 0
 - **Wall-to-ground transition:** (3, 3) -- placed at y=19 (one row above baseboard)
 - **Baseboard:** (0, 3), (1, 3), (2, 3) -- horizontal strip at y=20
-- **Ground surface:** (4, 3)-(10, 3) and (4, 5)-(7, 5) -- y=21 and y=22
+- **Substrate:** (4, 5)-(7, 5) -- base ground layer, painted on every floor tile. (7, 5) is base (~80%), (4, 5)-(6, 5) are variants (~20%).
+- **Surface overlay:** painted on top of substrate. (5, 4) is base edge-cap (~80%, mostly transparent). Variants: (4, 3)-(10, 3) (grass/flowers) and (4, 4) (small plants) for ~20% decoration.
+- **Ground (bare):** (5, 4), (6, 4), (7, 4) -- mostly-transparent tiles with a dark top edge; (5, 4) used as the default surface overlay.
 - **Hanging cables (5 variants, A-E):** cols 4-11 of row 0, some with "bottom" halves in row 1
-- **Decorative plants/flowers:** scattered across rows 2 and 4-5 for ground-level reclamation aesthetic
+- **Decorative plants/flowers:** scattered across row 2 for wall-level reclamation aesthetic
 - **Small plants:** (4, 4) -- used on floor strip of peek bays (abandoned-looking)
 
 ## Painter usage
@@ -35,7 +37,10 @@ See `engine/environment/tile_painter.gd`:
 - `ATLAS_WALL = Vector2i(1, 0)` -- tiled across ceiling and wall fill
 - `ATLAS_WALL_LOWER = Vector2i(3, 3)` -- y=19 transition row
 - `ATLAS_BASEBOARD_A/B/C = Vector2i(0, 3)/(1, 3)/(2, 3)` -- y=20
-- `ATLAS_GROUND = Vector2i(4, 3)` / `ATLAS_GROUND_LOWER = Vector2i(4, 5)` -- y=21, y=22
+- `ATLAS_SUBSTRATE_BASE = Vector2i(7, 5)` -- majority substrate tile
+- `ATLAS_SUBSTRATE_VARIANTS = [(4,5), (5,5), (6,5)]` -- substrate variation (~20%)
+- `ATLAS_SURFACE_BASE = Vector2i(5, 4)` -- majority edge-cap overlay
+- `ATLAS_SURFACE_VARIANTS = [(4,3)..(10,3), (4,4)]` -- plants/flowers overlay (~20%)
 - `ATLAS_CABLE_A_L = Vector2i(4, 0)` / `ATLAS_CABLE_A_R = Vector2i(5, 0)` -- cable A (first cable)
 - `ATLAS_PLANTS_SMALL = Vector2i(4, 4)` -- abandonment decor on peek bay floors
 

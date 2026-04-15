@@ -45,7 +45,7 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	_target_pos = Vector2(
 		Constants.to_world(pos[&"x"]),
-		float(Constants.FLOOR_Y)
+		float(Constants.FLOOR_Y - 1)
 	)
 	_prev_pos = _target_pos
 	global_position = _target_pos
@@ -168,7 +168,7 @@ func _physics_process(_delta: float) -> void:
 	)
 	_target_pos = Vector2(
 		Constants.to_world(pos[&"x"]),
-		float(Constants.FLOOR_Y)
+		float(Constants.FLOOR_Y - 1)
 	)
 
 	# Update animation based on AI state

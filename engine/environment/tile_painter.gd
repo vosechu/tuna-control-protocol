@@ -26,12 +26,23 @@ const ATLAS_BASEBOARDS: Array[Vector2i] = [
 	Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3),
 ]
 
-# Ground: 11 surface variants (rows 3 and 5)
-const ATLAS_GROUNDS: Array[Vector2i] = [
+# Ground is two layers:
+#   Substrate (bottom, every tile): (7,5) — has the strong horizontal top
+#     edge line that all floor tiles need to look consistent.
+#   Surface (top, every tile): (7,4) bare-edge by default (~85%), or
+#     a decorated row-3 grass/flower tile for variety (~15%).
+# Column pairing kept: surface (7,4) + substrate (7,5) are designed together.
+# Variants (4,5)/(5,5) dropped because their top rows are sparse and
+# produce inconsistent "blank-looking" floor tiles.
+const ATLAS_SUBSTRATE: Vector2i = Vector2i(7, 5)
+const ATLAS_SURFACE_BASE: Vector2i = Vector2i(7, 4)
+
+# Row-3 grass/flower variants — opaque tiles, replace the bare surface entirely.
+const ATLAS_SURFACE_GRASS: Array[Vector2i] = [
 	Vector2i(4, 3), Vector2i(5, 3), Vector2i(6, 3), Vector2i(7, 3),
 	Vector2i(8, 3), Vector2i(9, 3), Vector2i(10, 3),
-	Vector2i(4, 5), Vector2i(5, 5), Vector2i(6, 5), Vector2i(7, 5),
 ]
+const _SURFACE_GRASS_WEIGHT: int = 15  # percent chance of grass variant
 
 # Under-floor and transition (below ground row)
 const ATLAS_UNDER_FLOOR: Vector2i = Vector2i(9, 5)
@@ -88,9 +99,26 @@ func paint_bay(bay_index: int) -> void:
 	for x: int in range(start_x, end_x + 1):
 		_tilemap.set_cell(_WALL_LAYER, Vector2i(x, 6), _SOURCE_ID, _pick_random(ATLAS_BASEBOARDS))
 
-	# Row 7: floor
+	# Each floor cell picks ONE theme, with paired tiles:
+	#   Bare (85%): substrate (7,5) + edge cap (7,4) — plain floor.
+	#   Plants (15%): grass tile at row 7 + small plants (4,4) at row 6.
+	# The row-6 edge cap has 16 black pixels at y=15, which render at
+	# world y=111 — the horizontal black line above the floor (y=112).
 	for x: int in range(start_x, end_x + 1):
-		_tilemap.set_cell(_WALL_LAYER, Vector2i(x, 7), _SOURCE_ID, _pick_random(ATLAS_GROUNDS))
+		_tilemap.set_cell(_WALL_LAYER, Vector2i(x, 7), _SOURCE_ID, ATLAS_SUBSTRATE)
+		var is_plants: bool = _rng.randi_range(1, 100) <= _SURFACE_GRASS_WEIGHT
+		if is_plants:
+			_tilemap.set_cell(
+				_PLANT_LAYER, Vector2i(x, 7), _SOURCE_ID,
+				_pick_random(ATLAS_SURFACE_GRASS),
+			)
+			_tilemap.set_cell(
+				_PLANT_LAYER, Vector2i(x, 6), _SOURCE_ID, ATLAS_PLANTS_SMALL,
+			)
+		else:
+			_tilemap.set_cell(
+				_PLANT_LAYER, Vector2i(x, 6), _SOURCE_ID, ATLAS_SURFACE_BASE,
+			)
 
 	# Scatter cables on the cable layer (rows 0-1)
 	var bay_width: int = end_x - start_x
@@ -99,12 +127,6 @@ func paint_bay(bay_index: int) -> void:
 		var cable: Array = ATLAS_CABLES[_rng.randi_range(0, ATLAS_CABLES.size() - 1)]
 		var cable_x: int = start_x + _rng.randi_range(1, bay_width - 3)
 		_paint_cable(cable, cable_x)
-
-	# Scatter small plants on the plant layer
-	for x: int in range(start_x, end_x + 1):
-		if _rng.randi_range(1, 100) <= 15:
-			_tilemap.set_cell(_PLANT_LAYER, Vector2i(x, 6), _SOURCE_ID, ATLAS_PLANTS_SMALL)
-
 
 func clear_bay(bay_index: int) -> void:
 	var start_x: int = (bay_index * Constants.BAY_STRIDE_PX) / _CELL_SIZE_PX
