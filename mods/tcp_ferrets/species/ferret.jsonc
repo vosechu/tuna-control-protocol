@@ -83,5 +83,9 @@
     "drag": { "effectiveness": 1000, "desire_affinities": { "curiosity": 900 } }
   },
   "hud_color": [0.6, 0.9, 0.7],
-  "initial_state": "idle"
+  "initial_state": "idle",
+  "starters": [
+    { "name": "Slinky", "rack": 1 },
+    { "name": "Bandit", "rack": 2 }
+  ]
 }

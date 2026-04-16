@@ -611,69 +611,29 @@ func _spawn_starter_entities() -> void:
 	)
 	db.update_spatial(box, box_x, box_y)
 
-	# Spawn cats from mod definitions
-	if _entity_defs.has_entity(&"tcp_cats:cat"):
-		var floor_y: int = (
-			FLOOR_Y_PU
-			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
-		var cat_spawns: Array[Dictionary] = [
-			{
-				&"name": &"Mochi",
+	# Starter-entity spawn — driven by each loaded species recipe's `starters` array.
+	var floor_y: int = FLOOR_Y_PU + Constants.FLOOR_HEIGHT_PU / 2
+	for species_id: StringName in _entity_defs.get_all_entities():
+		var def: Dictionary = _entity_defs.get_definition(species_id)
+		if not def.has("starters"):
+			continue
+		var starters: Array = def["starters"]
+		for entry: Dictionary in starters:
+			var rack: int = int(entry.get("rack", 0))
+			var overrides: Dictionary = {
+				&"name": StringName(entry.get("name", "")),
 				&"position": {
-					&"x": Constants.rack_slot_to_pu(0, 1, 0).x,
+					&"x": Constants.rack_slot_to_pu(0, rack, 0).x,
 					&"y": floor_y,
 				},
-				&"desires": {&"hunger": 900, &"attention": 600},
-			},
-			{
-				&"name": &"Biscuit",
-				&"position": {
-					&"x": Constants.rack_slot_to_pu(0, 2, 0).x,
-					&"y": floor_y,
-				},
-				&"desires": {&"hunger": 900, &"attention": 600},
-			},
-			{
-				&"name": &"Noodle",
-				&"position": {
-					&"x": Constants.rack_slot_to_pu(0, 3, 0).x,
-					&"y": floor_y,
-				},
-				&"desires": {&"hunger": 900, &"attention": 600},
-			},
-		]
-		for overrides: Dictionary in cat_spawns:
-			_entity_defs.spawn(
-				&"tcp_cats:cat", db, overrides,
-			)
-
-	# Spawn ferrets from mod definitions
-	if _entity_defs.has_entity(&"tcp_ferrets:ferret"):
-		var floor_y: int = (
-			FLOOR_Y_PU
-			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
-		var ferret_spawns: Array[Dictionary] = [
-			{
-				&"name": &"Slinky",
-				&"position": {
-					&"x": Constants.rack_slot_to_pu(0, 1, 0).x,
-					&"y": floor_y,
-				},
-			},
-			{
-				&"name": &"Bandit",
-				&"position": {
-					&"x": Constants.rack_slot_to_pu(0, 2, 0).x,
-					&"y": floor_y,
-				},
-			},
-		]
-		for overrides: Dictionary in ferret_spawns:
-			_entity_defs.spawn(
-				&"tcp_ferrets:ferret", db, overrides,
-			)
+			}
+			if entry.has("desires"):
+				var d: Dictionary = entry["desires"]
+				var typed: Dictionary = {}
+				for k: String in d:
+					typed[StringName(k)] = int(d[k])
+				overrides[&"desires"] = typed
+			_entity_defs.spawn(species_id, db, overrides)
 
 	_spawn_rack_entities()
 	_create_curiosity_trackers()

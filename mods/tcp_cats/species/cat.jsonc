@@ -104,5 +104,10 @@
     "sit_on": { "desire_affinities": { "comfort": 700, "warmth": 200 } }
   },
   "hud_color": [0.9, 0.8, 0.6],
-  "initial_state": "idle"
+  "initial_state": "idle",
+  "starters": [
+    { "name": "Mochi",   "rack": 1, "desires": { "hunger": 900, "attention": 600 } },
+    { "name": "Biscuit", "rack": 2, "desires": { "hunger": 900, "attention": 600 } },
+    { "name": "Noodle",  "rack": 3, "desires": { "hunger": 900, "attention": 600 } }
+  ]
 }
