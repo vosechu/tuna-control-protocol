@@ -8,20 +8,6 @@ const _NAME_COLORS: Array[Color] = [
 	Color.ORCHID,      # Bandit
 ]
 
-const _STATE_TO_ANIM: Dictionary = {
-	&"IDLE": &"idle",
-	&"GROOMING": &"crouch",
-	&"LOAFING": &"sit",
-	&"SLEEPING": &"sleep",
-	&"SNIFFING": &"sneak",
-	&"SPEED_BUMP": &"liedown",
-	&"SEEKING": &"walk",
-	&"MOVING_TO": &"walk",
-	&"WANDERING": &"walk",
-	&"STARTLED": &"fright",
-	&"SETTLING": &"sit",
-}
-
 static var _next_color: int = 0
 
 var entity_id: int = Constants.INVALID_ID
@@ -29,7 +15,6 @@ var entity_id: int = Constants.INVALID_ID
 var _db: GameStateDB
 var _prev_pos: Vector2
 var _target_pos: Vector2
-var _is_ferret: bool = false
 var _footstep_player: AudioStreamPlayer2D
 var _color_index: int = 0
 
@@ -49,53 +34,30 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	)
 	_prev_pos = _target_pos
 	global_position = _target_pos
+	_setup_sprite()
+	_setup_name_label(_db.get_component(entity_id, &"species"))
+	_setup_footstep_audio()
+
+
+func _setup_sprite() -> void:
 	var species: Dictionary = _db.get_component(entity_id, &"species")
-	_is_ferret = not String(species[&"id"]).contains("cat")
-	_setup_sprite(species)
-	_setup_name_label(species)
-	if _is_ferret:
-		_setup_footstep_audio()
-
-
-func _setup_sprite(species: Dictionary) -> void:
-	var variant: String = String(species.get(&"variant", &"cat01"))
-	var base_path: String = ""
-	var is_cat: bool = String(species[&"id"]).contains("cat")
-	if is_cat:
-		base_path = "res://mods/tcp_cats/sprites/%s" % variant
-	else:
-		base_path = "res://mods/tcp_ferrets/sprites/%s" % variant
+	var config: Dictionary = _db.get_component(entity_id, &"sprite_config")
+	var variant: String = String(species.get(&"variant", &""))
+	var base_path: String = String(config.get("base_path", "")).replace("{variant}", variant)
 	_sprite.scale = Vector2(1.0, 1.0)
-	# Shift sprite up so visible feet align with node position (ground level).
-	# Frames have transparent padding below the feet (~8px).
-	if _is_ferret:
-		_sprite.offset.y = -8
-	else:
-		_sprite.offset.y = -12
-
-	var idle_tex: Texture2D = load(base_path + "_idle_strip8.png")
-	if idle_tex == null:
-		push_error("Could not load idle sprite: %s" % (base_path + "_idle_strip8.png"))
-		return
+	_sprite.offset.y = float(config.get("offset_y", 0))
 
 	var frames := SpriteFrames.new()
 	if frames.has_animation(&"default"):
 		frames.remove_animation(&"default")
 
-	# Load common animations
-	_load_strip(frames, &"idle", base_path + "_idle_strip8.png", 8, 6.0)
-	_load_strip(frames, &"walk", base_path + "_walk_strip8.png", 8, 8.0)
-	_load_strip(frames, &"sit", base_path + "_sit_strip8.png", 8, 4.0)
-
-	if is_cat:
-		_load_strip(frames, &"sleep", base_path + "_sleep_strip8.png", 8, 2.0)
-		_load_strip(frames, &"crouch", base_path + "_crouch_strip8.png", 8, 6.0)
-		_load_strip(frames, &"fright", base_path + "_fright_strip8.png", 8, 8.0)
-	else:
-		_load_strip(frames, &"sleep", base_path + "_sleep_strip4.png", 4, 2.0)
-		_load_strip(frames, &"sneak", base_path + "_sneak_strip4.png", 4, 6.0)
-		_load_strip(frames, &"liedown", base_path + "_liedown_strip8.png", 8, 4.0)
-		_load_strip(frames, &"dash", base_path + "_dash_strip10.png", 10, 10.0)
+	var animation_frames: Dictionary = config.get("animation_frames", {})
+	for anim_key: String in animation_frames:
+		var entry: Dictionary = animation_frames[anim_key]
+		var path: String = base_path + String(entry.get("sprite", ""))
+		var frame_count: int = int(entry.get("frames", 1))
+		var fps: float = float(entry.get("fps", 6.0))
+		_load_strip(frames, StringName(anim_key), path, frame_count, fps)
 
 	_sprite.sprite_frames = frames
 	_sprite.play(&"idle")
@@ -211,7 +173,10 @@ func _physics_process(_delta: float) -> void:
 
 
 func _state_to_animation(state: StringName) -> StringName:
-	return _STATE_TO_ANIM.get(state, &"idle")
+	var config: Dictionary = _db.get_component(entity_id, &"sprite_config")
+	var animations: Dictionary = config.get("animations", {})
+	var entry: Dictionary = animations.get(String(state), {})
+	return StringName(entry.get("animation", "idle"))
 
 
 func _process(_delta: float) -> void:

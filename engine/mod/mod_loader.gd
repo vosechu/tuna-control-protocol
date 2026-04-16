@@ -7,6 +7,7 @@ func load_all(mods_path: String) -> Dictionary:
 	var entity_defs := EntityDefRegistry.new()
 	var manifests: Array[ModManifest] = []
 	var sprite_resolver := SpriteResolver.new()
+	validator.add_required_field("sprite_config")
 
 	var mod_dirs: Array[String] = _discover_mods(mods_path)
 

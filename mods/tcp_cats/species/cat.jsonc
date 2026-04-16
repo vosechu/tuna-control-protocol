@@ -30,6 +30,29 @@
   "traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
   "max_jump_height_ru": 3,
   "variants": ["cat01", "cat02", "cat03", "cat04", "cat05"],
+  "sprite_config": {
+    "base_path": "res://mods/tcp_cats/sprites/{variant}",
+    "offset_y": -12,
+    "animations": {
+      "IDLE":       { "animation": "idle" },
+      "SEEKING":    { "animation": "walk" },
+      "MOVING_TO":  { "animation": "walk" },
+      "WANDERING":  { "animation": "walk" },
+      "LOAFING":    { "animation": "sit" },
+      "SETTLING":   { "animation": "sit" },
+      "GROOMING":   { "animation": "crouch" },
+      "SLEEPING":   { "animation": "sleep" },
+      "STARTLED":   { "animation": "fright" }
+    },
+    "animation_frames": {
+      "idle":   { "sprite": "_idle_strip8.png",   "frames": 8, "fps": 6.0 },
+      "walk":   { "sprite": "_walk_strip8.png",   "frames": 8, "fps": 8.0 },
+      "sit":    { "sprite": "_sit_strip8.png",    "frames": 8, "fps": 4.0 },
+      "sleep":  { "sprite": "_sleep_strip8.png",  "frames": 8, "fps": 2.0 },
+      "crouch": { "sprite": "_crouch_strip8.png", "frames": 8, "fps": 6.0 },
+      "fright": { "sprite": "_fright_strip8.png", "frames": 8, "fps": 8.0 }
+    }
+  },
   "animations": {
     "required": ["idle", "walk", "sit", "sleep"],
     "optional": ["groom", "stretch", "knead", "fright", "liedown", "standup"]

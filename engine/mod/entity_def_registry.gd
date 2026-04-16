@@ -162,6 +162,9 @@ func spawn(
 	if def.get("tends_servers", false):
 		db.set_component(id, &"tends_servers", {})
 
+	if def.has("sprite_config"):
+		db.set_component(id, &"sprite_config", def["sprite_config"])
+
 	# State-driven advertisements (set for initial state)
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)

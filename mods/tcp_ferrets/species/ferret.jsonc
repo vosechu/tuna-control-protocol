@@ -24,6 +24,29 @@
   "traversal": ["WALK", "JUMP_DOWN"],
   "max_jump_height_ru": 0,
   "variants": ["lilotter"],
+  "sprite_config": {
+    "base_path": "res://mods/tcp_ferrets/sprites/{variant}",
+    "offset_y": -8,
+    "animations": {
+      "IDLE":       { "animation": "idle" },
+      "SEEKING":    { "animation": "walk" },
+      "MOVING_TO":  { "animation": "walk" },
+      "WANDERING":  { "animation": "walk" },
+      "LOAFING":    { "animation": "sit" },
+      "SETTLING":   { "animation": "sit" },
+      "SLEEPING":   { "animation": "sleep" },
+      "SNIFFING":   { "animation": "sneak" },
+      "SPEED_BUMP": { "animation": "liedown" }
+    },
+    "animation_frames": {
+      "idle":    { "sprite": "_idle_strip8.png",    "frames": 8, "fps": 6.0 },
+      "walk":    { "sprite": "_walk_strip8.png",    "frames": 8, "fps": 8.0 },
+      "sit":     { "sprite": "_sit_strip8.png",     "frames": 8, "fps": 4.0 },
+      "sleep":   { "sprite": "_sleep_strip4.png",   "frames": 4, "fps": 2.0 },
+      "sneak":   { "sprite": "_sneak_strip4.png",   "frames": 4, "fps": 6.0 },
+      "liedown": { "sprite": "_liedown_strip8.png", "frames": 8, "fps": 4.0 }
+    }
+  },
   "animations": {
     "required": ["idle", "walk", "sit", "sleep"],
     "optional": ["sneak", "crouch", "liedown"]
