@@ -24,6 +24,19 @@
   "traversal": ["WALK", "JUMP_DOWN"],
   "max_jump_height_ru": 0,
   "variants": ["lilotter"],
+  "ambient_states": {
+    "warm": [
+      { "state": "IDLE",       "weight": 10 },
+      { "state": "SNIFFING",   "weight": 20 },
+      { "state": "SPEED_BUMP", "weight": 10 },
+      { "state": "SLEEPING",   "weight": 15 }
+    ],
+    "cold": [
+      { "state": "IDLE",       "weight": 10 },
+      { "state": "SNIFFING",   "weight": 20 },
+      { "state": "SPEED_BUMP", "weight": 10 }
+    ]
+  },
   "sprite_config": {
     "base_path": "res://mods/tcp_ferrets/sprites/{variant}",
     "offset_y": -8,

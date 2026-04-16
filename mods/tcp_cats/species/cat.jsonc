@@ -30,6 +30,19 @@
   "traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
   "max_jump_height_ru": 3,
   "variants": ["cat01", "cat02", "cat03", "cat04", "cat05"],
+  "ambient_states": {
+    "warm": [
+      { "state": "IDLE",     "weight": 10 },
+      { "state": "GROOMING", "weight": 15 },
+      { "state": "LOAFING",  "weight": 20 },
+      { "state": "SLEEPING", "weight": 25 }
+    ],
+    "cold": [
+      { "state": "IDLE",     "weight": 10 },
+      { "state": "GROOMING", "weight": 5 },
+      { "state": "LOAFING",  "weight": 10 }
+    ]
+  },
   "sprite_config": {
     "base_path": "res://mods/tcp_cats/sprites/{variant}",
     "offset_y": -12,

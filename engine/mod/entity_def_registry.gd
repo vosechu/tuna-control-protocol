@@ -165,6 +165,9 @@ func spawn(
 	if def.has("sprite_config"):
 		db.set_component(id, &"sprite_config", def["sprite_config"])
 
+	if def.has("ambient_states"):
+		db.set_component(id, &"ambient_states", def["ambient_states"])
+
 	# State-driven advertisements (set for initial state)
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)

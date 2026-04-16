@@ -413,23 +413,14 @@ func _update_ambient_states() -> void:
 		if _state_timers[entity_id] < min_dur:
 			continue
 
-		# Pick new ambient state
-		var species: Dictionary = db.get_component(
-			entity_id, &"species",
-		)
-		var desires: Dictionary = db.get_component(
-			entity_id, &"desires",
-		)
-		var species_id: StringName = species[&"id"]
+		# Pick new ambient state — species recipe supplies the pool.
+		var desires: Dictionary = db.get_component(entity_id, &"desires")
 		var is_warm: bool = desires[&"warmth"] < 400
-		var has_cat_states: bool = _entity_defs != null \
-			and _entity_defs.has_entity(species_id) \
-			and _entity_defs.get_states(species_id).has(
-				"grooming",
-			)
-		var new_state: StringName = _pick_ambient_state(
-			has_cat_states, is_warm,
-		)
+		if not db.has_component(entity_id, &"ambient_states"):
+			continue
+		var pools: Dictionary = db.get_component(entity_id, &"ambient_states")
+		var pool: Array = pools.get("warm" if is_warm else "cold", [])
+		var new_state: StringName = _pick_ambient_state(pool)
 		if new_state != current_state:
 			db.set_component(entity_id, &"ai_state", {
 				&"state": new_state,
@@ -440,37 +431,20 @@ func _update_ambient_states() -> void:
 			_min_durations_override.erase(entity_id)
 
 
-func _pick_ambient_state(
-		has_cat_states: bool, is_warm: bool,
-) -> StringName:
-	var pool: Array[Dictionary] = []
-	pool.append({&"state": &"IDLE", &"weight": 10})
-
-	if has_cat_states:
-		if is_warm:
-			pool.append({&"state": &"GROOMING", &"weight": 15})
-			pool.append({&"state": &"LOAFING", &"weight": 20})
-			pool.append({&"state": &"SLEEPING", &"weight": 25})
-		else:
-			pool.append({&"state": &"GROOMING", &"weight": 5})
-			pool.append({&"state": &"LOAFING", &"weight": 10})
-	else:
-		# Ferret ambient states
-		pool.append({&"state": &"SNIFFING", &"weight": 20})
-		pool.append({&"state": &"SPEED_BUMP", &"weight": 10})
-		if is_warm:
-			pool.append({&"state": &"SLEEPING", &"weight": 15})
-
-	# Weighted random selection
+func _pick_ambient_state(pool: Array) -> StringName:
+	if pool.is_empty():
+		return &"IDLE"
 	var total_weight: int = 0
 	for entry: Dictionary in pool:
-		total_weight += int(entry[&"weight"])
+		total_weight += int(entry.get("weight", 0))
+	if total_weight <= 0:
+		return &"IDLE"
 	var roll: int = randi_range(0, total_weight - 1)
 	var cumulative: int = 0
 	for entry: Dictionary in pool:
-		cumulative += int(entry[&"weight"])
+		cumulative += int(entry.get("weight", 0))
 		if roll < cumulative:
-			return entry[&"state"]
+			return StringName(entry.get("state", "IDLE"))
 	return &"IDLE"
 
 
