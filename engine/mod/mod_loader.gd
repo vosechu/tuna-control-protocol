@@ -1,5 +1,7 @@
 class_name ModLoader extends RefCounted
 
+var validator: SpeciesSchemaValidator = SpeciesSchemaValidator.new()
+
 
 func load_all(mods_path: String) -> Dictionary:
 	var entity_defs := EntityDefRegistry.new()
@@ -104,6 +106,13 @@ func _load_jsonc_dir(
 				entry = dir.get_next()
 				continue
 			var entity_id := StringName(str(data["id"]))
+			if not validator.is_valid_species(data):
+				push_error(
+					"ModLoader: rejecting invalid species '%s' from %s"
+					% [entity_id, file_path]
+				)
+				entry = dir.get_next()
+				continue
 			entity_defs.register(entity_id, data)
 		entry = dir.get_next()
 
