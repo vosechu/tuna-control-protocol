@@ -60,10 +60,10 @@
     "startled": ["cat_startled_01.wav"]
   },
   "verbs": {
-    "push": { "effectiveness": 1000, "desire_affinities": { "stimulation": 500, "curiosity": 300 } },
-    "bat": { "effectiveness": 500, "desire_affinities": { "stimulation": 600 } },
+    "push": { "effectiveness": 1000, "desire_affinities": { "curiosity": 500 } },
+    "bat": { "effectiveness": 500, "desire_affinities": { "curiosity": 600 } },
     "drag": { "effectiveness": 700, "desire_affinities": { "curiosity": 800 } },
-    "knock_off": { "effectiveness": 2000, "desire_affinities": { "stimulation": 900 } },
+    "knock_off": { "effectiveness": 2000, "desire_affinities": { "curiosity": 900 } },
     "sit_on": { "desire_affinities": { "comfort": 700, "warmth": 200 } }
   },
   "initial_state": "idle"

@@ -43,7 +43,7 @@
     "startled": ["ferret_startled_01.wav"]
   },
   "verbs": {
-    "push": { "effectiveness": 800, "desire_affinities": { "stimulation": 400, "curiosity": 500 } },
+    "push": { "effectiveness": 800, "desire_affinities": { "curiosity": 500 } },
     "drag": { "effectiveness": 1000, "desire_affinities": { "curiosity": 900 } }
   },
   "initial_state": "idle"
