@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "tcp_test_species:test_creature",
+  "name": "TestCreature",
+  "desires": { "warmth": 500, "comfort": 500 },
+  "traversal": ["WALK"],
+  "variants": ["cat01"],
+  "hud_color": [0.5, 0.5, 0.5],
+  "sprite_config": {
+    "base_path": "res://mods/tcp_cats/sprites/{variant}",
+    "offset_y": -12,
+    "animations": {
+      "IDLE":    { "animation": "idle" },
+      "SEEKING": { "animation": "walk" }
+    },
+    "animation_frames": {
+      "idle": { "sprite": "_idle_strip8.png", "frames": 8, "fps": 6.0 },
+      "walk": { "sprite": "_walk_strip8.png", "frames": 8, "fps": 8.0 }
+    }
+  },
+  "ambient_states": {
+    "warm": [ { "state": "IDLE", "weight": 10 } ],
+    "cold": [ { "state": "IDLE", "weight": 10 } ]
+  },
+  "states": { "idle": { "advertisements": [] } },
+  "initial_state": "idle"
+}

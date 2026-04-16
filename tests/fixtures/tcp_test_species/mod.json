@@ -1,0 +1,6 @@
+{
+  "title": "Test Creature",
+  "version": "0.0.1",
+  "author": "tcp-test",
+  "description": "Fixture mod used by integration tests"
+}
