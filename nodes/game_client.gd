@@ -259,17 +259,6 @@ func _setup_sound_manager() -> void:
 	sm.set_script(SoundManagerScript)
 	add_child(sm)
 	sm.initialize(game_server.db, Events)
-	# Register cat entities with the sound manager
-	var db: GameStateDB = game_server.db
-	var animals: Array[int] = db.get_entities_with(
-		&"species"
-	)
-	for entity_id: int in animals:
-		var species: Dictionary = db.get_component(
-			entity_id, &"species"
-		)
-		if String(species[&"id"]).contains("cat"):
-			sm.register_cat(entity_id)
 
 
 func _spawn_animal_nodes() -> void:

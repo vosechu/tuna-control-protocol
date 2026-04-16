@@ -28,10 +28,6 @@ func initialize(
 	events.box_squeaked.connect(_on_box_squeaked)
 
 
-func register_cat(_entity_id: int) -> void:
-	pass
-
-
 func _setup_audio_players() -> void:
 	var purr_stream_1: AudioStream = load(
 		"res://mods/tcp_cats/sounds/purr_loop_01.wav"
