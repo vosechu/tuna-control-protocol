@@ -697,17 +697,12 @@ func _spawn_starter_entities() -> void:
 			},
 		]
 		for overrides: Dictionary in ferret_spawns:
-			var id: int = _entity_defs.spawn(
+			_entity_defs.spawn(
 				&"tcp_ferrets:ferret", db, overrides,
 			)
-			var desires: Dictionary = _entity_defs.get_desires(
-				&"tcp_ferrets:ferret",
-			)
-			if desires.has("curiosity"):
-				_curiosity_trackers[id] = \
-					CuriosityTracker.new()
 
 	_spawn_rack_entities()
+	_init_curiosity_trackers()
 
 
 func _spawn_rack_entities() -> void:
@@ -726,6 +721,16 @@ func _spawn_rack_entities() -> void:
 			},
 		]})
 		db.update_spatial(rack_entity, x, y)
+
+
+func _init_curiosity_trackers() -> void:
+	var entities: Array[int] = db.get_entities_with(&"desires")
+	for entity_id: int in entities:
+		if _curiosity_trackers.has(entity_id):
+			continue
+		var desires: Dictionary = db.get_component(entity_id, &"desires")
+		if desires.has(&"curiosity"):
+			_curiosity_trackers[entity_id] = CuriosityTracker.new()
 
 
 func _find_dispenser_in_rack(
