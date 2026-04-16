@@ -702,7 +702,7 @@ func _spawn_starter_entities() -> void:
 			)
 
 	_spawn_rack_entities()
-	_init_curiosity_trackers()
+	_create_curiosity_trackers()
 
 
 func _spawn_rack_entities() -> void:
@@ -723,7 +723,7 @@ func _spawn_rack_entities() -> void:
 		db.update_spatial(rack_entity, x, y)
 
 
-func _init_curiosity_trackers() -> void:
+func _create_curiosity_trackers() -> void:
 	var entities: Array[int] = db.get_entities_with(&"desires")
 	for entity_id: int in entities:
 		if _curiosity_trackers.has(entity_id):
