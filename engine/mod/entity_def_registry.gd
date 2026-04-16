@@ -168,6 +168,12 @@ func spawn(
 	if def.has("ambient_states"):
 		db.set_component(id, &"ambient_states", def["ambient_states"])
 
+	if def.has("hud_color"):
+		var c: Array = def["hud_color"]
+		db.set_component(id, &"hud_color", {
+			&"r": float(c[0]), &"g": float(c[1]), &"b": float(c[2]),
+		})
+
 	# State-driven advertisements (set for initial state)
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)

@@ -103,5 +103,6 @@
     "knock_off": { "effectiveness": 2000, "desire_affinities": { "curiosity": 900 } },
     "sit_on": { "desire_affinities": { "comfort": 700, "warmth": 200 } }
   },
+  "hud_color": [0.9, 0.8, 0.6],
   "initial_state": "idle"
 }

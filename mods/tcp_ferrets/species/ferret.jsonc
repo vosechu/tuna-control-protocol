@@ -82,5 +82,6 @@
     "push": { "effectiveness": 800, "desire_affinities": { "curiosity": 500 } },
     "drag": { "effectiveness": 1000, "desire_affinities": { "curiosity": 900 } }
   },
+  "hud_color": [0.6, 0.9, 0.7],
   "initial_state": "idle"
 }

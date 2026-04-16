@@ -56,10 +56,10 @@ func _create_panel(entity_id: int) -> PanelContainer:
 	name_label.name = "NameLabel"
 	name_label.text = String(species.get(&"name", &"???"))
 	name_label.add_theme_font_size_override("font_size", 6)
-	var is_cat: bool = String(species[&"id"]).contains("cat")
 	var name_color := Color(0.9, 0.8, 0.6)
-	if not is_cat:
-		name_color = Color(0.6, 0.9, 0.7)
+	if _db.has_component(entity_id, &"hud_color"):
+		var c: Dictionary = _db.get_component(entity_id, &"hud_color")
+		name_color = Color(c[&"r"], c[&"g"], c[&"b"])
 	name_label.add_theme_color_override("font_color", name_color)
 	vbox.add_child(name_label)
 
