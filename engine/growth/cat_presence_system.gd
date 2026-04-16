@@ -33,13 +33,13 @@ func _evaluate(server_id: int) -> void:
 
 
 func _any_cat_nearby(server_pos: Dictionary, max_dist_pu: int) -> bool:
-	var cats: Array[int] = _db.get_entities_with(&"species")
-	for cat_id: int in cats:
-		if not _db.has_component(cat_id, &"position"):
+	var tenders: Array[int] = _db.get_entities_with(&"tends_servers")
+	for tender_id: int in tenders:
+		if not _db.has_component(tender_id, &"position"):
 			continue
-		var cat_pos: Dictionary = _db.get_component(cat_id, &"position")
-		var dx: int = absi(cat_pos[&"x"] - server_pos[&"x"])
-		var dy: int = absi(cat_pos[&"y"] - server_pos[&"y"])
+		var tpos: Dictionary = _db.get_component(tender_id, &"position")
+		var dx: int = absi(tpos[&"x"] - server_pos[&"x"])
+		var dy: int = absi(tpos[&"y"] - server_pos[&"y"])
 		if dx <= max_dist_pu and dy <= max_dist_pu:
 			return true
 	return false

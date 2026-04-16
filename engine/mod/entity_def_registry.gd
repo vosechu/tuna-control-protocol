@@ -157,6 +157,11 @@ func spawn(
 			&"size_ru": int(def["physical"].get("size_ru", 1)),
 		})
 
+	# Capability tags: any recipe-level boolean field we want to project
+	# onto the entity as a zero-data component.
+	if def.get("tends_servers", false):
+		db.set_component(id, &"tends_servers", {})
+
 	# State-driven advertisements (set for initial state)
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)

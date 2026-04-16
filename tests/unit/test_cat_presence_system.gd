@@ -18,6 +18,7 @@ func before_each() -> void:
 	_cat_id = _db.create_entity()
 	_db.set_component(_cat_id, &"position", {&"x": slot_pu.x, &"y": slot_pu.y})
 	_db.set_component(_cat_id, &"species", {&"id": &"tcp_cats:cat"})
+	_db.set_component(_cat_id, &"tends_servers", {})
 
 
 func test_cat_overlapping_server_increments_presence():
@@ -49,3 +50,17 @@ func test_presence_capped_at_max():
 	var pres: int = _db.get_field(_server_id, &"cat_presence", &"seconds")
 	assert_lte(pres, 1000,
 		"cat_presence should cap at 1000 to prevent overflow")
+
+
+func test_ferret_without_tends_servers_does_not_trigger_presence():
+	var server_id: int = _db.create_entity()
+	_db.set_component(server_id, &"position", {&"x": 0, &"y": 0})
+	_db.set_component(server_id, &"cat_presence", {&"seconds": 0})
+	var ferret_id: int = _db.create_entity()
+	_db.set_component(ferret_id, &"species", {&"id": &"tcp_ferrets:ferret"})
+	_db.set_component(ferret_id, &"position", {&"x": 0, &"y": 0})
+	# Intentionally no tends_servers component
+	var sys := CatPresenceSystem.new(_db)
+	sys.tick()
+	assert_eq(_db.get_field(server_id, &"cat_presence", &"seconds"), 0,
+		"Ferret should not increment cat presence because it does not tend servers")
