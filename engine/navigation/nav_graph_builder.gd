@@ -5,6 +5,7 @@ class_name NavGraphBuilder extends RefCounted
 var _astars: Dictionary = {}  # StringName species_id -> AStar2D
 var _next_nav_id: int = 0
 var _floor_nodes: Dictionary = {}  # rack_index -> nav_id
+var _floor_node_positions: Dictionary = {}  # rack_index -> Vector2
 var _slot_nodes: Dictionary = {}   # "rack:slot" -> nav_id
 
 
@@ -28,9 +29,7 @@ func build() -> void:
 	_build_floor_nodes()
 
 
-func get_astar(
-		species_id: StringName = &"tcp_cats:cat",
-) -> AStar2D:
+func get_astar(species_id: StringName) -> AStar2D:
 	return _astars.get(species_id, AStar2D.new())
 
 
@@ -43,10 +42,12 @@ func _build_floor_nodes() -> void:
 		var y: float = float(
 			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
 		)
+		var pos := Vector2(x, y)
 		_floor_nodes[rack] = nav_id
+		_floor_node_positions[rack] = pos
 		for species_id: StringName in _astars:
 			var astar: AStar2D = _astars[species_id]
-			astar.add_point(nav_id, Vector2(x, y))
+			astar.add_point(nav_id, pos)
 	# Connect adjacent floor nodes — WALK, all species can walk
 	for rack: int in range(Constants.RACK_COUNT - 1):
 		var from_id: int = _floor_nodes[rack]
@@ -105,11 +106,7 @@ func get_path_points(
 
 
 func get_nearest_floor_node(rack: int) -> Vector2:
-	# All species share the same floor node positions
-	var astar: AStar2D = _astars.get(&"tcp_cats:cat", null)
-	if astar == null or not _floor_nodes.has(rack):
-		return Vector2.ZERO
-	return astar.get_point_position(_floor_nodes[rack])
+	return _floor_node_positions.get(rack, Vector2.ZERO)
 
 
 func can_reach(species_id: StringName, from_pos: Vector2, to_pos: Vector2) -> bool:
