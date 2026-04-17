@@ -45,6 +45,10 @@ func apply(scenario_id: StringName) -> void:
 
 
 func _overrides_for(entry: Dictionary) -> Dictionary:
+	# AI-DEV: placement keys (rack/slot/floor_*) are not yet consumed by
+	# EntityDefRegistry.spawn() — it only reads overrides[&"position"]/&"name"/
+	# &"desires" today. Phase 0 Tasks 5 and 9 wire the translation. Until
+	# then, these fields ride through spawn() and get dropped silently.
 	var out: Dictionary = {}
 	if entry.has("rack"):
 		out["rack"] = entry["rack"]
