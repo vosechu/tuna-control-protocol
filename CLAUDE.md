@@ -277,7 +277,6 @@ script/validate
 
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
 - **LightingSystem (CanvasModulate) disabled:** Washes out colors at 224×128 viewport. Needs redesign.
-- **HUM bar shows wrong percentage:** `hum_reserve_changed` emits raw reserve (0-10000) but HumBar treats it as 0-1000 ratio. Display shows 1000% instead of ~100%. Either emit the ratio or convert in the bar.
 - **PU coordinate system adds unnecessary complexity:** `POSITION_SCALE=100` multiplier makes coordinate math confusing. Candidate for removal refactor. Animals hardcode Y to `FLOOR_Y - 1`; proper rack climbing will need real Y handling.
 - **Heat overlay alignment uses RACK_SLOT0_Y now** (was empirical `+4.0`). Other overlay positions may still be fragile.
 

@@ -46,7 +46,8 @@ func _build_ui() -> void:
 func _on_hum_reserve_changed(
 		_old: int, new_reserve: int,
 ) -> void:
-	_update_display(new_reserve)
+	var ratio: int = new_reserve * 1000 / HumSystem.DEFAULT_CAPACITY
+	_update_display(ratio)
 
 
 func _update_display(ratio: int) -> void:
