@@ -1,52 +1,47 @@
 # TCP Scene Tree Skeleton
 
-Godot 4.3+, GDScript, prototype scope (5 racks, 3 cats, 2 ferrets, 8 object types).
+Godot 4.6, GDScript. Prototype scope: 1 simulated bay (5 racks × 10 slots), a handful of cats/ferrets, tuna-can food chain.
 
 ```
 Root (Node)
-  GameServer (Node)                     # Authoritative state, even in solo
-    SimClock (Node)                     # Owns tick timer, emits tick signals
-    HeatGrid (Node)                     # Heat propagation system
-    DesireResolver (Node)               # Utility AI scoring each tick
-    ProximityEventManager (Node)        # Discovery events, cooldowns
-    AnimalRegistry (Node)               # animal_id -> AnimalAgent
-    ObjectRegistry (Node)               # object_id -> PlacedObject
+  GameServer (Node)                     # Authoritative state (RefCounted systems live here)
+    # No child nodes — GameServer owns RefCounted systems directly:
+    #   HeatGrid, DesireResolver, ProximityEventManager, AnimalRegistry,
+    #   ObjectRegistry, HumSystem, FoodSystem, ReclamationSystem,
+    #   PlantGrowthSystem, ObjectStateManager. See `design-philosophy.md`.
 
   GameClient (Node)
-    Camera (Camera2D)                   # Pans across 5 racks, zoom
+    Camera (Camera2D)                   # camera_controller.gd — bay follow, zoom
     World (Node2D)
+      EnvironmentTileMap (TileMap)      # tcp_environment.tres; painted by TilePainter for bays {-1, 0, 1}
       RackRow (Node2D)
-        Rack_0..4 (Node2D)
-          SlotGrid (Node2D)             # 42 children, one per U
-            RackSlot_00..41 (Area2D)    # 1U hitbox each
-              OccupantAnchor (Marker2D)
-          PDU (Sprite2D)
-          TOR_Switch (Sprite2D)
-          StatusPanel (Control)
-      Floor (Node2D)
-        FloorArea (Area2D)              # Walkable ground
-        RobotArmStation (Node2D)        # Fixed position
-          ArmSprite (AnimatedSprite2D)
-          ActivationZone (Area2D)       # 3U radius trigger
-          AudioEmitter (AudioStreamPlayer2D)
-      NavGraph (Node2D)                 # Debug overlay for nav nodes
+        Bay_-1 (Sprite2D)               # peek, muted modulate
+        Bay_0 (Sprite2D)                # rack_5set_idle_strip1.png at (0, RACK_TOP_Y)
+        Bay_1 (Sprite2D)                # peek, muted modulate
+      RackDecor (Node2D)
+        Bay_0_decor (Sprite2D)          # rack_5set_decor_strip1.png, alpha ramps on first plant_spawned
+      PlacedObjects (Node2D)            # Servers, boxes, tuna cans — flat children
+      DynamicPlants (Node)              # Projection: Sprite2D children of server sprites
       Animals (Node2D)
-        Cat_0..2 (Node2D)
-        Ferret_0..1 (Node2D)
-      PlacedObjects (Node2D)
-      FurballPool (Node2D)              # Object pool, max ~200
-      Cables (Node2D)                   # Line2D instances
+        animal_0..N (Node2D)            # Instances of animal.tscn, one per entity
+      HeatOverlay (Node2D)              # Debug heat view
 
     HUD (CanvasLayer)
-      DrawerBar (HBoxContainer)
-        KittyDrawer / CableDrawer / InfraDrawer / UtilityDrawer
-      WiringViewToggle (Button)
-      InspectPanel (PanelContainer)
-      RobotNarrator (RichTextLabel)
+      HumBar                            # HUM reserve readout
+      StatsBar                          # Per-frame diagnostics
+      InspectPanel (PanelContainer)     # On right-click / I / X
+      (RobotNarrator as a Node subscribes to Events.plant_spawned/despawned;
+       renders to its own log surface.)
 
+    PlacementUI (Control)               # Ghost + highlights for drag placement
     SoundManager (Node)
       AmbientLayer (AudioStreamPlayer)
 ```
+
+**What moved since the 2026-04-10 rescale:**
+- Racks are no longer five separate `Rack_N` nodes with `SlotGrid` children. A bay is one `rack_5set` sprite; slots are resolved by `Constants.pu_to_bay_rack_slot()` on click.
+- `EnvironmentTileMap` replaces the old `Floor` FloorArea / wall Sprite2D-per-column approach. See `asset-pipeline.md` for `TilePainter`.
+- `DynamicPlants` is a projection Node that watches `Events.plant_spawned` / `Events.plant_despawned` (see `growth-system.md`) and parents plant sprites onto the server sprites registered by `GameClient` during placement.
 
 ## Animal Scene (instanced per animal)
 

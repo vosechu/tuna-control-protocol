@@ -174,6 +174,7 @@ Rules live in `.claude/rules/` as auto-loadable files.
 | `animal-ai.md` | State machine, hysteresis, object advertisements, scoring loop |
 | `objects.md` | Object state components, ObjectStateManager API, OBJECT_CONFIG schema |
 | `food-system.md` | Tuna-can lifecycle, button/dispenser/arm flow, cat PACING/EATING loop |
+| `growth-system.md` | Reclamation + plant-growth state machine, tended_seconds accumulator, HUM brownout immunity |
 | `navigation.md` | AStar2D point graph, node/edge types, species capabilities, dynamic updates |
 | `secrets.md` | What never gets committed, where secrets go, .gitignore policy |
 | `ai-dev.md` | AI-DEV inline comment markers — permanent LLM instructions in code |

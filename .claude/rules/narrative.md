@@ -43,6 +43,24 @@ The visual language of TCP is reclamation: human infrastructure slowly being rep
 
 The aesthetic principle: every object was either installed by humans and is being reclaimed, or was assembled by animals from what humans left behind. Nothing looks purchased from a pet store. Nothing looks like untouched forest. The datacenter is a reef — artificial structure colonized by life, made more beautiful by the collision.
 
+## Reclamation Growth (Plant Events)
+
+Mechanics live in `.claude/rules/growth-system.md`. This is the voice layer.
+
+**Voice constraint:** The robot never uses the word "plant" in its logs. It doesn't know that word. Use `DECORATIVE-GROWTH-NN`, `BIOLOGICAL-ARTIFACT-NN`, or `UNSCHEDULED-FLORA`. Player-facing UI (inspect panel) may say "plant."
+
+**On first plant spawn (the robot logs it as hardware anomaly):**
+
+> `[NOTE] UNIT-S04 is producing unauthorized biological output. Green. Soft. Non-responsive to ping. Best hardware match: a 'houseplant' (confidence 3%). Adding to inventory as DECORATIVE-GROWTH-01. UNIT-S04 appears unbothered. Will continue monitoring.`
+
+**On plant despawn (cats abandoned the server long enough for reclamation.seconds to decay):**
+
+> `[LOG] DECORATIVE-GROWTH-01 has gone offline. UNIT-S04 resuming standard operations. I will miss it.`
+
+The last line is the whole reclamation arc in six words. **Required, not optional.**
+
+Growth IDs are sequential (`DECORATIVE-GROWTH-01`, `-02`, ...) assigned on spawn and retained through the despawn log. Server IDs are rendered as `UNIT-S%02d` against the entity ID.
+
 ---
 
 ## Device Naming Convention

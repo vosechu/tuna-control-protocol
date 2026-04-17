@@ -7,34 +7,46 @@ paths:
 
 # TCP Art Direction — Smudge's Spec
 
-> **Note:** Several commitments in this document were softened or deferred
-> by the 2026-04-10 art scale spec. See the Visual Regression Ledger in
-> `docs/superpowers/specs/2026-04-10-art-scale-and-tilemap-design.md` for
-> the complete list.
-
 ## 1. Pixel Resolution and Base Grid
 
-**Target viewport:** 224×128 internal (14×8 tiles, 1.75:1), scaled to any display via Godot `canvas_items` stretch mode. 8x→1792×1024. Fullscreen by default.
+**Target viewport:** 224×128 internal (14×8 tiles, 1.75:1), scaled to any display via Godot `canvas_items` stretch mode. 8× → 1792×1024. Fullscreen by default.
 
-**Real-world-proportioned grid.** 1 pixel ≈ 0.25 inches. Cat sprites render at native 1x — no scaling artifacts.
+**Real-world-proportioned grid.** 1 pixel ≈ 0.25 inches. Sprites render at native 1×, no scaling.
 
-**Base unit: 8px per rack unit.** 1U = 2 inches real = 8px. A 10U rack section is 80px tall. Rack width is **23px**. 5 playable racks rendered as one `rack_5set` sprite (186px wide). Bay stride 226px. Neighboring bays visible at viewport edges.
+**Base unit: 8px per rack unit (1U).** A 10U rack body is 80px tall. Rack interior width is **23px**. 5 playable racks rendered as one `rack_5set_idle_strip1.png` sprite (186px wide). Bay stride 226px with ~20px of the neighboring bay visible at each viewport edge.
 
-**Layout (8 tile rows):**
+### Grid constants (authoritative values in `engine/core/constants.gd`)
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `SLOT_HEIGHT_PX` | 8 | One rack unit (1U) in display pixels |
+| `SLOTS_PER_RACK` | 10 | Visible slots per rack |
+| `RACK_WIDTH_PX` | 23 | Interior width of a single rack (one server fills it) |
+| `RACK_STRIDE_PX` | 31 | Rack center-to-center (interior + shared wall) |
+| `RACK_GAP_PX` | 8 | Wall between adjacent racks |
+| `RACK_COUNT` | 5 | Playable racks per bay |
+| `LEFTMOST_RACK_OFFSET_PX` | 25 | Shelf-detail padding at left of 5-set sprite |
+| `BAY_WIDTH_PX` | 186 | Width of `rack_5set` sprite |
+| `BAY_STRIDE_PX` | 226 | Bay center-to-center |
+| `BAY_PEEK_PX` | 20 | Visible slice of each neighboring bay |
+| `FLOOR_HEIGHT_PX` | 16 | One tile row (animals walk at `FLOOR_Y = 112`) |
+
+Every constant has a `_PU` twin (multiplied by `POSITION_SCALE = 100`) for the integer-core math. Downstream callers never compute `rack * 31 + 25` by hand — use the helpers in `constants.gd` (`rack_slot_to_pu`, `pu_to_bay_rack_slot`, `rack_slot_to_world`, `world_to_rack_slot`, `bay_center`). See CLAUDE.md → "Coordinate system — use canonical helpers."
+
+### Layout (8 tile rows, y-down)
+
 ```
-Row 0:   ceiling
-Rows 1-5: wall (rack sprite overlays most of this)
-Row 6:   baseboard (behind rack bottom frame)
-Row 7:   floor (animals walk here at y=112)
+Row 0 (y=0-15):   ceiling
+Rows 1-5 (y=16-95): wall fill — rack sprite overlays most of this starting at y=16
+Row 6 (y=96-111): baseboard (behind rack bottom frame)
+Row 7 (y=112-127): floor surface — animals walk at FLOOR_Y = 112
 ```
 
-Rack sprite placed at y=16 (RACK_TOP_Y). Neighboring bays are visible at the viewport edges and render identically (no desaturation).
+Rack sprite top-anchors at `RACK_TOP_Y = 16`. The sprite has 8px transparent padding above the visible rack + 4px visible frame, so `RACK_SLOT0_Y = 28` (top of slot 0 interior). Neighboring bay peeks render identically to the active bay (no desaturation) — abandonment contrast is conveyed by tile painting, not modulation.
 
-**Cat silhouette at this scale:** A sitting cat is 40×40px native — about 5U tall. Cats are bigger than servers, which is physically accurate. At 40px, a cat silhouette has room for body shape, ear shape, tail position, and color pattern — highly readable. Five distinct cat models are visually distinguishable.
+**Cat silhouette at this scale:** a sitting cat is 40×40px native — about 5U tall. Cats are bigger than servers, which is physically accurate. Cats visually overflow rack interior horizontally (~8px each side) and span multiple slots vertically; they float in front of the rack plane in z-order.
 
-**Floor strip:** ~40px tall, running the full width below the racks. This is where ferrets operate, tuna cans sit, and the robot arm station lives.
-
-**Sub-grid for interior (drawer) view:** When a rack slot is clicked and the drawer pulls out, the interior renders at **2x zoom** (16px per U), giving detailed visibility of animals and equipment inside the slot.
+**Floor strip:** 16px tall floor row at the bottom of the viewport. Ferrets operate here, tuna cans sit here, and the robot arm station lives here.
 
 ---
 
@@ -66,9 +78,11 @@ Six colors define the cold datacenter. Six define the warm, thriving state. The 
 
 ### Interpolation model
 
-Each rack slot maintains a **warmth float (0.0 to 1.0)** driven by heat propagation and animal presence. The palette for that slot interpolates between cold and warm versions per-channel. Non-linear: the first 20% of warmth shifts colors noticeably (the room "wakes up" fast), and the last 20% is subtle (diminishing returns).
+Per-slot palette interpolation (6-color cold → warm palette shift, driven by a warmth float per slot) is **deferred**. At the 8px-per-slot scale it requires a shader pass, not per-cell palette swapping. Current build renders the cold palette globally. A follow-up spec restores per-slot tint via a shader.
 
-Plants (Moss Green) only appear above 0.6 warmth. They start as single-pixel dots in tile cracks and grow to 4-8px clusters.
+**Rack decor overlay** (`rack_5set_decor_strip1.png`) is a single transparent vine layer drawn over the rack sprite. Alpha starts at 0 and ramps to 0.7 the first time a reclamation plant spawns in bay 0 — preserving the "I grew these" feeling. Target alpha lives in `config/balance/rendering.jsonc` (`rack_decor_final_alpha`, `rack_decor_ramp_duration_ticks`).
+
+Plants (Moss Green, via the reclamation growth system — see `growth-system.md`) appear on servers where cats have tended long enough. Rendered as 8×8 cropped sprites from the environment tileset, offset onto the top edge of the host server.
 
 The robot arm always renders in the cold palette. It is metal and electricity — that contrast makes the organic warmth around it more visible.
 
@@ -94,20 +108,14 @@ Five cats, distinguishable at 24px wide in a pile. Color alone is not enough —
 
 ## 4. Zoom Levels
 
-Three zoom levels. Not four, not five.
+**Z0 only in the shipped prototype.** The viewport renders at 224×128 internal and scales to the display via `canvas_items` stretch mode. Z1 drawer view and Z2 overview are deferred follow-up specs.
 
-| Level | Name | Scale | What You See | When |
-|---|---|---|---|---|
-| **Z0** | **Rack View** (default) | 1x (24px/U) | Full rack height, 5 racks wide. Individual animals as silhouettes. Can identify species and cat model. | 90% of play. |
-| **Z1** | **Drawer View** | 2x (48px/U) | Interior of one rack slot. Individual expressions readable. Kittens distinguishable. Status bar detail. | Checking on a specific spot. |
-| **Z2** | **Overview** | 0.5x (12px/U) | All 5 racks plus neighbors. Animals as colored dots with component-driven shape coding — species recipes declare silhouette shape via a `visual` component. Heat halo as color wash. Individual identity lost. | Assessing the whole datacenter. |
+**LOD strategy when Z1/Z2 return: separate sprites, not scale-and-filter.** Pixel art does not survive arbitrary scaling.
+- **Z0 sprites:** 8px per rack unit. Full detail. This is where the art budget goes.
+- **Z1 sprites (deferred):** drawer view, 2× zoom, redrawn with added expression detail.
+- **Z2 sprites (deferred):** overview, simplified silhouettes 2-3 colors max.
 
-**LOD strategy: separate sprites, not scale-and-filter.** Pixel art does not survive arbitrary scaling.
-- **Z0 sprites:** Full detail within 24px grid. This is where the art budget goes.
-- **Z1 sprites:** 2x versions with added detail (expressions, fur texture). Redrawn at 48px, not upscaled.
-- **Z2 sprites:** Simplified 12px. 2-3 colors max. Species silhouette only. Static or two-frame idle.
-
-**Transition:** 200ms crossfade between sprite sets. No interpolation frames.
+Transitions (when added): 200ms crossfade between sprite sets. No interpolation frames.
 
 ---
 
@@ -159,23 +167,26 @@ When an animal occupies a slot or an object is placed: a **2px vertical strip** 
 
 ## 7. Visual Priority Hierarchy (z-order, back to front)
 
-| Priority | Layer | Contents |
+Shipped z-order inside `GameClient.World`:
+
+| z | Layer | Contents |
 |---|---|---|
-| 0 | **Rack structure** | Frames, empty slots, back panels, cable runs |
-| 1 | **Infrastructure** | Servers, pipes, PDUs, switches, tubes |
-| 2 | **Passive objects** | Boxes, clothes pile, scraps, clustered furballs |
-| 3 | **Warmth halos** | Translucent overlay, tints but doesn't occlude |
-| 4 | **Active objects** | Tuna cans being dragged, furballs in motion, feather |
-| 5 | **Plants and moss** | Growing vegetation, translucent edges |
-| 6 | **Animals (ambient)** | Sleeping, loafing, grooming |
-| 7 | **Animals (active)** | Moving, playing, interacting |
-| 8 | **Robot arm** | Always visible, never occluded by game objects |
-| 9 | **Status indicators** | Summary strips, hover panels, semitransparent |
-| 10 | **HUD and drawers** | UI layer, always on top |
+| 0 | **EnvironmentTileMap** | Walls, ceiling, cables, baseboard, ground — painted by `TilePainter` |
+| 1 | **RackRow** | `rack_5set` sprite per bay |
+| 2 | **RackDecor** | Vine overlay (`rack_5set_decor_strip1.png`), alpha ramps on first plant spawn |
+| 3 | **PlacedObjects / DynamicPlants** | Servers, boxes, tuna cans; plant sprites attached as children of their host servers |
+| 4 | **Animals** | Cats, ferrets — overflow rack interiors, float in front of the rack plane |
+| 5 | **StatusStrips** | 2px per-slot strips when focused |
+| 6 | **FocusHalo** | Keyboard/controller focus ring |
+| 7 | **HeatOverlay** | Debug/diagnostic heat view |
+| 10 | **HUD** | CanvasLayer, always on top |
+| 100 | **RuGridOverlay** | Dev-only grid debug |
 
-**High-density stacking:** 4+ animals in same column stack with 2-4px vertical jitter and 1-2px lateral offset. Distinguishing features (ears, tails) get +1 z within their sprite layers.
+**Bay rendering:** each bay is a single `Sprite2D` placed at `(bay_index * BAY_STRIDE_PX, RACK_TOP_Y)` with `rack_5set_idle_strip1.png` as its texture. One sprite per bay is the single source of truth — never split into tiles (fragile when the artist updates the rack art).
 
-**Furballs:** Lowest-priority visible entity. Below 3 in a cluster: not rendered at Z0 (cluster sprites only). At Z2: invisible entirely.
+**High-density stacking:** 4+ animals in the same column stack with 2-4px vertical jitter and 1-2px lateral offset. Distinguishing features (ears, tails) get +1 z within their sprite layers.
+
+**Robot arm** renders above placed objects but below HUD — floor entity, interacts with tuna cans. See `objects.md` for the arm component and `food-system.md` for its open-can loop.
 
 ---
 

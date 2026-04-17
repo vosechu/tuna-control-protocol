@@ -118,9 +118,62 @@ Note: dust ball animation support deferred per spec. Sprites imported but render
 |---|---|---|---|
 | tcp_tileset01 | 192x96 | -- | 16x16 tile atlas (12x6 grid) |
 
-### Tilesets
+### TileSet + TilePainter architecture
 
-`tcp_environment.tres` -- Godot TileSet resource pointing at `tcp_tileset01.png`. Hand-written text resource. Tile cell positions documented in `tcp_tileset01.md`. `TilePainter` (`engine/environment/tile_painter.gd`) references cells by `Vector2i(col, row)`.
+The environment (walls, ceiling, cables, baseboard, floor, growth) is painted by a Godot `TileMap`, not stretched as a single atlas sprite. Three files cooperate:
+
+```
+mods/tcp_base/sprites/environment/
+  tcp_tileset01.png              # the atlas
+  tcp_environment.tres           # TileSet resource — registers non-transparent cells
+  tcp_tileset01.md               # greppable cell map (col, row → purpose)
+engine/environment/
+  tile_painter.gd                # RefCounted helper that calls set_cell() on a TileMap
+nodes/
+  environment_tilemap.tscn       # vanilla TileMap node instance, no custom script
+```
+
+**TileSet resource (`tcp_environment.tres`):**
+- Atlas size 192×96, tile size 16×16, 12 × 6 = 72 cells (transparent cells not registered).
+- Authored by hand as a text resource. Regenerate by re-opening in the Godot editor if the artist ships a new atlas.
+
+**Tile cell map:** single source of truth is `tcp_tileset01.md` — a greppable flat table of every cell, its atlas coordinate, and its semantic purpose (ceiling, wall, baseboard, substrate, surface overlay, cables A–E, plant variants). Whenever the atlas changes, update the markdown and `tile_painter.gd` constants in one commit.
+
+**TilePainter contract:**
+
+```gdscript
+class_name TilePainter extends RefCounted
+func _init(tilemap: Object, seed_value: int = 42) -> void
+func paint_bay(bay_index: int) -> void   # paints ceiling, wall, baseboard, floor, cables for one bay
+func clear_bay(bay_index: int) -> void   # clears every layer in bay_index's x-range
+```
+
+The painter uses three TileMap layers:
+
+| Layer | Index | Contents |
+|---|---|---|
+| `_WALL_LAYER` | 0 | Ceiling row, wall fill, baseboard, substrate (bottom of every floor tile) |
+| `_CABLE_LAYER` | 1 | Hanging cable decor (rows 0-1) — transparent gaps let wall show through |
+| `_PLANT_LAYER` | 2 | Row-6 edge cap + row-7 grass/flower variants |
+
+Floor tiles use a **two-layer paired theme**: substrate `(7,5)` on `_WALL_LAYER` row 7 always, then `_PLANT_LAYER` paints either (a) bare edge cap `(7,4)` on row 6 — ~85% of tiles — or (b) `(4,4)` small plants on row 6 paired with a row-3 grass/flower variant on row 7 — ~15% of tiles. Pairing keeps the edge cap consistent with the surface (bare-edge above bare-substrate, or plants-edge above grass-surface). The row-6 edge cap's 16 black pixels render at world y=111, producing the horizontal black line at the top of the floor.
+
+The painter is a RefCounted helper, not a TileMap subclass. The TileMap node stays vanilla so a mockup tool or editor can paint cells without going through code. `TilePainter` is unit-testable by passing in any object with a `set_cell(layer, coords, source_id, atlas_coords)` method and a `get_layers_count()` / `add_layer()` pair — tests use a minimal stub, no scene tree required.
+
+### Reclamation plant sprites
+
+The growth system (see `growth-system.md`) attaches 8×8 plant sprites to servers as children. Source pixels are cropped from `tcp_tileset01.png` via `AtlasTexture.region`:
+
+```gdscript
+const REGIONS: Dictionary = {
+    &"moss":    Rect2(96, 32, 8, 8),    # top-left quarter of env_leaves
+    &"grass":   Rect2(112, 32, 8, 8),   # top-left of env_grass
+    &"blossom": Rect2(128, 32, 8, 8),   # top-left of env_blossoms_orange
+    &"flower":  Rect2(64, 32, 8, 8),    # top-left of env_flower_orange
+}
+```
+
+No new sprite files — the plant variants are all sub-regions of the existing atlas. Local sprite offset `(3, -6)` places the plant on the top edge of the host server without occluding the status strip real estate on the server's left 2px.
 
 ### Mod-specific sprites (reference only)
 
