@@ -23,7 +23,7 @@ These are hard constraints. Changing them requires a design review, not a PR.
 The HUM is a reservoir. A cat that has purred for 20 minutes has **charged** the reservoir; walking away to eat for 30 seconds must be free of consequence. The player must never feel that a cat standing up is a bad thing.
 
 - Single-cat, single-stand-up events are invisible at the HUD level.
-- Brownouts happen only when *most* cats stop purring *for a while* — a signal that something is genuinely wrong (loud PDU, cold room, kitten panic), never a signal that the player did something normal.
+- Brownouts happen only when *most* purring entities stop producing output *for a while* — a signal that something is genuinely wrong (loud PDU, cold room, kitten panic), never a signal that the player did something normal.
 - Reserve **recovers faster than it drains**. The visible "we're back" feedback lands within ~5 seconds of purring resuming.
 
 ### 2. Abundance over precarity

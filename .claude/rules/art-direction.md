@@ -100,7 +100,7 @@ Three zoom levels. Not four, not five.
 |---|---|---|---|---|
 | **Z0** | **Rack View** (default) | 1x (24px/U) | Full rack height, 5 racks wide. Individual animals as silhouettes. Can identify species and cat model. | 90% of play. |
 | **Z1** | **Drawer View** | 2x (48px/U) | Interior of one rack slot. Individual expressions readable. Kittens distinguishable. Status bar detail. | Checking on a specific spot. |
-| **Z2** | **Overview** | 0.5x (12px/U) | All 5 racks plus neighbors. Animals as colored dots with species-shape coding. Heat halo as color wash. Individual identity lost. | Assessing the whole datacenter. |
+| **Z2** | **Overview** | 0.5x (12px/U) | All 5 racks plus neighbors. Animals as colored dots with component-driven shape coding — species recipes declare silhouette shape via a `visual` component. Heat halo as color wash. Individual identity lost. | Assessing the whole datacenter. |
 
 **LOD strategy: separate sprites, not scale-and-filter.** Pixel art does not survive arbitrary scaling.
 - **Z0 sprites:** Full detail within 24px grid. This is where the art budget goes.
