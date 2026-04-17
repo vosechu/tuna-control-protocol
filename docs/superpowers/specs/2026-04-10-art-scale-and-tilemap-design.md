@@ -1,5 +1,10 @@
 # Art Scale and TileMap Integration
 
+> **Note (2026-04-16):** Identifiers referenced in this document may be superseded by
+> `2026-04-16-component-mindset-refactor-design.md`. `species_filter` was never
+> implemented in code and is removed from the schema. `cat_presence` → `reclamation`,
+> `cat_seconds` → `tended_seconds`, `is_purring` → `is_satisfied` per Stage 2 renames.
+
 > **Status:** design draft, 2026-04-10. Not yet implemented. Revised 2026-04-10 after team review (Mochi, Smudge, Bento, Bramble, Kibble, Pebble, Parcel).
 > **Motivation:** The new pixel art assets (`tcp_props_tilesets/`) ship at a different pixel scale than the game's current grid constants, and the environment asset is a 16×16 tileset atlas rather than individual tiles. The current rendering code loads the atlas as a single sprite and procedurally builds a Sprite2D per rack column, so the game renders the full tileset under every rack and the rack sprites come out at the wrong scale. This spec reconciles the grid to the art, sets up a proper Godot TileMap for the environment, and preserves existing gameplay (heat grid, nav graph, AI, tests) through the transition.
 

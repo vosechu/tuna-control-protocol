@@ -1,5 +1,10 @@
 # Purr-Power Ring 0 Design Spec
 
+> **Note (2026-04-16):** Identifiers referenced in this document may be superseded by
+> `2026-04-16-component-mindset-refactor-design.md`. `species_filter` was never
+> implemented in code and is removed from the schema. `cat_presence` → `reclamation`,
+> `cat_seconds` → `tended_seconds`, `is_purring` → `is_satisfied` per Stage 2 renames.
+
 > **Status:** brainstormed 2026-04-12. Team-reviewed x2 (Mochi, Bramble, Parcel, Rumble, Pebble, Willow, Noodle). Fixes folded. Ready for implementation planning.
 
 ---
