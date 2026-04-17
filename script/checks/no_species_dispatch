@@ -1,0 +1,58 @@
+#!/bin/bash
+# Flags species-name dispatch in engine/ and nodes/ code.
+# Species labels are display/save data only — never used for branching.
+# Reference: .claude/rules/modding.md + component-mindset-refactor spec.
+#
+# Usage: no_species_dispatch              (scan all relevant files)
+#        no_species_dispatch file1 file2  (scan specific files)
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+if [ $# -gt 0 ]; then
+  FILES=("$@")
+else
+  # bash 3 compatible (macOS ships bash 3.2 which lacks mapfile)
+  while IFS= read -r line; do
+    FILES+=("$line")
+  done < <(find engine nodes -name "*.gd" 2>/dev/null)
+fi
+
+FAIL=0
+
+# Pattern 1: String(*species*).contains("cat") or ("ferret")
+# Pattern 2: hardcoded &"tcp_cats:cat" / &"tcp_ferrets:ferret" outside string-literal contexts.
+# Heuristic: warn on any match; exemptions listed below.
+PATTERNS=(
+  'String\([^)]*species[^)]*\)\.contains\("cat"\)'
+  'String\([^)]*species[^)]*\)\.contains\("ferret"\)'
+  '&"tcp_cats:cat"'
+  '&"tcp_ferrets:ferret"'
+)
+
+for f in "${FILES[@]}"; do
+  [ -f "$f" ] || continue
+  # Skip test files
+  case "$f" in tests/*) continue;; esac
+  for pat in "${PATTERNS[@]}"; do
+    MATCHES=$(grep -nE "$pat" "$f" || true)
+    if [ -n "$MATCHES" ]; then
+      echo "FAIL: species dispatch found in $f:"
+      echo "$MATCHES"
+      FAIL=1
+    fi
+  done
+done
+
+if [ "$FAIL" -eq 1 ]; then
+  echo ""
+  echo "Species labels must not drive branching in engine/ or nodes/."
+  echo "Add a capability component to the species recipe instead."
+  echo "See component-mindset-refactor spec + .claude/rules/modding.md."
+  exit 1
+fi
+
+echo "no_species_dispatch: clean"
+exit 0

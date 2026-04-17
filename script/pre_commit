@@ -28,6 +28,11 @@ for check in "$CHECKS_DIR"/*; do
             [ -z "$CORE_GD" ] && continue
             echo "$CORE_GD" | xargs "$check"
             ;;
+        no_species_dispatch)
+            ENGINE_NODES_GD=$(echo "$STAGED_GD" | grep -E '^(engine|nodes)/' || true)
+            [ -z "$ENGINE_NODES_GD" ] && continue
+            echo "$ENGINE_NODES_GD" | xargs "$check"
+            ;;
         validate_json|json_snake_case_keys|entity_id_prefix)
             [ -z "$STAGED_JSON" ] && continue
             echo "$STAGED_JSON" | xargs "$check"
