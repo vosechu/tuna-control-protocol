@@ -2,12 +2,12 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: ed696684
-verified_at: 2026-04-12T16:02:44Z
+verified_at: 2026-04-17T00:49:45Z
 tests:
   test_status_voice_has_timestamp: 145784da
   test_first_person_voice_has_no_timestamp: ba8a088b
   test_brownout_attribution_never_names_cats: acc1f754
   test_brownout_cause_from_allowlist: 9b2f85ec
   test_first_pet_log: e35bff69
-  test_cat_departure_log: 6f2c3685
+  test_cat_departure_log: 13576caf
   test_batch_departure_log_when_multiple: 470cb49b

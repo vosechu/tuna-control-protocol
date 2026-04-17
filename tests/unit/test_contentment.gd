@@ -18,34 +18,34 @@ func _make_cat(desires: Dictionary) -> int:
 
 # ── Purring derivation ───────────────────────────────────────────────────────
 
-func test_cat_with_all_four_bars_above_threshold_is_purring():
+func test_cat_with_all_four_bars_above_threshold_is_satisfied():
 	var id: int = _make_cat({
 		&"warmth": 600, &"comfort": 600, &"hunger": 600, &"attention": 600,
 	})
 	_contentment.evaluate_all()
 	var comp: Dictionary = _db.get_component(id, &"contentment")
-	assert_eq(comp[&"is_purring"], 1,
-		"Cat with all 4 bars at 600 (above 400 threshold) should be purring")
+	assert_eq(comp[&"is_satisfied"], 1,
+		"Cat with all 4 bars at 600 (above 400 threshold) should be satisfied")
 
 
-func test_cat_with_three_bars_above_threshold_is_purring():
+func test_cat_with_three_bars_above_threshold_is_satisfied():
 	var id: int = _make_cat({
 		&"warmth": 600, &"comfort": 600, &"hunger": 600, &"attention": 100,
 	})
 	_contentment.evaluate_all()
 	var comp: Dictionary = _db.get_component(id, &"contentment")
-	assert_eq(comp[&"is_purring"], 1,
-		"Cat with 3 bars at 600 and 1 at 100 should be purring (3-of-4 rule)")
+	assert_eq(comp[&"is_satisfied"], 1,
+		"Cat with 3 bars at 600 and 1 at 100 should be satisfied (3-of-4 rule)")
 
 
-func test_cat_with_two_bars_above_threshold_not_purring():
+func test_cat_with_two_bars_above_threshold_not_satisfied():
 	var id: int = _make_cat({
 		&"warmth": 600, &"comfort": 600, &"hunger": 100, &"attention": 100,
 	})
 	_contentment.evaluate_all()
 	var comp: Dictionary = _db.get_component(id, &"contentment")
-	assert_eq(comp[&"is_purring"], 0,
-		"Cat with only 2 bars above threshold should not be purring")
+	assert_eq(comp[&"is_satisfied"], 0,
+		"Cat with only 2 bars above threshold should not be satisfied")
 
 
 func test_threshold_boundary_exactly_at_threshold_counts():
@@ -54,7 +54,7 @@ func test_threshold_boundary_exactly_at_threshold_counts():
 	})
 	_contentment.evaluate_all()
 	var comp: Dictionary = _db.get_component(id, &"contentment")
-	assert_eq(comp[&"is_purring"], 1,
+	assert_eq(comp[&"is_satisfied"], 1,
 		"Bars exactly at threshold (400) should count as met")
 
 
@@ -64,8 +64,8 @@ func test_threshold_boundary_one_below_threshold_fails():
 	})
 	_contentment.evaluate_all()
 	var comp: Dictionary = _db.get_component(id, &"contentment")
-	assert_eq(comp[&"is_purring"], 0,
-		"Two bars at 399 + one at 600 = only 1 met, should not be purring")
+	assert_eq(comp[&"is_satisfied"], 0,
+		"Two bars at 399 + one at 600 = only 1 met, should not be satisfied")
 
 
 func test_non_cat_entities_ignored():
@@ -83,5 +83,5 @@ func test_evaluate_sets_purr_count():
 	# One non-purring cat
 	_make_cat({&"warmth": 100, &"comfort": 100, &"hunger": 100, &"attention": 100})
 	_contentment.evaluate_all()
-	assert_eq(_contentment.get_purring_count(), 2,
-		"2 purring + 1 not purring should yield purring_count of 2")
+	assert_eq(_contentment.get_satisfied_count(), 2,
+		"2 satisfied + 1 not satisfied should yield satisfied_count of 2")

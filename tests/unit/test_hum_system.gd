@@ -157,8 +157,8 @@ func test_non_purring_cat_does_not_charge():
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 500)
 	_make_receiver(0, 5, 3)
 	var cat_id: int = _make_purring_cat(0, 4)
-	# Override is_purring to 0 (not purring)
-	_db.set_field(cat_id, &"contentment", &"is_purring", 0)
+	# Override is_satisfied to 0 (not satisfied)
+	_db.set_field(cat_id, &"contentment", &"is_satisfied", 0)
 	_hum.tick_charge()
 	assert_eq(_hum.get_reserve(), 500,
 		"Non-purring cat should not charge the HUM")
@@ -216,7 +216,7 @@ func _make_purring_cat(rack: int, slot: int) -> int:
 	var x: int = rack * Constants.RACK_WIDTH_PU
 	var y: int = slot * Constants.SLOT_HEIGHT_PU
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"contentment", {&"is_purring": 1})
+	_db.set_component(id, &"contentment", {&"is_satisfied": 1})
 	_db.set_component(id, &"species", {&"id": &"tcp_cats:cat", &"variant": &"cat01", &"name": &"Test"})
 	_db.update_spatial(id, x, y)
 	return id

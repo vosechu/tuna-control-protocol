@@ -95,7 +95,7 @@ func test_contented_cat_near_receiver_charges_hum() -> void:
 	# Drain reserve to a known value so we can measure charge
 	_db.set_field(HumSystem.FACILITY_ID, &"hum", &"reserve", 500)
 	_run_tick()
-	# After tick: contentment sets is_purring=1, tick_charge finds it near receiver, charges
+	# After tick: contentment sets is_satisfied=1, tick_charge finds it near receiver, charges
 	# drain_idle also runs, but charge should exceed idle drain
 	assert_gt(_hum.get_reserve(), 500,
 		"Contented cat near receiver should net-charge the HUM")

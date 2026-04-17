@@ -19,10 +19,10 @@ signal hum_brownout_entered()
 signal hum_brownout_recovered()
 
 # Food loop
-signal cat_started_pacing(animal_id: int)
+signal creature_started_pacing(animal_id: int)
 signal food_dispensed(can_id: int)
 signal can_opened(can_id: int)
-signal cat_petted(animal_id: int)
+signal creature_petted(animal_id: int)
 signal box_squeaked(box_id: int)
 
 # Plant growth

@@ -2,12 +2,12 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: 2e2ee36e
-verified_at: 2026-04-14T23:36:01Z
+verified_at: 2026-04-17T00:47:21Z
 tests:
-  test_cat_with_all_four_bars_above_threshold_is_purring: de4f9b96
-  test_cat_with_three_bars_above_threshold_is_purring: 5bbda19d
-  test_cat_with_two_bars_above_threshold_not_purring: 9a454f68
-  test_threshold_boundary_exactly_at_threshold_counts: 32250abc
-  test_threshold_boundary_one_below_threshold_fails: 5cc0565f
+  test_cat_with_all_four_bars_above_threshold_is_satisfied: c82f28c5
+  test_cat_with_three_bars_above_threshold_is_satisfied: d2995a90
+  test_cat_with_two_bars_above_threshold_not_satisfied: fb4f0d6b
+  test_threshold_boundary_exactly_at_threshold_counts: 19985b9c
+  test_threshold_boundary_one_below_threshold_fails: 8ccf419a
   test_non_cat_entities_ignored: 68251f93
-  test_evaluate_sets_purr_count: edc8f2d0
+  test_evaluate_sets_purr_count: 88f929f3

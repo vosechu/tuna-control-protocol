@@ -15,7 +15,7 @@ const EXPECTED_ORDER: Array[String] = [
 	"_move_animals",
 	"food_system.tick_arms",
 	"food_system.tick_cleanup",
-	"cat_presence_system.tick",
+	"reclamation_system.tick",
 	"plant_growth_system.tick",
 	"_update_ambient_states",
 	"db.flush_notifications",
