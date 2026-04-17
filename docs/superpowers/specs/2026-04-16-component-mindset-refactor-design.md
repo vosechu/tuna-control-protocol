@@ -153,7 +153,7 @@ Mandatory fields for a species recipe after Stage 1:
 - `hud_color`: `[r, g, b]` array
 - `traversal`: Array of traversal capability names
 
-Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `animations.required/optional`, `tends_servers`, any other narrow capability tag.
+Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `tends_servers`, any other narrow capability tag.
 
 ### 1.11 Commit discipline inside Stage 1
 Each Stage 1 sub-item's commit **must** update every species recipe in `mods/tcp_*/species/` in the same commit, not just engine code. Otherwise landing 1.1 without updating `ferret.jsonc` boots the game but crashes ferrets the first time they animate. This overrides the general "one commit per fix" principle: a recipe-field-adding commit is a coordinated change across engine + all mods.
