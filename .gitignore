@@ -28,3 +28,6 @@ Thumbs.db
 .claude/worktrees/
 .claude/tool_events.log
 .env
+
+# Superpowers brainstorm visual companion
+.superpowers/
