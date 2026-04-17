@@ -9,11 +9,11 @@ const OBJECT_CONFIG: Dictionary = {
 		&"state_ads": {
 			&"sealed": [{
 				&"desire_type": &"openable", &"strength": 800,
-				&"radius_ru": 3, &"action": &"open", &"action_duration": 30,
+				&"radius_ru": 3, &"action": &"open",
 			}],
 			&"open": [{
 				&"desire_type": &"food", &"strength": 800,
-				&"radius_ru": 5, &"action": &"eat", &"action_duration": 50,
+				&"radius_ru": 5, &"action": &"eat",
 			}],
 			&"empty": [],
 		},
@@ -23,12 +23,12 @@ const OBJECT_CONFIG: Dictionary = {
 			&"new": [
 				{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4},
 				{&"desire_type": &"curiosity", &"strength": 500,
-					&"radius_ru": 5, &"action": &"shred", &"action_duration": 20},
+					&"radius_ru": 5, &"action": &"shred"},
 			],
 			&"worn": [
 				{&"desire_type": &"comfort", &"strength": 400, &"radius_ru": 3},
 				{&"desire_type": &"curiosity", &"strength": 300,
-					&"radius_ru": 4, &"action": &"shred", &"action_duration": 20},
+					&"radius_ru": 4, &"action": &"shred"},
 			],
 			&"scraps": [
 				{&"desire_type": &"comfort", &"strength": 600, &"radius_ru": 3},

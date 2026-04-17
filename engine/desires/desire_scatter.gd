@@ -3,7 +3,9 @@ class_name DesireScatter extends RefCounted
 # Scatters satisfaction from nearby object advertisements to animals.
 # For each animal, finds the best (strongest) ad per desire type within
 # range and applies that satisfaction using diminishing returns.
-# Action-only ads are skipped — their benefit comes from PERFORMING.
+# Ads tagged with `action` are skipped — those satisfaction channels
+# require an active consumer (PACING/EATING state loop, arm tick, etc.)
+# rather than passive proximity. See .claude/rules/objects.md.
 
 var _db: GameStateDB
 
@@ -13,9 +15,9 @@ func _init(db: GameStateDB) -> void:
 
 
 # For each entity with desires, find nearby advertisements and apply
-# the best satisfaction per desire type.  Skips ads that have an action
-# field (those require PERFORMING).  Only affects desire types the
-# entity actually has.
+# the best satisfaction per desire type.  Skips ads that have an
+# `action` field (those are consumed by an active state loop, not
+# passively).  Only affects desire types the entity actually has.
 func scatter_from_ads() -> void:
 	var animals: Array[int] = _db.get_entities_with(&"desires")
 	for entity_id: int in animals:
