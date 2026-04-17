@@ -45,19 +45,29 @@ func apply(scenario_id: StringName) -> void:
 
 
 func _overrides_for(entry: Dictionary) -> Dictionary:
-	# AI-DEV: placement keys (rack/slot/floor_*) are not yet consumed by
-	# EntityDefRegistry.spawn() — it only reads overrides[&"position"]/&"name"/
-	# &"desires" today. Phase 0 Tasks 5 and 9 wire the translation. Until
-	# then, these fields ride through spawn() and get dropped silently.
+	# Translate scenario placement keys into a &"position" override that
+	# EntityDefRegistry.spawn() already consumes. Phase 0 uses bay index 0
+	# for all entities; cross-bay scenarios can add a `bay` field later.
+	#
+	# Rack placement: (rack, slot) → rack_slot_to_pu center.
+	# Floor placement: (floor_rack, floor_slot_offset) → rack X center,
+	# Y midway through the floor strip. Matches game_server.gd:615's
+	# FLOOR_Y_PU + FLOOR_HEIGHT_PU/2 pattern.
 	var out: Dictionary = {}
-	if entry.has("rack"):
-		out["rack"] = entry["rack"]
-	if entry.has("slot"):
-		out["slot"] = entry["slot"]
-	if entry.has("floor_rack"):
-		out["floor_rack"] = entry["floor_rack"]
-	if entry.has("floor_slot_offset"):
-		out["floor_slot_offset"] = entry["floor_slot_offset"]
-	if entry.has("dispenser_ref"):
-		out["dispenser_ref"] = entry["dispenser_ref"]
+	if entry.has("rack") and entry.has("slot"):
+		var rack: int = int(entry["rack"])
+		var slot: int = int(entry["slot"])
+		var pu: Vector2i = Constants.rack_slot_to_pu(0, rack, slot)
+		out[&"position"] = {&"x": pu.x, &"y": pu.y}
+	elif entry.has("floor_rack"):
+		var floor_rack: int = int(entry["floor_rack"])
+		var floor_x: int = Constants.rack_slot_to_pu(0, floor_rack, 0).x
+		var floor_y: int = (
+			Constants.FLOOR_Y * Constants.POSITION_SCALE
+			+ Constants.FLOOR_HEIGHT_PU / 2
+		)
+		out[&"position"] = {&"x": floor_x, &"y": floor_y}
+	# dispenser_ref left unconsumed for now — tuna_button/dispenser wiring
+	# is handled by game_server.place_object today; scenario-time resolution
+	# is a later-phase concern.
 	return out

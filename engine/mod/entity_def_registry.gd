@@ -174,7 +174,24 @@ func spawn(
 			&"r": float(c[0]), &"g": float(c[1]), &"b": float(c[2]),
 		})
 
+	# Object-component projections: recipe-level dicts for known object
+	# component names are promoted directly onto the entity. Keys are
+	# rewritten to StringName so the hot path can use get_field()/set_field()
+	# with StringName dict keys.
+	for comp_name: StringName in [
+		&"hum_receiver",
+		&"arm",
+		&"tuna_dispenser",
+		&"tuna_button",
+		&"heat_source",
+	]:
+		var comp_str: String = String(comp_name)
+		if def.has(comp_str):
+			var data: Dictionary = def[comp_str]
+			db.set_component(id, comp_name, _to_stringname_keys(data))
+
 	# State-driven advertisements (set for initial state)
+	var state_ads_set: bool = false
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)
 		var states: Dictionary = def["states"]
@@ -186,5 +203,28 @@ func spawn(
 				db.set_component(
 					id, &"advertisements", {&"list": ads},
 				)
+				state_ads_set = true
+
+	# Top-level advertisements (for stateless objects like dispensers).
+	# Skip if the state-driven path already set them.
+	if not state_ads_set and def.has("advertisements"):
+		var top_ads: Array = def["advertisements"]
+		if not top_ads.is_empty():
+			var typed_list: Array = []
+			for ad: Dictionary in top_ads:
+				typed_list.append(_to_stringname_keys(ad))
+			db.set_component(
+				id, &"advertisements", {&"list": typed_list},
+			)
 
 	return id
+
+
+# Convert a Dictionary with String keys to the same Dictionary with
+# StringName keys. Values passed through unchanged. Needed because JSONC
+# parsing produces String keys but the component hot paths use StringName.
+func _to_stringname_keys(d: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key in d:
+		out[StringName(key)] = d[key]
+	return out

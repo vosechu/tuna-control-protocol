@@ -24,7 +24,9 @@ func initialize(db: GameStateDB, camera: Camera2D) -> void:
 
 
 func _build_panels() -> void:
-	_animal_ids = _db.get_entities_with(&"species")
+	# sprite_config filter excludes objects that now carry species (e.g.
+	# scenario-spawned hum_device) — only sprite-bearing entities get a panel.
+	_animal_ids = _db.get_entities_with(&"sprite_config")
 	for entity_id: int in _animal_ids:
 		var panel := _create_panel(entity_id)
 		add_child(panel)

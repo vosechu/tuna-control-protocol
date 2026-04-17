@@ -15,8 +15,13 @@ var food_system: FoodSystem
 var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
 var entity_defs: EntityDefRegistry
+var scenarios: ScenarioRegistry
+var world_init: WorldInitSystem
 var _mod_loader := ModLoader.new()
 var _verb_resolver := VerbResolver.new()
+# AI-DEV: Phase 0 in-memory guard — prevents re-applying the starter
+# scenario mid-session. A save-aware flag (save meta) is Phase 1+ scope.
+var _starter_applied: bool = false
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
 var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
@@ -36,6 +41,8 @@ func _ready() -> void:
 		"res://mods/",
 	)
 	entity_defs = mod_result["entity_defs"]
+	scenarios = mod_result["scenarios"]
+	world_init = WorldInitSystem.new(db, entity_defs, scenarios)
 	heat_grid = HeatGrid.new(db)
 	contentment = Contentment.new(db)
 	hum_system = HumSystem.new(db, Events)
@@ -581,35 +588,14 @@ func remove_object(entity_id: int) -> void:
 
 
 func _spawn_starter_entities() -> void:
-	# Pre-placed server at rack 1, slot 8 (bottom of rack, right above floor, near Mochi)
-	var server: int = db.create_entity()
-	var server_pos: Vector2i = Constants.rack_slot_to_pu(0, 1, 8)
-	var server_x: int = server_pos.x
-	var server_y: int = server_pos.y
-	db.set_component(server, &"position", {&"x": server_x, &"y": server_y})
-	db.set_component(server, &"heat_source", {&"value": 1000, &"radius_ru": 5})
-	db.set_component(server, &"advertisements", {&"list": [
-		{&"desire_type": &"warmth", &"strength": 800, &"radius_ru": 8, &"max_occupants": 1}
-	]})
-	db.set_component(server, &"hum_receiver", {&"radius_ru": 5})
-	db.set_component(
-		server, &"object_type", {&"type": &"server_1u"}
-	)
-	db.update_spatial(server, server_x, server_y)
-
-	# Pre-placed cardboard box in rack 0, slot 8 (2U tall)
-	var box: int = db.create_entity()
-	var box_pos: Vector2i = Constants.rack_slot_to_pu(0, 0, 8)
-	var box_x: int = box_pos.x
-	var box_y: int = box_pos.y
-	db.set_component(box, &"position", {&"x": box_x, &"y": box_y})
-	db.set_component(box, &"advertisements", {&"list": [
-		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4, &"max_occupants": 1}
-	]})
-	db.set_component(
-		box, &"object_type", {&"type": &"cardboard_box"}
-	)
-	db.update_spatial(box, box_x, box_y)
+	# Scenario-driven world init — populates the Phase 0 starter bay
+	# (HUM device, TUNA dispenser + button, ARM) from the tcp_base:starter
+	# scenario JSONC. Guarded against re-entry by _starter_applied so a
+	# second _ready (e.g. test re-use) won't double-spawn.
+	if not _starter_applied:
+		world_init.apply(&"tcp_base:starter")
+		_starter_applied = true
+		# TODO Phase 2: emit a robot_log signal once Events grows one.
 
 	# Starter-entity spawn — driven by each loaded species recipe's `starters` array.
 	var floor_y: int = FLOOR_Y_PU + Constants.FLOOR_HEIGHT_PU / 2

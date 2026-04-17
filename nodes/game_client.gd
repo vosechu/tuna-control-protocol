@@ -263,8 +263,11 @@ func _setup_sound_manager() -> void:
 
 func _spawn_animal_nodes() -> void:
 	var db: GameStateDB = game_server.db
+	# Filter by sprite_config — objects (hum_device, arm, etc.) now carry
+	# a species component from EntityDefRegistry.spawn() but have no
+	# sprite_config. Only sprite-bearing entities get an AnimalNode.
 	var animals: Array[int] = db.get_entities_with(
-		&"species"
+		&"sprite_config"
 	)
 	for entity_id: int in animals:
 		var node: Node2D = _ANIMAL_SCENE.instantiate()
