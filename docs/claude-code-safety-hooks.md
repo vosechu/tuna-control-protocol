@@ -1,22 +1,20 @@
-# Local Auto-Mode for Claude Code
+# Claude Code Safety Hooks
 
-**Status:** Implemented and dogfooding
-**Last updated:** 2026-04-07
-
-A self-contained recipe for getting Anthropic's "auto mode" UX on Claude Code Pro/Max without a Team seat. Copy this spec into any repo that has Claude Code, bash, and `jq`, follow the installation steps, and you get hands-off execution for boring tool calls plus hard blocks on destructive ones.
+A self-contained recipe for deterministic, auditable safety rules on Claude Code tool calls. Copy the five files below into any repo that has Claude Code, `bash`, and `jq`, and you get three layers of defense (hard-deny, fast-path allow, regex classifier) plus an append-only audit log. ~5 minutes to install.
 
 ---
 
 ## What this is
 
-Anthropic's Auto Mode (launched 2026-03-24) uses a Sonnet 4.6 classifier to auto-approve low-risk tool calls and block destructive ones. It's gated to Team and Enterprise plans. Pro/Max users have two bad options:
+Claude Code's built-in Auto Mode (Sonnet 4.6 classifier, server-side) auto-approves low-risk tool calls and blocks destructive ones. It's great — but:
 
-- **Default mode:** approval prompt on every tool call. Kills flow during plan execution.
-- **`--dangerously-skip-permissions`:** no guardrails. One hallucinated path in an `rm -rf` and the repo is gone.
+- **Pro users don't have it.** Only Max, Team, and Enterprise plans get Auto Mode.
+- **Even with Auto Mode, you may want deterministic rules** that don't depend on an LLM's judgment — hard-deny `git push`, secret writes, recursive deletions outside known-safe zones.
+- **Auto Mode has no audit log.** You can't ask "what commands did the agent run this week, and which ones got blocked?"
 
-This spec describes a middle ground that runs entirely in the local `.claude/` directory: three layers of defense (settings-based deny, settings-based allow, regex classifier hook) plus an audit log for review. No LLM calls, no network, no token cost, no paid add-ons.
+This spec describes a local, layered guardrail that runs entirely in your repo's `.claude/` directory. No network calls, no token cost. It stacks *alongside* Auto Mode (Auto Mode and local hooks both run — deny from either wins) or replaces it entirely on Pro.
 
-It is not as smart as Anthropic's classifier. It is aiming for ~80% of the UX for the hallucinating-agent threat model, not adversarial security.
+It's not as smart as a trained classifier. It's aiming for ~80% of the UX for the hallucinating-agent threat model, not adversarial security.
 
 ---
 
@@ -42,13 +40,15 @@ tool call
      ▼
 ┌───────────────────────────────┐
 │ Layer 2: regex classifier     │   script/hooks/classify (PreToolUse)
-│   bash + grep, ~single-digit  │   patterns Layer 0 globs can't express
+│   bash + grep, single-digit   │   patterns Layer 0 globs can't express
 │   ms in practice              │
 └────┬──────────────────────────┘
      │ no block
      ▼
   Claude Code prompts the user
-  (or proceeds if allowlisted)
+  (or proceeds if allowlisted,
+   or auto-approves via Auto Mode
+   if you're on Max/Team/Enterprise)
      │
      ▼
 ┌───────────────────────────────┐
@@ -60,11 +60,19 @@ tool call
 ### Why layered
 
 - **Layer 0 is absolute.** A small set of destructive patterns are always denied with no override path. Globs are coarse but evaluate in microseconds and can never be bypassed by the hook layer.
-- **Layer 1 is the fast path.** A finite set of commands the agent runs constantly (tests, linters, safe git, read-only shell utilities) are allowlisted — zero-latency, zero-overhead, no hook invocation.
+- **Layer 1 is the fast path.** A finite set of commands the agent runs constantly (read-only git, shell utilities, your test runner) are allowlisted — zero-latency, zero-overhead, no hook invocation.
 - **Layer 2 catches structure Layer 0 can't express.** Globs can't say "rm -rf is fine inside these safe zones but nowhere else" or "git stash at command start but not as data in a commit message body." The regex hook can.
-- **The audit log observes all four states** (auto-approved, classifier-blocked, user-approved, user-denied) so you can review what's actually happening and tune the allowlist over time. This replaces a Haiku-in-hot-path classifier that an earlier iteration of this design considered.
+- **The audit log observes all four states** (auto-approved, classifier-blocked, user-approved, user-denied) so you can review what's actually happening and tune the allowlist over time.
 
-### What the audit log captures and why
+### Relationship to Auto Mode
+
+Auto Mode and local hooks are independent. Both run on every tool call. A deny from either one blocks the call. A deny from Layer 0 is invisible to Auto Mode (Claude Code never dispatches the call); a deny from Layer 2 stops the call after Auto Mode's classifier already looked at it. This means:
+
+- If you're on Pro: local hooks are your whole safety net.
+- If you're on Max/Team/Enterprise: Auto Mode handles the fuzzy cases, and your local rules give you sharp edges for the things you want absolutely blocked regardless of what a classifier might decide.
+- Layer 1 (`permissions.allow`) short-circuits before either runs, so your known-safe commands stay silent even when Auto Mode is active.
+
+### What the audit log captures
 
 `.claude/tool_events.log` records one event per hook invocation. Each line is TSV:
 
@@ -73,17 +81,17 @@ ts \t event \t tool_use_id \t tool \t reason \t command
 ```
 
 - `event` is one of `pre_allow`, `pre_deny`, `post_success`, `post_failure`.
-- `tool_use_id` joins pre and post events for the same tool call, so a reader can derive canonical outcomes.
-- `command` is the full command text (or file path), placed *last* so newlines/tabs inside it can't shift column boundaries. Both `reason` and `command` are sanitized: `\\` → `\\\\`, tab → `\t`, CR → `\r`, LF → `\n`.
+- `tool_use_id` joins pre and post events for the same tool call.
+- `command` is the full command text (or file path), placed *last* so newlines/tabs inside it can't shift column boundaries. Both `reason` and `command` are sanitized: `\` → `\\`, tab → `\t`, CR → `\r`, LF → `\n`.
 
-The log is write-only and stateless — hooks never read it. Aggregation happens at read time with whatever cardinality grouping you want. A week of real use gives you the data to decide which commands belong in Layer 1.
+The log is write-only and stateless — hooks never read it. Aggregation happens at read time with whatever cardinality grouping you want.
 
-Canonical outcome derivation from the raw log, per `tool_use_id`:
+Canonical outcome derivation, per `tool_use_id`:
 
 | Event sequence | Derived metric |
 |---|---|
 | `pre_deny` alone | `<cmd>/deniedByRegex` |
-| `pre_allow` → `post_success` | `<cmd>/approved` (auto or user — not distinguishable without wiring `PermissionRequest`) |
+| `pre_allow` → `post_success` | `<cmd>/approved` (auto-approved by Auto Mode, user-approved, or Layer 1 allowlisted — not distinguishable without wiring `PermissionRequest`) |
 | `pre_allow` → `post_failure` | `<cmd>/approvedFailed` |
 | `pre_allow` → (nothing) | `<cmd>/deniedByUser` (best-effort; could also mean session ended) |
 | (no events) | Invisible: Layer 0 denies don't fire any hook. |
@@ -92,40 +100,38 @@ Canonical outcome derivation from the raw log, per `tool_use_id`:
 
 ## Prerequisites
 
-- Claude Code (Pro, Max, Team, or Enterprise — this spec is aimed at Pro/Max because the other tiers already have Auto Mode).
+- Claude Code (any tier).
 - `bash` ≥ 3.2 (macOS default is fine).
 - `jq` on `PATH`.
-- A git repo you want to run Claude Code in.
+- A git repo.
 
-Verify the prerequisites before starting:
+Verify:
 
 ```bash
-bash --version | head -1           # expect: bash ≥ 3.2
+bash --version | head -1
 command -v jq >/dev/null && jq --version \
   || { echo "install jq: brew install jq (macOS) or apt install jq (Linux)"; exit 1; }
 ```
-
-No Godot, GDScript, or project-specific tooling is required. The portable core (deny/allow/classify/log) is language-agnostic.
 
 ---
 
 ## Installation
 
-Five steps. Do them in order. The whole install takes about five minutes.
+Five steps. Do them in order. Whole install takes about five minutes.
 
 ### 1. Create `script/hooks/classify` (Layer 2)
 
-First, create the hook directory if it doesn't exist:
+First, make the hook directory:
 
 ```bash
 mkdir -p script/hooks
 ```
 
-Then write the regex classifier. It's a single bash script, entirely portable, ~110 lines. No repo-specific paths.
+Then write the regex classifier. Portable, ~110 lines. No repo-specific paths.
 
 ```bash
 #!/usr/bin/env bash
-# PreToolUse classifier — local Auto mode, regex layer.
+# PreToolUse classifier — local safety rules, regex layer.
 # stdin: JSON {session_id, tool_name, tool_input, tool_use_id, cwd, ...}
 # exit 0 = allow, exit 2 = block (stderr fed back to Claude).
 # Also appends one event line per invocation to .claude/tool_events.log.
@@ -194,11 +200,11 @@ case "$tool:$cmd" in
     if grep -qE 'rm -rf (~|\$HOME)(/|$|[[:space:]])' <<<"$cmd"; then
       block "rm -rf of home directory"
     fi
-    # Safe zones: let the classifier pass. Claude Code still prompts
-    # because Layer 1 has no rm allow entries — that's the desired UX
-    # for destructive ops (user confirms).
-    if ! grep -qE 'rm -rf (\.claude/worktrees/|/tmp/|tmp/|build/|dist/|\.godot/)' <<<"$cmd"; then
-      block "recursive delete outside safe zones (.claude/worktrees/, /tmp/, tmp/, build/, dist/, .godot/)"
+    # Safe zones: recursive delete reaches Claude Code for a user-approval
+    # prompt. Customize this list for your repo's layout. The defaults are
+    # generic enough to work for most projects.
+    if ! grep -qE 'rm -rf (/tmp/|tmp/|build/|dist/|target/|node_modules/|\.claude/worktrees/)' <<<"$cmd"; then
+      block "recursive delete outside safe zones (/tmp/, tmp/, build/, dist/, target/, node_modules/, .claude/worktrees/)"
     fi
     ;;
 
@@ -242,17 +248,17 @@ Make it executable:
 chmod +x script/hooks/classify
 ```
 
-**What you may want to customize:** the safe-zone carve-out inside the `Bash:*"rm -rf"*)` case (the `grep -qE 'rm -rf (\.claude/worktrees/|/tmp/|tmp/|build/|dist/|\.godot/)'` line) lists directory prefixes where `rm -rf` is allowed to reach Claude Code for a user approval prompt. Adjust for your repo's layout — e.g., drop `.godot/` if you're not using Godot, add your own build artifact directories.
+**Customize:** the safe-zone carve-out inside the `Bash:*"rm -rf"*)` case lists directory prefixes where recursive delete is allowed to reach Claude Code for approval. Defaults cover generic patterns (`/tmp/`, `tmp/`, `build/`, `dist/`, `target/`, `node_modules/`, `.claude/worktrees/`). Add your project's build-output dirs if missing.
 
-Everything else in this file is portable across repos. The destructive patterns (sudo, curl|sh, git push/stash/checkout/reset/clean, rm -rf of system dirs, secret writes) are threat-model invariants.
+Everything else is threat-model-invariant and portable across repos.
 
 ### 2. Create `script/hooks/log-result` (audit log for post events)
 
-Complementary logger for `PostToolUse` and `PostToolUseFailure` hooks. Records which tool calls actually ran, distinguishing success from failure. Observability-only — exits 0 unconditionally so it can never block.
+Complementary logger for `PostToolUse` and `PostToolUseFailure` hooks. Observability-only — exits 0 unconditionally so it can never block.
 
 ```bash
 #!/usr/bin/env bash
-# PostToolUse / PostToolUseFailure logger for auto-mode audit trail.
+# PostToolUse / PostToolUseFailure logger for the safety-hooks audit trail.
 # Appends one event line to .claude/tool_events.log per tool outcome.
 # stdin: JSON {session_id, tool_name, tool_input, tool_use_id, cwd,
 #              tool_response?, error?, hook_event_name, ...}
@@ -304,17 +310,15 @@ Make it executable:
 chmod +x script/hooks/log-result
 ```
 
-This file is fully portable — no customization expected.
+Fully portable — no customization expected.
 
 ### 3. Create `.claude/settings.json` (Layers 0, 1, hook wiring)
 
-This is the main configuration. The structure is:
+Main configuration. Structure:
 
-- `permissions.deny` — hard blocks, always evaluated first
+- `permissions.deny` — hard blocks, evaluated first
 - `permissions.allow` — silent approvals
 - `hooks` — wire the two scripts above to the right event types
-
-Minimal portable version (customize the allow list for your repo):
 
 ```json
 {
@@ -366,7 +370,6 @@ Minimal portable version (customize the allow list for your repo):
 
       "Write(**/.env)",
       "Write(**/.env.*)",
-      "Write(**/export_credentials.cfg)",
       "Write(~/.ssh/**)",
       "Write(**/.ssh/**)",
       "Write(~/.aws/**)",
@@ -427,52 +430,35 @@ Minimal portable version (customize the allow list for your repo):
 }
 ```
 
-**Notes on the deny list (all portable):**
+**Notes on the deny list:**
 
 - **`git push`, `git checkout`, `git reset --hard`, `git clean -f*`** — destructive git ops that touch shared state or local working tree. Run manually via the `!` prefix when needed.
-- **`git stash` destructive subcommands** — enumerated individually so `git stash list` and `git stash show` can be allowlisted. The bare `git stash` (which defaults to `push`) is denied.
-- **`rm -rf` system directory list** — replaces the naive `rm -rf /*` glob, which would block `/tmp/foo` as well as `/etc/foo`. The enumerated list catches every macOS and Linux top-level system dir explicitly, letting `/tmp`, `/private/tmp`, and project-relative `tmp/` fall through to the classifier.
+- **`git stash` destructive subcommands** — enumerated individually so `git stash list` and `git stash show` can be allowlisted.
+- **`rm -rf` system directory list** — replaces the naive `rm -rf /*` glob, which would block `/tmp/foo` as well as `/etc/foo`. The enumerated list catches every macOS and Linux top-level system dir explicitly.
 - **`rm -rf ~*`** — catches `rm -rf ~`, `rm -rf ~/foo`, `rm -rf ~/Library`, etc.
 - **`sudo *`, `brew install *`, `npm install -g *`, `pip install *`** — anything that modifies system state outside the repo.
 - **`curl`, `curl *`, `wget`, `wget *`** — denied outright. Network fetches go through `WebFetch` which is allowlisted and safer (no pipe-to-shell risk).
-- **Secret-file writes** — `.env`, `.ssh/`, `.aws/`, `export_credentials.cfg`. Both home-relative (`~/`) and cwd-relative (`**/`) forms because gitignore path rules are scope-specific.
+- **Secret-file writes** — `.env`, `.ssh/`, `.aws/`. Both home-relative (`~/`) and cwd-relative (`**/`) forms because path rules are scope-specific.
 
 **Notes on the allow list:**
 
 - **Top-level tools (`Read`, `Grep`, `Glob`, `Edit`, `Write`, `WebSearch`, `WebFetch`)** — blanket allowed. `Write` and `Edit` are still denied for secret paths via the deny list (deny > allow).
 - **Read-only git operations** — status, diff, log, show, branch, blame, ls-files, worktree list, rev-parse, switch.
 - **`git stash list` and `git stash show *`** — the only stash subcommands that don't modify state.
-- **`/tmp/` and `tmp/` non-destructive ops** — `mkdir`, `touch`, `mv`, `cp`, `cat`, `ls`. No `rm` entries — destructive ops on /tmp stay promptable.
+- **`/tmp/` and `tmp/` non-destructive ops** — `mkdir`, `touch`, `mv`, `cp`, `cat`, `ls`. No `rm` entries.
 - **Basic shell utilities** — `ls`, `pwd`, `file`, `wc`, `jq`.
 
-**What you should customize for your repo:** add your project's test runners, linters, and build scripts to the allow list. For example, a TCP (Godot) setup adds:
-
-```json
-"Bash(script/validate)", "Bash(script/validate *)",
-"Bash(script/checks/gut_tests)", "Bash(script/checks/gut_tests *)",
-"Bash(/Applications/Godot.app/Contents/MacOS/godot --headless --import)",
-"Bash(gdlint *)",
-```
-
-A Python project might add:
-
-```json
-"Bash(pytest)", "Bash(pytest *)",
-"Bash(ruff *)", "Bash(mypy *)",
-"Bash(python -m *)",
-```
-
-The principle: if the agent runs a command dozens of times per session and it's read-only or hermetic, allowlist it. Use the audit log (below) to find the top candidates after a week of use.
+**Customize for your project:** add your test runners, linters, and build scripts to the allow list. The principle: if the agent runs a command dozens of times per session and it's read-only or hermetic, allowlist it. Use the audit log (below) to find the top candidates after a week of use.
 
 ### 4. Add to `.gitignore`
 
-The audit log shouldn't be committed.
+The audit log shouldn't be committed:
 
 ```
 .claude/tool_events.log
 ```
 
-Add to your existing `.gitignore`.
+Also consider adding `.claude/settings.local.json` if you plan to keep per-user overrides separate from the committed `.claude/settings.json`.
 
 ### 5. Start (or restart) Claude Code
 
@@ -495,11 +481,10 @@ cd .claude/worktrees/hook-test
 claude --continue    # or: claude, for a fresh session
 ```
 
-Then inside the Claude session, ask the agent to run each of these commands and verify the expected behavior:
+Then inside the Claude session, ask the agent to run each command and verify:
 
 | Command | Expected |
 |---|---|
-| `script/validate` (or any allowlisted command) | Silent, no prompt |
 | `git status` | Silent, no prompt |
 | `mkdir -p /tmp/scratch` | Silent, no prompt |
 | `touch tmp/foo.log` | Silent, no prompt |
@@ -509,7 +494,7 @@ Then inside the Claude session, ask the agent to run each of these commands and 
 | `rm -rf /etc/foo` | Hard-blocked by Layer 0 or Layer 2 |
 | `rm -rf /` | Hard-blocked |
 | `rm -rf ~/foo` | Hard-blocked |
-| `rm -rf mods/` (any non-safe-zone path) | Blocked by Layer 2 as "outside safe zones" |
+| `rm -rf some-project-dir/` (non-safe-zone) | Blocked by Layer 2 as "outside safe zones" |
 | `rm -rf /tmp/foo` | Prompts for approval (not hard-blocked, not auto-approved) |
 | `rm -rf tmp/foo` | Prompts for approval |
 | `rm -rf .claude/worktrees/stale` | Prompts for approval (safe zone carve-out) |
@@ -523,7 +508,7 @@ Check the audit log fills in:
 tail -20 .claude/tool_events.log
 ```
 
-You should see `pre_allow` and `pre_deny` lines with matching `post_success` lines for the commands that ran.
+Expect `pre_allow` and `pre_deny` lines with matching `post_success` lines for the commands that ran.
 
 Tear down the worktree:
 
@@ -557,7 +542,7 @@ awk -F'\t' '$2 == "pre_allow" {print $6}' .claude/tool_events.log \
 
 The raw log preserves the full command text on purpose, so you can re-aggregate at different cardinalities depending on what question you're asking. `rm`, `rm -rf`, `rm -rf /`, `rm -rf /tmp`, and `rm -rf /etc` are materially different and shouldn't be collapsed to one bucket by default.
 
-A report tool (not included in this spec — build it when you have data to justify it) would take a cardinality flag like:
+A report tool (build it when you have data to justify it) would take a cardinality flag like:
 
 - `--keys="rm,git,gh"` — collapse all `rm *` into one bucket (low cardinality)
 - `--keys="rm -*,git *,gh * *"` — distinguish `rm` vs `rm -rf`, `git push` vs `git status` (medium)
@@ -581,9 +566,9 @@ The allowlist converges fast. A few weeks of use and the prompt rate is near-zer
 
 ## Optional: a project validator hook
 
-If your repo has a validator (lint/test/build), wire it as a second `PostToolUse` hook with a narrower matcher. This lets you catch errors the moment an edit is saved, without slowing down unrelated tool calls.
+If your repo has a validator (lint/test/build), wire it as a second `PostToolUse` hook with a narrower matcher. Catches errors the moment an edit is saved, without slowing unrelated tool calls.
 
-Example skeleton for `script/hooks/post-edit-validate`:
+Skeleton for `script/hooks/post-edit-validate`:
 
 ```bash
 #!/usr/bin/env bash
@@ -596,9 +581,8 @@ case "$FILE" in
   *.md|*.txt|*.png|*.wav|*.ogg) exit 0 ;;
 esac
 
-# Skip tooling, Claude config, and scratch files — they aren't project
-# source and running the validator on them produces noise that masks real
-# classifier errors in the Claude Code UI.
+# Skip tooling, Claude config, and scratch files — running the validator
+# on them produces noise that masks real errors in the Claude Code UI.
 case "$FILE" in
   */script/*) exit 0 ;;
   */.claude/*) exit 0 ;;
@@ -606,9 +590,8 @@ case "$FILE" in
 esac
 
 cd "$(dirname "$0")/../.." || exit 1
-# Run validate (replace with your validator). On failure, exit 2 so Claude
-# Code surfaces the output to the model as a system reminder. Exit 1 is
-# treated as advisory and only shown in the UI, which the model can't see.
+# Run your validator. On failure, exit 2 so Claude Code surfaces the output
+# to the model as a system reminder. Exit 1 is only shown in the UI.
 if ! bash script/validate; then
     exit 2
 fi
@@ -617,7 +600,7 @@ exit 0
 
 **Why exit 2 not exit 1.** Claude Code surfaces hook stderr to the *model* only when the hook exits 2. Exit 1 (or any other non-zero code) is shown in the UI as "hook error" but never reaches the model's context, so the agent can't see what failed and try to fix it. For a validator hook you actually want the agent to react to failures, exit 2 is correct.
 
-Wire it in `.claude/settings.json` as a *second* entry under `PostToolUse`:
+Wire it as a *second* entry under `PostToolUse`:
 
 ```json
 "PostToolUse": [
@@ -641,7 +624,7 @@ Wire it in `.claude/settings.json` as a *second* entry under `PostToolUse`:
 ]
 ```
 
-Both hooks run on every Write/Edit; only `log-result` runs on other tools. The skip list in `post-edit-validate` is critical: without it, every edit to a shell script, settings file, or scratch file runs the validator and surfaces any pre-existing project-level issue as a spurious "hook error" in the UI.
+Both hooks run on every Write/Edit; only `log-result` runs on other tools. The skip list in `post-edit-validate` is critical: without it, every edit to a shell script, settings file, or scratch file runs the validator and surfaces pre-existing project-level issues as spurious "hook error" noise.
 
 ---
 
@@ -651,22 +634,11 @@ Things you may want to change per-repo:
 
 **Allow list.** The only portion of this spec that's genuinely repo-specific. Add your test runners, linters, and build commands. Use the audit log to find candidates. Start narrow and widen as evidence accumulates.
 
-**Safe-zone carve-out in `classify`.** The `rm -rf` safe zones (the regex alternation inside the `Bash:*"rm -rf"*)` case that lists `/tmp/`, `tmp/`, `.claude/worktrees/`, `build/`, `dist/`, `.godot/`) are hardcoded. Adjust for your repo: drop `.godot/`, add `target/` for Rust, `node_modules/` if you delete it often, etc.
+**Safe-zone carve-out in `classify`.** Defaults cover `/tmp/`, `tmp/`, `build/`, `dist/`, `target/`, `node_modules/`, `.claude/worktrees/`. Adjust for your repo.
 
-**Post-edit validator.** Optional. Omit the `post-edit-validate` hook entry entirely if you don't have a project validator — `log-result` still runs because it uses the `.*` matcher and doesn't care.
+**Post-edit validator.** Optional. Omit the `post-edit-validate` hook entry entirely if you don't have a project validator.
 
-**CLAUDE.md pointer.** If you have a `CLAUDE.md`, add a one-line reference to your test runner's single-file / failing-only / no-color flags so the agent uses the wrapper instead of reinventing a raw pipeline. Example from a Godot repo:
-
-```markdown
-# Run all tests (PREFERRED — use this, not raw Godot commands)
-script/checks/gut_tests
-
-# Run a single test file
-script/checks/gut_tests -f tests/unit/test_foo.gd
-# Other flags: --failing-only (only failing-test lines), --no-color (strip ANSI)
-```
-
-The agent reaches for raw engine invocations when the wrapper doesn't cover its use case. Exposing the common flags in `CLAUDE.md` prevents that.
+**CLAUDE.md pointer.** If you have a `CLAUDE.md`, add a one-line reference to your test runner's single-file / failing-only / no-color flags so the agent uses the wrapper instead of reinventing a raw pipeline. The agent reaches for raw engine invocations when the wrapper doesn't cover its use case.
 
 **Destructive pattern additions.** If you observe a destructive pattern the classifier doesn't catch, add a new `case` arm. Follow the existing convention: short comment explaining *why*, a specific error message in the `block` call (the agent sees it and often tries a variation — specific messages help it redirect), and belt-and-suspenders entries in `permissions.deny` for the same pattern.
 
@@ -674,43 +646,44 @@ The agent reaches for raw engine invocations when the wrapper doesn't cover its 
 
 ## Limitations and known gaps
 
-**Layer 0 denials are usually invisible.** Per Anthropic's docs, `permissions.deny` is evaluated by the settings layer and the matching tool call should be blocked before invoking the PreToolUse hook. In practice the ordering has been observed inconsistently — sometimes the hook also fires and its stderr is what the user sees. Either way the command is blocked, but the audit log may or may not capture a `pre_deny` event for Layer 0 hits depending on your Claude Code version. If you need guaranteed visibility into a particular pattern, put the rule in Layer 2 (the classifier hook) instead of Layer 0 — Layer 2 always logs.
+**Layer 0 denials are usually invisible.** Per Anthropic's docs, `permissions.deny` is evaluated by the settings layer and the matching tool call should be blocked before invoking the PreToolUse hook. In practice the ordering has been observed inconsistently. Either way the command is blocked, but the audit log may or may not capture a `pre_deny` event for Layer 0 hits depending on your Claude Code version. For guaranteed visibility, put the rule in Layer 2 (the classifier hook) — Layer 2 always logs.
 
-**`pre_allow` with no `post_*` is ambiguous.** Could be "user denied at the prompt," could be "session crashed," could be "hook timeout." The aggregator treats this as `deniedByUser` with a caveat. Wiring Claude Code's `PermissionRequest` hook (not done in this spec) would cleanly distinguish the three cases.
+**`pre_allow` with no `post_*` is ambiguous.** Could be "user denied at the prompt," "session crashed," or "hook timeout." Wiring Claude Code's `PermissionRequest` hook (not done in this spec) would cleanly distinguish the three cases.
 
-**Substring matching on Bash command data can false-positive.** The classifier uses bash case globs like `Bash:*"sudo "*` for most patterns. A command whose *arguments* contain the literal string `sudo` as data — e.g., `grep "sudo " /etc/sudoers` or a commit message mentioning sudo — could theoretically match and block. The `git stash` case was hardened to anchor at command start (regex instead of glob). The others haven't been, because no false positives have been observed in practice. If you hit one, harden that specific case the same way.
+**Substring matching on Bash command data can false-positive.** The classifier uses bash case globs like `Bash:*"sudo "*` for most patterns. A command whose *arguments* contain the literal string `sudo` as data — e.g., `grep "sudo " /etc/sudoers` or a commit message mentioning sudo — could theoretically match and block. The `git stash` case was hardened to anchor at command start (regex instead of glob). Others haven't been, because no false positives have been observed in practice. If you hit one, harden that specific case the same way.
 
-**`foo && git stash` in the second position slips past Layer 2.** The regex anchor `^[[:space:]]*git stash` only matches at command start. A chained command puts `git stash` after `&&`, past the anchor. Layer 0's `Bash(git stash)` deny might or might not catch it depending on how Claude Code evaluates chained commands. This is a known gap, documented rather than fixed, because the false-positive avoidance in the commit-message case is more important than catching the edge case.
+**`foo && git stash` in the second position slips past Layer 2.** The regex anchor `^[[:space:]]*git stash` only matches at command start. A chained command puts `git stash` after `&&`, past the anchor. Layer 0's `Bash(git stash)` deny might or might not catch it depending on how Claude Code evaluates chained commands. Known gap, documented rather than fixed, because the false-positive avoidance in the commit-message case is more important than catching the edge case.
 
-**Write/Edit denies don't block Bash subprocesses.** A `Write(**/.env)` deny rule applies to the `Write` *tool* — it does not prevent `echo foo > .env` running through the `Bash` tool, because the Bash tool sees a different command line that doesn't pattern-match the Write rule. This is the single most important reason Layer 2 (the classifier hook) exists: it sees the actual Bash command and can pattern-match destructive shell-level actions that the tool-name-based deny rules can't. The `Bash:*".env"*"curl"*` case in `classify` is one narrow example of the same idea. For OS-level enforcement that blocks *all* processes from writing to a path regardless of which tool initiated them, enable Claude Code's sandboxing feature (out of scope here). Verify the current Write-vs-Bash semantics against the [Claude Code settings docs](https://code.claude.com/docs/en/settings) for your version.
+**Write/Edit denies don't block Bash subprocesses.** A `Write(**/.env)` deny rule applies to the `Write` *tool* — it does not prevent `echo foo > .env` running through the `Bash` tool, because the Bash tool sees a different command line that doesn't pattern-match the Write rule. This is the single most important reason Layer 2 (the classifier hook) exists: it sees the actual Bash command and can pattern-match destructive shell-level actions that tool-name-based deny rules can't. For OS-level enforcement that blocks *all* processes from writing to a path regardless of which tool initiated them, enable Claude Code's sandboxing feature (out of scope here). Verify the current Write-vs-Bash semantics against the [Claude Code settings docs](https://code.claude.com/docs/en/settings) for your version.
 
 **`rm -rf` with absolute paths under `/Users/...`.** The deny list blocks `/Users*` as a catastrophic target. This also blocks deleting files inside your own home directory by absolute path. Work around it by using relative paths from your project root. Don't add `/Users/yourname*` to the allow list — that's a backdoor.
 
-**Shell operator awareness.** Claude Code is documented to evaluate shell-chained commands per-subcommand, so `Bash(safe-cmd *)` should NOT authorize `safe-cmd && dangerous-cmd`. In practice this has held: an allowlisted test runner can't be used as a stepping stone to run an unallowlisted destructive command. This behavior is load-bearing for the security model — verify it against the [Claude Code settings docs](https://code.claude.com/docs/en/settings) for your version, and treat it as untrustworthy if your testing shows otherwise.
+**Shell operator awareness.** Claude Code is documented to evaluate shell-chained commands per-subcommand, so `Bash(safe-cmd *)` should NOT authorize `safe-cmd && dangerous-cmd`. Verify against the [Claude Code settings docs](https://code.claude.com/docs/en/settings) for your version, and treat as untrustworthy if your testing shows otherwise.
 
-**Agent frustration on blocks.** When the hook blocks, the agent sees the stderr message and often tries a variation. Sometimes it tries the same thing multiple times. Block messages should be specific enough to let the agent redirect: `"use git switch, or run manually"` is better than `"blocked"`. If the agent keeps retrying the same thing, that's a signal to look at the audit log and decide whether the allowlist needs widening.
+**Agent frustration on blocks.** When the hook blocks, the agent sees the stderr message and often tries a variation. Sometimes multiple times. Block messages should be specific enough to let the agent redirect: `"use git switch, or run manually"` beats `"blocked"`. If the agent keeps retrying the same thing, that's a signal to look at the audit log and decide whether the allowlist needs widening.
 
 **No hot-reload.** Settings changes require `/exit` and `claude --continue`. Hook script changes (`classify`, `log-result`) take effect on the next tool call without restart.
 
 ---
 
-## Comparison to Anthropic's Auto Mode
+## Comparison to Claude Code Auto Mode
 
-| Capability | Anthropic Auto Mode | This spec |
+| Capability | Auto Mode | This spec |
 |---|---|---|
-| Blocks mass deletion | ✅ Sonnet 4.6 classifier | ✅ regex (Layers 0 + 2) |
+| Blocks mass deletion | ✅ Sonnet classifier | ✅ regex (Layers 0 + 2) |
 | Blocks secret exfil | ✅ | ✅ regex |
 | Blocks remote code execution | ✅ | ✅ regex (curl\|sh, eval, base64\|sh) |
 | Blocks force push / history rewrite | ✅ | ✅ denies push entirely |
 | Context-aware ambiguity resolution | ✅ trained classifier | ❌ regex only |
 | Redirects agent on block | ✅ | ✅ exit 2 + stderr |
 | Latency — boring case | server-side, imperceptible | Layers 0/1 resolve without a subprocess; imperceptible |
-| Latency — ambiguous case | server-side, imperceptible | Layer 2 hook fork+exec+grep; single-digit ms in practice (not measured) |
-| Cost | Included in Team seat | Free |
-| Plan requirement | Team / Enterprise | Pro / Max |
+| Latency — ambiguous case | server-side, imperceptible | Layer 2 hook fork+exec+grep; single-digit ms in practice |
+| Cost | Included in tier | Free |
+| Plan requirement | Max / Team / Enterprise | None (works on Pro) |
 | Audit log | ❌ | ✅ TSV, append-only |
+| Composable with the other | — | Yes — both run per tool call, deny from either wins |
 
-The gap is context-awareness. Anthropic's classifier sees full session context and is trained on tool-use safety. This spec sees one command in isolation. For the hallucinating-agent threat model (accidental destruction, not adversarial prompt injection), the gap is acceptable.
+The gap is context-awareness. Auto Mode's classifier sees full session context and is trained on tool-use safety. This spec sees one command in isolation. For the hallucinating-agent threat model (accidental destruction, not adversarial prompt injection), the gap is acceptable — and having deterministic rules on top gives you guarantees a classifier can't.
 
 ---
 
