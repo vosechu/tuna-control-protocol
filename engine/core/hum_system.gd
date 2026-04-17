@@ -3,7 +3,7 @@ class_name HumSystem extends RefCounted
 const FACILITY_ID: int = 0
 const DEFAULT_CAPACITY: int = 10000
 const IDLE_DRAIN_BASE: int = 5
-const CHARGE_PER_PURRING_CAT: int = 10
+const CHARGE_PER_SATISFIED_ENTITY: int = 10
 
 const BROWNOUT_THRESHOLD: int = 250  # 25% of 1000 ratio
 
@@ -60,7 +60,7 @@ func get_capacity() -> int:
 
 func tick_charge() -> void:
 	var receivers: Array[int] = _db.get_entities_with(&"hum_receiver")
-	var purring_near_receiver: int = 0
+	var satisfied_near_receiver: int = 0
 	for receiver_id: int in receivers:
 		if not _db.has_component(receiver_id, &"position"):
 			continue
@@ -71,10 +71,10 @@ func tick_charge() -> void:
 		for entity_id: int in nearby:
 			if not _db.has_component(entity_id, &"contentment"):
 				continue
-			if _db.get_field(entity_id, &"contentment", &"is_purring") == 1:
-				purring_near_receiver += 1
-	if purring_near_receiver > 0:
-		charge(purring_near_receiver * CHARGE_PER_PURRING_CAT)
+			if _db.get_field(entity_id, &"contentment", &"is_satisfied") == 1:
+				satisfied_near_receiver += 1
+	if satisfied_near_receiver > 0:
+		charge(satisfied_near_receiver * CHARGE_PER_SATISFIED_ENTITY)
 
 
 func get_reserve_ratio() -> int:
