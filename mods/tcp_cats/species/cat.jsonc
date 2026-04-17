@@ -90,7 +90,8 @@
   "sounds": {
     "purr": ["purr_loop_01.wav", "purr_loop_02.wav"],
     "mrrp": ["cat_mrrp_01.wav"],
-    "startled": ["cat_startled_01.wav"]
+    "startled": ["cat_startled_01.wav"],
+    "pacing": ["cat_meow_pacing_01.wav"]
   },
   "verbs": {
     "push": { "effectiveness": 1000, "desire_affinities": { "curiosity": 500 } },

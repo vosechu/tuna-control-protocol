@@ -258,7 +258,7 @@ func _setup_sound_manager() -> void:
 	sm.name = "SoundManager"
 	sm.set_script(SoundManagerScript)
 	add_child(sm)
-	sm.initialize(game_server.db, Events)
+	sm.initialize(game_server.db, Events, game_server.entity_defs)
 
 
 func _spawn_animal_nodes() -> void:

@@ -14,8 +14,8 @@ var contentment: Contentment
 var food_system: FoodSystem
 var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
+var entity_defs: EntityDefRegistry
 var _mod_loader := ModLoader.new()
-var _entity_defs: EntityDefRegistry
 var _verb_resolver := VerbResolver.new()
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
@@ -35,7 +35,7 @@ func _ready() -> void:
 	var mod_result: Dictionary = _mod_loader.load_all(
 		"res://mods/",
 	)
-	_entity_defs = mod_result["entity_defs"]
+	entity_defs = mod_result["entity_defs"]
 	heat_grid = HeatGrid.new(db)
 	contentment = Contentment.new(db)
 	hum_system = HumSystem.new(db, Events)
@@ -53,11 +53,11 @@ func _ready() -> void:
 
 
 func _register_species_nav() -> void:
-	for entity_id: StringName in _entity_defs.get_all_entities():
-		if _entity_defs.has_traversal(entity_id):
+	for entity_id: StringName in entity_defs.get_all_entities():
+		if entity_defs.has_traversal(entity_id):
 			nav_builder.register_species(
 				entity_id,
-				_entity_defs.get_traversal(entity_id),
+				entity_defs.get_traversal(entity_id),
 			)
 
 
@@ -613,8 +613,8 @@ func _spawn_starter_entities() -> void:
 
 	# Starter-entity spawn — driven by each loaded species recipe's `starters` array.
 	var floor_y: int = FLOOR_Y_PU + Constants.FLOOR_HEIGHT_PU / 2
-	for species_id: StringName in _entity_defs.get_all_entities():
-		var def: Dictionary = _entity_defs.get_definition(species_id)
+	for species_id: StringName in entity_defs.get_all_entities():
+		var def: Dictionary = entity_defs.get_definition(species_id)
 		if not def.has("starters"):
 			continue
 		var starters: Array = def["starters"]
@@ -633,7 +633,7 @@ func _spawn_starter_entities() -> void:
 				for k: String in d:
 					typed[StringName(k)] = int(d[k])
 				overrides[&"desires"] = typed
-			_entity_defs.spawn(species_id, db, overrides)
+			entity_defs.spawn(species_id, db, overrides)
 
 	_spawn_rack_entities()
 	_create_curiosity_trackers()

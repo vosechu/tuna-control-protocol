@@ -1,10 +1,11 @@
 extends Node
 
 var _db: GameStateDB
+var _entity_defs: EntityDefRegistry
 var _purr_player_1: AudioStreamPlayer
 var _purr_player_2: AudioStreamPlayer
 var _ambient_player: AudioStreamPlayer
-var _meow_player: AudioStreamPlayer
+var _pacing_players: Dictionary = {}  # species_id -> AudioStreamPlayer (or null)
 var _squeak_player: AudioStreamPlayer
 var _can_pop_player: AudioStreamPlayer
 var _button_click_player: AudioStreamPlayer
@@ -13,8 +14,10 @@ var _hum_reserve_ratio: int = 1000
 
 func initialize(
 		db: GameStateDB, events: Object,
+		entity_defs: EntityDefRegistry,
 ) -> void:
 	_db = db
+	_entity_defs = entity_defs
 	_setup_audio_players()
 	_setup_event_players()
 	events.hum_reserve_changed.connect(
@@ -76,10 +79,6 @@ func _set_loop(stream: AudioStream) -> void:
 
 
 func _setup_event_players() -> void:
-	_meow_player = _make_player(
-		"res://mods/tcp_base/sounds/cat/cat_meow_pacing_01.wav",
-		-15.0,
-	)
 	_squeak_player = _make_player(
 		"res://mods/tcp_base/sounds/objects/squeak_toy_01.wav",
 		-10.0,
@@ -109,9 +108,38 @@ func _make_player(
 	return player
 
 
-func _on_creature_started_pacing(_animal_id: int) -> void:
-	if _meow_player and not _meow_player.playing:
-		_meow_player.play()
+func _on_creature_started_pacing(animal_id: int) -> void:
+	if not _db.has_component(animal_id, &"species"):
+		return
+	var species: Dictionary = _db.get_component(animal_id, &"species")
+	var species_id: StringName = species.get(&"id", &"")
+	if species_id == &"":
+		return
+	var player: AudioStreamPlayer = _get_pacing_player(species_id)
+	if player and not player.playing:
+		player.play()
+
+
+func _get_pacing_player(species_id: StringName) -> AudioStreamPlayer:
+	if _pacing_players.has(species_id):
+		return _pacing_players[species_id]
+	var player: AudioStreamPlayer = _load_pacing_player(species_id)
+	_pacing_players[species_id] = player
+	return player
+
+
+func _load_pacing_player(species_id: StringName) -> AudioStreamPlayer:
+	if _entity_defs == null or not _entity_defs.has_entity(species_id):
+		return null
+	var def: Dictionary = _entity_defs.get_definition(species_id)
+	var sounds: Dictionary = def.get("sounds", {})
+	var pacing_list: Array = sounds.get("pacing", [])
+	if pacing_list.is_empty():
+		return null
+	var mod_id: String = String(species_id).split(":")[0]
+	var filename: String = String(pacing_list[0])
+	var path: String = "res://mods/%s/sounds/%s" % [mod_id, filename]
+	return _make_player(path, -15.0)
 
 
 func _on_food_dispensed(_can_id: int) -> void:
