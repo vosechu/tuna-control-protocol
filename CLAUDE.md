@@ -11,11 +11,27 @@ A cozy, abundance-driven game about raising thousands of animals in an abandoned
 - **Abundance over scarcity:** No starvation, no resource depletion, no "you failed because you didn't plan correctly." Treats are always available. Heat always flows. Water always condenses. Negative feedback should feel like "I have so many wonderful options, which one?" not deprivation.
 - **No adversarial relationships:** The player's goal and the animals' goals are the same thing. The challenge is purely: can you understand what they need well enough to provide it at scale?
 - **Gnorp Apologue model:** No lose condition, but a hard-to-find theoretical maximum. Numbers always go up. The question is "how fast?" not "am I gaining or losing?" Player role shifts from doing to orchestrating as the ecosystem grows.
-- **Emergence through desire:** Give animals desires, put them in proximity, and watch. As Sandi Metz said: "If you put a ClumsyHuman object in the same space as a CatWithLongTail object and wait, things are going to happen."
+- **Emergence through desire:** Give animals desires, put them in proximity, and watch. As Sandi Metz said: "If you put a ClumsyHuman object in the same space as a CatWithLongTail object and wait, things are going to happen." In TCP this works because ClumsyHuman and CatWithLongTail are *recipes of components*, not classes in a hierarchy — emergence comes from components sharing space.
 - **The Elegance Principle** (Tynan Sylvester): The best designs create the most varied dynamics from the fewest mechanics. 3 mechanics that interact in 20 ways > 20 mechanics that don't interact.
 - **Kitten chaos as feature:** Kittens unplug things, tangle cables, and cause mischief — not because they're malicious, but because they're exploring. This is manageable reality, not a problem to eliminate.
 - **Vegan game:** No eating mice. Super AI mega-crops handle nutrition (but still need work to taste right). Crunchy cricket cakes, seared tuna (from cans ordered by ferrets), chef cats kneading dough.
 - **By the end:** Cats in every nook and cranny, organizing groups, tackling problems, and generally just being lovely purry cats.
+
+---
+
+## Species Are Component Recipes
+
+Systems check capabilities, not species. A "capability" is a component on an
+entity — either a zero-data tag (`&"tends_servers"`) or a component with a
+payload (`&"sprite_config": {...}`). Species labels (`&"tcp_cats:cat"`) remain
+only for save data, UI display, and narrator events. No code path selects
+behavior by reading the species label. If you are about to write
+`if species == "cat"`, stop and add a component to the recipe instead.
+
+**Capability namespace:** capability tags are bare `StringName` keys (no
+`tcp_base:` prefix), matching the desire-channel convention. Promoting a
+capability from narrow to broad is a breaking change for mod authors —
+document it in release notes.
 
 ---
 
@@ -51,16 +67,16 @@ After the AI bubble collapsed, hundreds of AI datacenters were abandoned and fel
 
 ---
 
-## Animal Types & Roles
+## Species Recipes
 
-Animals arrive when conditions are right (Terry Pratchett logic: get enough tubes in one room and a ferret is bound to come out of one). Each type has unique needs and contributes something that enables other species.
+Animals arrive when conditions are right (Terry Pratchett logic: get enough tubes in one room and a ferret is bound to come out of one). Each species recipe has unique component weights and tags that contribute something enabling other recipes.
 
-- **Cats:** The core. Need warmth, food, comfort, companionship. Purr (produce IOPS). Kittens cause chaos.
-- **Ferrets:** Need chaos/surprise/discovery, hiding places, things to dig, companionship, ferret oil. Can hack into ordering systems (unlock tuna delivery for cats). Unlock access to new areas.
-- **Dogs:** Warm to sleep next to, help move fast and reach higher, great at moving heavy things, smart. Not guardians (no enemies) — community builders and stabilizers.
-- **Guinea pigs, rabbits, birds, others:** TBD. Each should have unique needs and unique contributions.
+- **The cat recipe** includes high warmth and comfort desire weights, the `tends_servers` tag (produces IOPS via purring), and companionship desire. Kitten variants add the `causes_chaos` tag.
+- **The ferret recipe** includes high stimulation and hiding desire weights, the `can_hack_ordering` tag (unlocks tuna delivery), and curiosity-seeking locomotion components. Unlocks access to new areas.
+- **The dog recipe** includes the `body_heat_large` tag (warm to sleep next to), high strength for moving heavy objects, and `community_stabilizer` behavior weights. Not a guardian (no adversaries) — a community builder.
+- **Guinea pigs, rabbits, birds, others:** TBD. Each recipe should have unique component weights and unique contribution tags.
 
-**Inter-species dependencies:** Without ferrets hacking the order system, cats can't have tuna. Without fur balls for ferrets to hide, you can't attract ferrets. Diversity enables scaling.
+**Inter-recipe dependencies:** Without the `can_hack_ordering` component from ferrets, cats can't have tuna. Without fur balls for ferrets to hide, you can't attract ferrets. Diversity of recipes enables scaling.
 
 ---
 
