@@ -47,6 +47,10 @@ func has_entity(entity_id: int) -> bool:
 	return _entities.has(entity_id)
 
 
+func entity_count() -> int:
+	return _entities.size()
+
+
 # ── Single-entity component access ───────────────────────────────────────────
 
 func set_component(entity_id: int, component: StringName, data: Dictionary) -> void:
