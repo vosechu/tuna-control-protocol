@@ -211,3 +211,77 @@ Exits non-zero if any check fails. Output names every failing file/test so the d
 - **Test file deleted:** Orphan stamp detected (check 2). Delete the `.gd.stamp` file.
 - **New test file added:** Missing stamp detected (check 1). Run `script/stamp_tests` for the new file.
 - **Helper/fixture changed:** `setup_hash` mismatch (check 3). All tests in the file need re-verification since any test could depend on the changed helper.
+
+---
+
+## System Architecture
+
+Four artifacts cooperate. Each has one job; the separation is deliberate.
+
+```
+Checklist (this rule file)   — agent does the work
+     ↓
+Artifacts (test file, AI-DEV markers, QA review)
+     ↓
+Stamp script                 — seals the result with hashes
+     ↓
+.gd.stamp sidecar            — committed to git
+     ↓
+Verify script                — pre-commit + CI check the seal
+     ↓
+Commit proceeds (or is blocked)
+```
+
+1. **The checklist** — this rule file. Path-gated onto any test-file edit. The agent follows the 5 phases; there is no shortcut.
+2. **The stamp script** — `script/stamp_tests`. Pure write: takes a test file, computes hashes, writes a sidecar. Does NOT run tests or verify anything. The verification *already happened* through phases 1–4; the stamp is the seal on a completed result. Trust lives in the process, not the script. If the agent skips phases and just runs the script, the stamp is valid but the test is hollow — human code review and the QA phase are where that gets caught.
+3. **The verify script** — `script/checks/verify_tests`. Pure read: the three checks listed above. No arguments, checks everything. Runs in CI and the pre-commit hook.
+4. **The stamp file** — `*.gd.stamp` sidecar. YAML, committed to git, lives next to the test file.
+
+### Hashing rules
+
+- **Hashes are first 8 hex chars of SHA-256.**
+- **File hash** (or `setup_hash`) covers the whole file (or all non-test functions — see the Stamp File Format section above for the current scope).
+- **Per-test hash** covers the function body from `func test_*` through the next top-level statement, with `# AI-DEV:` lines excluded and trailing whitespace stripped.
+- Both scripts share helper functions for `get_test_functions`, `get_function_body`, and the SHA-256 truncation. If these drift, every stamp becomes invalid. Keep them in sync.
+
+### Why per-test hashes exclude AI-DEV lines
+
+So an agent can add or update an `# AI-DEV` marker on a stamped test without invalidating the per-test hash. The file hash still catches the change (forcing a re-stamp), but the per-test logic is consistent with or without the marker.
+
+### Why a sidecar instead of inline markers
+
+- **Tamper resistance.** An agent editing a test file can't accidentally update test and hash in lockstep — the stamp is in a different file, updated by a different script.
+- **Diff visibility.** Stamps show up next to test changes in PRs, making it obvious which tests were re-verified vs. modified without verification.
+
+### Why per-file stamps instead of a central registry
+
+A central `tests/.test_registry.yaml` would conflict every time two branches added or modified tests. Per-file stamps only conflict when two branches modify the *same* test file — which is a real conflict that needs human attention anyway.
+
+---
+
+## Known Limitations
+
+### Stamps do not protect the test/production relationship
+
+A stamp verifies the test file's *content* hasn't changed. It does **not** verify that the production values the test asserts against haven't changed. A stamped test can go silently stale when production constants shift — the stamp stays valid, the assertions still run, they just compare against the wrong numbers.
+
+The correct signal here is a *failing* stamped test after a production change — the agent investigates, fixes one side or the other, then re-stamps. The bad outcome is someone re-stamping a stale test without fixing it, sealing the wrong assertions. Phase 2's mutate-and-reverify step is the defence: when re-stamping a previously-stamped file, confirm mutation testing was actually re-run, not skipped because the file already had a stamp.
+
+### Helper file changes don't invalidate stamps
+
+If a test imports a helper or fixture file and the helper changes, the test's hash doesn't break. The test could now behave completely differently and the stamp would still be valid.
+
+Mitigations: minimize helper dependencies; when a helper changes, manually re-stamp all dependent tests (agent responsibility, not mechanically enforced).
+
+### Mutation testing is manual
+
+Phase 2's mutation step relies on the agent picking a good mutation. No GDScript mutation framework exists, so this is the most judgment-heavy step in the process. The post-stamp code review catches cases where the mutation was too narrow.
+
+### Surviving mutations are information, not failure
+
+Single mutations can survive without indicating a bad test:
+- The production code uses defense-in-depth (two independent guards both catch the mutation).
+- Multiple tests cover the same code path (only the targeted test failing isn't necessary).
+- The test catches a different aspect of the same code (e.g., scoring formula vs. branch logic).
+
+Report surviving mutations and move on. The test isn't necessarily bad — the production code might be deliberately redundant. Forcing the test to fail by removing the redundancy would *weaken* the production code, not strengthen the test. When a mutation survives because multiple predicates both catch it, prefer extending the test with a boundary case over removing production defenses.
