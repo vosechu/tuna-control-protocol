@@ -52,14 +52,12 @@ class_name ObjectAdvertisement extends Resource
 @export var strength: int = 500        # signed: positive = attractor (desire), negative = aversion. See Aversions section.
 @export var radius_ru: int = 3         # Rack units
 @export var falloff_curve: Curve       # Linear by default (samples 0.0-1.0 for rendering)
-@export var species_filter: Array[StringName] = []
 @export var required_traversal: StringName = ""
 @export var max_occupants: int = 1
 var current_occupants: int = 0
 
 func score_for(animal: AnimalAgent, distance_ru: int) -> int:
     if distance_ru > radius_ru: return 0
-    if not species_filter.is_empty() and animal.species not in species_filter: return 0
     if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
     if not is_available(): return 0
     var desire_weight: int = animal.get_desire_weight(desire_type)
@@ -75,7 +73,7 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
   "clothes_pile": {
     "advertisements": [
       {"desire_type": "comfort", "strength": 800, "radius_ru": 1, "max_occupants": 3},
-      {"desire_type": "stimulation", "strength": 400, "radius_ru": 1, "max_occupants": 1, "species_filter": ["ferret"]}
+      {"desire_type": "stimulation", "strength": 400, "radius_ru": 1, "max_occupants": 1}
     ]
   }
 }
@@ -135,19 +133,18 @@ The advertisement score function branches on sign, but lives in one function:
 ```gdscript
 func score_for(animal: AnimalAgent, distance_ru: int) -> int:
     if distance_ru > radius_ru: return 0
-    if not species_filter.is_empty() and animal.species not in species_filter: return 0
     if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
 
     var dist_factor: int = 1000 - (distance_ru * 1000 / radius_ru) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_ru)) * 1000)
 
     if strength >= 0:
-        # Desire path: weighted by deficit so a full cat ignores food ads
+        # Desire path: weighted by deficit so an entity with full warmth ignores warmth ads
         if not is_available(): return 0
         var desire_weight: int = animal.get_desire_weight(desire_type)
         var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
         return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
     else:
-        # Aversion path: NO deficit term. A cat is not "deficit-hungry for quiet."
+        # Aversion path: NO deficit term. An entity is not "deficit-hungry for quiet."
         var aversion_weight: int = animal.get_aversion_weight(desire_type)
         return aversion_weight * strength / 1000 * dist_factor / 1000  # result is negative
 ```
@@ -157,9 +154,9 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
 ### Pitfalls (do not skip)
 
 1. **Do not multiply aversion strength by deficit.** There is no "how hungry am I for silence." Aversion weight × strength × distance only.
-2. **Clamp total score, not per-ad.** A strong nearby attractor should be able to pull a cat *into* a moderately noisy area if the warmth is compelling enough. Per-ad clamping prevents this and feels wrong.
+2. **Clamp total score, not per-ad.** A strong nearby attractor should be able to pull an entity *into* a moderately noisy area if the warmth is compelling enough. Per-ad clamping prevents this and feels wrong.
 3. **Distance falloff on negatives.** The `1000 - distance_factor` curve produces full strength at distance 0 and zero strength at the radius edge. This is correct for aversions: the PDU is maximally annoying when you're sitting on it and imperceptible from across the room. Do not invert the curve "because it's a negative."
-4. **Hysteresis is free.** `SWITCH_THRESHOLD=150` and commitment_score decay already prevent cats from twitching away from transient loud noises. Aversions don't need their own hysteresis — the existing transition logic is sign-agnostic.
+4. **Hysteresis is free.** `SWITCH_THRESHOLD=150` and commitment_score decay already prevent entities from twitching away from transient loud noises. Aversions don't need their own hysteresis — the existing transition logic is sign-agnostic.
 
 ### Scatter pattern integration
 
