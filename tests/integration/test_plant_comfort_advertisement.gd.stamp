@@ -2,6 +2,6 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: b28b973e
-verified_at: 2026-04-12T10:53:51Z
+verified_at: 2026-04-17T00:47:20Z
 tests:
-  test_cat_comfort_higher_near_planted_server_than_unplanted: 14a15719
+  test_cat_comfort_higher_near_planted_server_than_unplanted: 992ecb25

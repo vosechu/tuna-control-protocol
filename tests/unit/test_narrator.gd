@@ -55,9 +55,12 @@ func test_cat_departure_log():
 	var log: String = narrator.get_log_for_event(
 		&"creature_departed", {&"name": &"Mochi"},
 	)
+	# Verify the specific handler fired (not the generic fallback).
+	# The handler returns "UNIT-Mochi has departed chassis..." so we check
+	# for "chassis" which only appears in the creature_departed match arm.
 	assert_true(
-		log.contains("departed") or log.contains("standby"),
-		"Cat departure log should mention departure",
+		log.contains("chassis"),
+		"Cat departure log should contain 'chassis' (from creature_departed handler, not fallback)",
 	)
 
 

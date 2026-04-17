@@ -2,10 +2,10 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: 4c7ec550
-verified_at: 2026-04-12T16:58:27Z
+verified_at: 2026-04-17T00:47:17Z
 tests:
   test_tick_creates_contentment_component_on_animals: 3b200df3
-  test_contented_cat_near_receiver_charges_hum: bf06f2cc
+  test_contented_cat_near_receiver_charges_hum: 44e42ba4
   test_discontented_cat_does_not_charge_hum: 008d277b
   test_100_ticks_with_hum_no_crash: 72480703
   test_hum_reserve_stays_non_negative_over_time: 66bc0a9e
