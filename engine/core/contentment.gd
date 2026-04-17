@@ -14,10 +14,8 @@ func _init(db: GameStateDB) -> void:
 
 func evaluate_all() -> void:
 	_satisfied_count = 0
-	var animals: Array[int] = _db.get_entities_with(&"species")
+	var animals: Array[int] = _db.get_entities_with(&"desires")
 	for entity_id: int in animals:
-		if not _db.has_component(entity_id, &"desires"):
-			continue
 		var desires: Dictionary = _db.get_component(entity_id, &"desires")
 		var bars_met: int = 0
 		for bar: StringName in BARS:
