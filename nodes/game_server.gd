@@ -12,7 +12,7 @@ var nav_builder: NavGraphBuilder
 var hum_system: HumSystem
 var contentment: Contentment
 var food_system: FoodSystem
-var cat_presence_system: CatPresenceSystem
+var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
 var _mod_loader := ModLoader.new()
 var _entity_defs: EntityDefRegistry
@@ -43,7 +43,7 @@ func _ready() -> void:
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
-	cat_presence_system = CatPresenceSystem.new(db)
+	reclamation_system = ReclamationSystem.new(db)
 	plant_growth_system = PlantGrowthSystem.new(db, heat_grid)
 	nav_builder = NavGraphBuilder.new()
 	_register_species_nav()
@@ -78,9 +78,9 @@ func _physics_process(_delta: float) -> void:
 	#   - heat_grid before _scatter_desires (warmth feeds desire scatter)
 	#   - contentment before hum_system (purring state feeds HUM charge)
 	#   - hum_system before desire_resolver (HUM reserve affects arm actions)
-	#   - _move_animals before cat_presence (reads fresh positions)
-	#   - food_system before cat_presence (food state resolves before presence)
-	#   - cat_presence before plant_growth (reads fresh presence)
+	#   - _move_animals before reclamation (reads fresh positions)
+	#   - food_system before reclamation (food state resolves before presence)
+	#   - reclamation before plant_growth (reads fresh presence)
 	#   - plant_growth before _update_ambient_states (transitions
 	#     influence next tick's ambient state selection)
 	db.advance_tick()                                       # 1
@@ -95,7 +95,7 @@ func _physics_process(_delta: float) -> void:
 	_move_animals()                                         # 10
 	food_system.tick_arms()                                 # 11
 	food_system.tick_cleanup()                              # 12
-	cat_presence_system.tick()                              # 13
+	reclamation_system.tick()                               # 13
 	plant_growth_system.tick()                              # 14
 	_update_ambient_states()                                # 15
 	db.flush_notifications()                                # 16

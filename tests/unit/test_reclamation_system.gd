@@ -1,6 +1,6 @@
 extends GutTest
 
-const _SYSTEM_SCRIPT := preload("res://engine/growth/cat_presence_system.gd")
+const _SYSTEM_SCRIPT := preload("res://engine/growth/reclamation_system.gd")
 
 var _db: GameStateDB
 var _system: RefCounted
@@ -60,7 +60,7 @@ func test_ferret_without_tends_servers_does_not_trigger_presence():
 	_db.set_component(ferret_id, &"species", {&"id": &"tcp_ferrets:ferret"})
 	_db.set_component(ferret_id, &"position", {&"x": 0, &"y": 0})
 	# Intentionally no tends_servers component
-	var sys := CatPresenceSystem.new(_db)
+	var sys := ReclamationSystem.new(_db)
 	sys.tick()
 	assert_eq(_db.get_field(server_id, &"reclamation", &"seconds"), 0,
 		"Ferret should not increment reclamation because it does not tend servers")
