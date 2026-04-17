@@ -30,23 +30,20 @@
       "desire": "shelter",
       "strength": 800,                   // how well it satisfies this desire (0-1000)
       "radius_u": 0,                    // 0 = must be inside/on the object
-      "species_filter": ["cat"],        // only cats see this as shelter
       "capacity": 1,                    // max animals using this advertisement at once
       "integrity_min": 340              // stops advertising shelter when too degraded
     },
     {
       "desire": "stimulation",
       "strength": 600,
-      "radius_u": 1,                    // ferrets are drawn from 1U away
-      "species_filter": ["ferret"],
+      "radius_u": 1,
       "capacity": 1,
-      "integrity_min": 0                // ferrets find even scrappy boxes stimulating
+      "integrity_min": 0
     },
     {
       "desire": "comfort",
       "strength": 300,
       "radius_u": 0,
-      "species_filter": ["cat"],
       "capacity": 1,
       "integrity_min": 500              // only comfy when reasonably intact
     }
@@ -116,7 +113,6 @@
   "interactions": [
     {
       "interaction_id": "ferret_shred",
-      "species_filter": ["ferret"],
       "animation_id": "ferret_shred_box",
       "sound_id": "cardboard_tear",
       "duration_sec": 3.0,
@@ -125,7 +121,6 @@
     },
     {
       "interaction_id": "cat_nestle",
-      "species_filter": ["cat"],
       "animation_id": "cat_enter_box",
       "sound_id": "box_rustle_settle",
       "duration_sec": 2.0,
