@@ -51,3 +51,26 @@ game_state.watch("position", func(entity_id: int) -> void:
 ```
 
 Available: entity position/behavior/desires/happiness, infrastructure state (heat, connectivity, occupancy), economy totals (population, IOPS), event bus signals.
+
+## Species Recipe Schema
+
+Every species recipe (`mods/<mod_id>/species/<id>.jsonc`) must declare:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `id` | `"mod_id:entity_id"` | Namespaced species identifier |
+| `name` | string | Display name |
+| `desires` | `{channel: int}` | Desire weights (see animal-ai.md) |
+| `traversal` | array | Capability tags for path edges (e.g. `["WALK", "JUMP_UP"]`) |
+| `sprite_config` | object | `base_path` (with optional `{variant}`), `offset_y`, `animations` (state→key), `animation_frames` (key→strip+frames+fps) |
+| `ambient_states` | object | `warm` and `cold` arrays of `{state, weight}` entries |
+| `hud_color` | `[r, g, b]` | Floats 0.0–1.0 for name labels |
+
+Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `animations.required/optional`, `tends_servers` (tag capability), `role_tags` (designer summary).
+
+Canonical example: `mods/tcp_cats/species/cat.jsonc`.
+
+Loading: `SpeciesSchemaValidator` (in `engine/mod/`) runs at mod load and rejects recipes missing any required field via `push_error`. Malformed recipes do not register as species.
+
+Related spec: `docs/superpowers/specs/2026-04-16-component-mindset-refactor-design.md`.
+Capability-namespace convention: `docs/superpowers/specs/2026-04-10-mod-extraction-design.md`.
