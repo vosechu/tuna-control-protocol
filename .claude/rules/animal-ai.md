@@ -122,9 +122,9 @@ Animals have **desires** (attractors — warmth, food, comfort) and **aversions*
 
 ### Terminology
 
-- **Desire** — a thing the animal is pulled toward. Stored as `AnimalState.desires[type] = weight`. Tracked with a `satisfaction` value so a deficit can be computed.
-- **Aversion** — a thing the animal is pushed away from. Stored as `AnimalState.aversions[type] = weight`. No satisfaction/deficit — aversions are not "met," they are simply avoided when present.
-- **Signed advertisement** — objects emit ads with positive strength (attracting) or negative strength (repelling). A loud PDU advertises `{desire_type: &"quiet", strength: -700, radius_ru: 4}`. The word "desire_type" is retained for schema continuity; read it as "influence channel."
+- **Desire** — a channel expressed as a weight on the entity's `desires` component. Positive weight = attractor (the animal is pulled toward ads on this channel). Negative weight = repulsor (aversion). No separate `aversions` component exists; aversions are just negative entries in the same dict.
+- **Signed advertisement** — objects emit ads with positive strength (attracting) or negative strength (repelling). A loud PDU advertises `{desire_type: &"noise", strength: -700, radius_ru: 4}`. The word "desire_type" is retained for schema continuity; read it as "influence channel."
+- **Satisfaction/deficit** — tracked for positive-weight channels only. An entity can be "hungry for warmth" (low satisfaction, high deficit) but not "hungry for silence." Aversions are simply avoided while present, never "met."
 
 ### Scoring formula (extended)
 
@@ -137,16 +137,16 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
 
     var dist_factor: int = 1000 - (distance_ru * 1000 / radius_ru) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_ru)) * 1000)
 
-    if strength >= 0:
+    var weight: int = animal.get_desire_weight(desire_type)  # signed: positive = attractor, negative = aversion
+    if strength >= 0 and weight >= 0:
         # Desire path: weighted by deficit so an entity with full warmth ignores warmth ads
         if not is_available(): return 0
-        var desire_weight: int = animal.get_desire_weight(desire_type)
         var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
-        return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
+        return weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
     else:
         # Aversion path: NO deficit term. An entity is not "deficit-hungry for quiet."
-        var aversion_weight: int = animal.get_aversion_weight(desire_type)
-        return aversion_weight * strength / 1000 * dist_factor / 1000  # result is negative
+        # Either the ad is negative, the weight is negative, or both — in any case, no satisfaction to track.
+        return weight * strength / 1000 * dist_factor / 1000
 ```
 
 **Candidate scoring (`_evaluate_one`)** sums *all* ads in the radius rather than picking the single-best ad. A candidate location's utility is the sum of its attractors and repulsors. Clamp the *total*, not per-ad.
@@ -160,37 +160,25 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
 
 ### Scatter pattern integration
 
-Ambient aversions that radiate from a source (noise, heat-as-discomfort, crowding) follow the same scatter pattern as heat in `tick-architecture.md`. Example for noise:
-
-```gdscript
-# Step 3 (in tick order): scatter noise to aversions
-func scatter_noise_to_aversions() -> void:
-    for cell_idx in noise_grid.cell_count():
-        var level: int = noise_grid.get_noise(cell_idx)
-        for entity_id in _cell_entities[cell_idx]:
-            db.set_field(entity_id, &"aversions", &"quiet", level)
-```
-
-Dirty-flagging works identically: when an aversion value crosses a 100-band, mark the entity dirty.
+Ambient aversions that radiate from a source (noise, heat-as-discomfort, crowding) follow the same scatter pattern as heat in `tick-architecture.md`. Example for noise: grid cells accumulate noise intensity from sources, and each tick the scatter phase projects cell-level noise into the receiving entity's `desires` satisfaction for the matching channel. Dirty-flagging works identically: when a value crosses a 100-band, mark the entity dirty.
 
 ### Species configuration
 
-Species JSON declares aversion weights the same way it declares desire weights:
+Species recipes declare one `desires` dict with signed weights. Negative entries are aversions:
 
-```json
-{
-  "cat": {
-    "desires": {"warmth": 800, "food": 700, "comfort": 900, "social": 600},
-    "aversions": {"quiet": 400, "unchased": 900, "unsquished": 1200}
-  },
-  "ferret": {
-    "desires": {"stimulation": 900, "hiding": 700},
-    "aversions": {"quiet": 100, "open_space": 300}
-  }
+```jsonc
+"desires": {
+  "warmth": 700,
+  "comfort": 700,
+  "curiosity": 150,
+  "hunger": 700,
+  "attention": 500,
+  "noise": -600,      // aversion: cat is repelled by noise ads
+  "chased": -900      // aversion: cat is repelled by being chased
 }
 ```
 
-**Naming convention:** aversions are named by the *desired state*, not the thing being avoided. `quiet` not `noise`, `unchased` not `chased`. This keeps signed-advertisement semantics intuitive: a loud PDU advertises `{desire_type: "quiet", strength: -700}` — it reduces quietness in its radius. All thresholds, curves, and hysteresis bands go in `config/balance/desire_thresholds.json` alongside desires.
+**Naming convention:** aversions are named by the *thing being avoided* with a negative weight (the shipped choice). A loud PDU advertises `{desire_type: "noise", strength: 700}` (positive strength describing the thing); the cat's `"noise": -600` negative weight inverts the sign in scoring. Channel names are shared — the cat's `-600` weight on `noise` pairs with anyone emitting positive-strength `noise` ads. All thresholds, curves, and hysteresis bands go in `config/balance/desire_thresholds.json`.
 
 ---
 

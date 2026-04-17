@@ -580,7 +580,7 @@ Each `plant_growth` component in PRESENT state advertises `comfort +100, radius 
 
 ## Section 6 — Coordination with mod extraction
 
-`docs/superpowers/specs/2026-04-10-mod-extraction-design.md` is being authored in parallel. It extracts species/object content into standalone mods and replaces the hardcoded `db.set_component()` spawn blocks in `game_server.gd` with `entity_def_registry.spawn()`.
+The mod-extraction work (shipped; see `.claude/rules/modding.md`) extracted species/object content into standalone mods and replaced hardcoded `db.set_component()` spawn blocks in `game_server.gd` with `entity_def_registry.spawn()`.
 
 ### Interface agreement (per Bramble — needed before either merges)
 
@@ -745,4 +745,4 @@ The plan for executing this spec lands in `docs/superpowers/plans/2026-04-10-art
 - `.claude/rules/core-loop.md` — purr-powered core loop. Plants are HUM-brownout-resistant per Section 5.
 - `.claude/rules/input-design.md` — accessibility commitments. Pebble's requirements land in open question #2 and #3.
 - `.claude/rules/llm-test-verification.md` — test stamp discipline. Full cycle required per Section 7.
-- `docs/superpowers/specs/2026-04-10-mod-extraction-design.md` — sibling spec. Interface agreement in Section 6.
+- `.claude/rules/modding.md` — mod loading, recipe schema, verbs. Replaced the mod-extraction sibling spec after shipping.
