@@ -17,6 +17,7 @@ var _prev_pos: Vector2
 var _target_pos: Vector2
 var _footstep_player: AudioStreamPlayer2D
 var _color_index: int = 0
+var _state_animations: Dictionary = {}
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _name_label: Label = $NameLabel
@@ -35,8 +36,14 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	_prev_pos = _target_pos
 	global_position = _target_pos
 	_setup_sprite()
+	_cache_state_animations()
 	_setup_name_label(_db.get_component(entity_id, &"species"))
 	_setup_footstep_audio()
+
+
+func _cache_state_animations() -> void:
+	var config: Dictionary = _db.get_component(entity_id, &"sprite_config")
+	_state_animations = config.get("animations", {})
 
 
 func _setup_sprite() -> void:
@@ -173,9 +180,7 @@ func _physics_process(_delta: float) -> void:
 
 
 func _state_to_animation(state: StringName) -> StringName:
-	var config: Dictionary = _db.get_component(entity_id, &"sprite_config")
-	var animations: Dictionary = config.get("animations", {})
-	var entry: Dictionary = animations.get(String(state), {})
+	var entry: Dictionary = _state_animations.get(String(state), {})
 	return StringName(entry.get("animation", "idle"))
 
 
