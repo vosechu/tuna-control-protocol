@@ -12,6 +12,7 @@ A cozy, abundance-driven game about raising thousands of animals in an abandoned
 - **No adversarial relationships:** The player's goal and the animals' goals are the same thing. The challenge is purely: can you understand what they need well enough to provide it at scale?
 - **Gnorp Apologue model:** No lose condition, but a hard-to-find theoretical maximum. Numbers always go up. The question is "how fast?" not "am I gaining or losing?" Player role shifts from doing to orchestrating as the ecosystem grows.
 - **Emergence through desire:** Give animals desires, put them in proximity, and watch. As Sandi Metz said: "If you put a ClumsyHuman object in the same space as a CatWithLongTail object and wait, things are going to happen." In TCP this looks more like an entity that has Human and Clumsy components, and a Cat entity with a LongTail component. This works because ClumsyHuman and CatWithLongTail are *recipes of components*, not classes in a hierarchy — emergence comes from components sharing space.
+- **Capabilities, never species:** Code, config, and design prose all branch on component tags, never on species names. See "Species Are Component Recipes" below — this is the easiest rule to violate in prose without noticing.
 - **The Elegance Principle** (Tynan Sylvester): The best designs create the most varied dynamics from the fewest mechanics. 3 mechanics that interact in 20 ways > 20 mechanics that don't interact.
 - **Kitten chaos as feature:** Kittens unplug things, tangle cables, and cause mischief — not because they're malicious, but because they're exploring. This is manageable reality, not a problem to eliminate.
 - **Vegan game:** No eating mice. Super AI mega-crops handle nutrition (but still need work to taste right). Crunchy cricket cakes, seared tuna (from cans ordered by ferrets), chef cats kneading dough.
@@ -27,6 +28,24 @@ payload (`&"sprite_config": {...}`). Species labels (`&"tcp_cats:cat"`) remain
 only for save data, UI display, and narrator events. No code path selects
 behavior by reading the species label. If you are about to write
 `if species == "cat"`, stop and add a component to the recipe instead.
+
+**This rule covers design docs, specs, and config — not just code.** The
+pattern is insidious: a spec that says "cats grow moss, ferrets grow
+blossoms" seeds species-branching code for whoever implements it. Rewrite
+prose in terms of capabilities all the way down.
+
+**Common slip patterns (search your draft for these):**
+
+| Slip | Fix |
+|---|---|
+| "If the entity is a cat…" | "If the entity carries `X` capability…" |
+| "Cat-dominant slot / ferret-dominant slot" | "Slots dominated by entities carrying `grows_moss` / `grows_blossom`" |
+| "Works for all species" | "Works for any entity carrying `X`" |
+| `if species_id == &"tcp_cats:cat"` | Add a component to the recipe; branch on `has_component`. |
+| "cat_seconds" / "cat_presence" field names | Name the field after what it measures (`tended_seconds`, `reclamation.seconds`), not who produced it. |
+| Config values keyed by species name | Config values keyed by capability tag. |
+
+If a slip reaches a permanent rule file, the next doc that copies from it inherits the drift — catch it at the spec stage.
 
 **Capability namespace:** capability tags are bare `StringName` keys (no
 `tcp_base:` prefix), matching the desire-channel convention. Promoting a
