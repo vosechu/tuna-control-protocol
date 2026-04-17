@@ -13,7 +13,7 @@ func _init(db: GameStateDB) -> void:
 
 
 func tick() -> void:
-	var servers: Array[int] = _db.get_entities_with(&"cat_presence")
+	var servers: Array[int] = _db.get_entities_with(&"reclamation")
 	for server_id: int in servers:
 		_evaluate(server_id)
 
@@ -23,13 +23,13 @@ func _evaluate(server_id: int) -> void:
 	var proximity_pu: int = _PROXIMITY_RU * Constants.SLOT_HEIGHT_PU * 2
 	var nearby: bool = _any_cat_nearby(server_pos, proximity_pu)
 
-	var current: int = _db.get_field(server_id, &"cat_presence", &"seconds")
+	var current: int = _db.get_field(server_id, &"reclamation", &"seconds")
 	var next: int
 	if nearby:
 		next = mini(current + _INCREMENT_PER_TICK, _MAX_PRESENCE)
 	else:
 		next = maxi(current - _DECAY_PER_TICK, 0)
-	_db.set_field(server_id, &"cat_presence", &"seconds", next)
+	_db.set_field(server_id, &"reclamation", &"seconds", next)
 
 
 func _any_cat_nearby(server_pos: Dictionary, max_dist_pu: int) -> bool:

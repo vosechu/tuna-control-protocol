@@ -26,10 +26,10 @@ func before_each() -> void:
 	_system = _SYSTEM_SCRIPT.new(_db, _heat)
 	_server_id = _db.create_entity()
 	_db.set_component(_server_id, &"position", {&"x": 2500, &"y": 800})
-	_db.set_component(_server_id, &"cat_presence", {&"seconds": 0})
+	_db.set_component(_server_id, &"reclamation", {&"seconds": 0})
 	_db.set_component(_server_id, &"plant_growth", {
 		&"state": _STATE.DORMANT,
-		&"cat_seconds": 0,
+		&"tended_seconds": 0,
 		&"variant": _STATE.VARIANT_MOSS,
 		&"attached_to": _server_id,
 	})
@@ -43,7 +43,7 @@ func _set_growth(field: StringName, value: Variant) -> void:
 
 func test_dormant_with_cold_slot_stays_dormant():
 	_heat.set_temp(300)
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 500)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 500)
 	_system.tick()
 	var growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
 	assert_eq(growth[&"state"], _STATE.DORMANT,
@@ -52,67 +52,67 @@ func test_dormant_with_cold_slot_stays_dormant():
 
 func test_dormant_with_warm_slot_and_cats_arms():
 	_heat.set_temp(700)
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 10)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 10)
 	_system.tick()
 	var growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
 	assert_eq(growth[&"state"], _STATE.ARMED,
 		"Warm slot with cats should transition to ARMED")
 
 
-func test_armed_accumulates_cat_seconds():
+func test_armed_accumulates_tended_seconds():
 	_heat.set_temp(700)
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 50)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 50)
 	_set_growth(&"state", _STATE.ARMED)
-	_set_growth(&"cat_seconds", 100)
+	_set_growth(&"tended_seconds", 100)
 	_system.tick()
 	var growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
-	assert_gt(growth[&"cat_seconds"], 100,
-		"ARMED state should accumulate cat_seconds while cats present")
+	assert_gt(growth[&"tended_seconds"], 100,
+		"ARMED state should accumulate tended_seconds while cats present")
 
 
 func test_armed_reaches_threshold_grows():
 	_heat.set_temp(700)
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 400)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 400)
 	_set_growth(&"state", _STATE.ARMED)
-	_set_growth(&"cat_seconds", 299)
+	_set_growth(&"tended_seconds", 299)
 	_system.tick()
 	var growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
 	assert_eq(growth[&"state"], _STATE.PRESENT,
-		"Reaching 300 cat-seconds should transition to PRESENT")
+		"Reaching 300 tended-seconds should transition to PRESENT")
 
 
 func test_hysteresis_dip_preserves_counter():
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 400)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 400)
 	_set_growth(&"state", _STATE.ARMED)
-	_set_growth(&"cat_seconds", 100)
+	_set_growth(&"tended_seconds", 100)
 
 	_heat.set_temp(700)
 	_system.tick()
 	var after_warm_1: Dictionary = _db.get_component(_server_id, &"plant_growth")
-	assert_gt(after_warm_1[&"cat_seconds"], 100, "First warm tick should increment counter")
+	assert_gt(after_warm_1[&"tended_seconds"], 100, "First warm tick should increment counter")
 
 	_heat.set_temp(500)
 	for _i: int in 5:
 		_system.tick()
 	var dip_growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
-	var dip_cat_seconds: int = dip_growth[&"cat_seconds"]
-	assert_gte(dip_cat_seconds, after_warm_1[&"cat_seconds"],
+	var dip_tended_seconds: int = dip_growth[&"tended_seconds"]
+	assert_gte(dip_tended_seconds, after_warm_1[&"tended_seconds"],
 		"Dip ticks must preserve counter")
 	assert_eq(dip_growth[&"state"], _STATE.ARMED,
 		"State should stay ARMED during dip")
 
 	_heat.set_temp(700)
 	_system.tick()
-	var resume_cat_seconds: int = _db.get_component(_server_id, &"plant_growth")[&"cat_seconds"]
-	assert_gt(resume_cat_seconds, dip_cat_seconds,
+	var resume_tended_seconds: int = _db.get_component(_server_id, &"plant_growth")[&"tended_seconds"]
+	assert_gt(resume_tended_seconds, dip_tended_seconds,
 		"Return to warm should resume incrementing counter")
 
 
 func test_present_survives_hum_brownout():
 	_heat.set_temp(0)
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 400)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 400)
 	_set_growth(&"state", _STATE.PRESENT)
-	_set_growth(&"cat_seconds", 500)
+	_set_growth(&"tended_seconds", 500)
 	_system.tick()
 	var growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
 	assert_eq(growth[&"state"], _STATE.PRESENT,
@@ -121,10 +121,10 @@ func test_present_survives_hum_brownout():
 
 func test_present_despawns_when_cats_leave():
 	_heat.set_temp(700)
-	_db.set_field(_server_id, &"cat_presence", &"seconds", 50)
+	_db.set_field(_server_id, &"reclamation", &"seconds", 50)
 	_set_growth(&"state", _STATE.PRESENT)
-	_set_growth(&"cat_seconds", 99)
+	_set_growth(&"tended_seconds", 99)
 	_system.tick()
 	var growth: Dictionary = _db.get_component(_server_id, &"plant_growth")
 	assert_eq(growth[&"state"], _STATE.DORMANT,
-		"PRESENT should despawn when cat_seconds < DECAY_THRESHOLD")
+		"PRESENT should despawn when tended_seconds < DECAY_THRESHOLD")

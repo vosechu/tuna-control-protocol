@@ -20,38 +20,38 @@ func tick() -> void:
 func _evaluate(entity_id: int) -> void:
 	var growth: Dictionary = _db.get_component(entity_id, &"plant_growth")
 	var state: StringName = growth[&"state"]
-	var cat_seconds: int = growth[&"cat_seconds"]
+	var tended_seconds: int = growth[&"tended_seconds"]
 
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	var slot_key: int = _slot_key_for(pos)
 	var warmth: int = _heat_grid.get_temperature(slot_key)
 
-	var cat_presence: Dictionary = _db.get_component(entity_id, &"cat_presence")
-	var cats_here: bool = cat_presence[&"seconds"] > 0
+	var reclamation: Dictionary = _db.get_component(entity_id, &"reclamation")
+	var cats_here: bool = reclamation[&"seconds"] > 0
 
 	match state:
 		_STATE.DORMANT:
 			if warmth >= _STATE.WARMTH_MIN and cats_here:
-				_transition(entity_id, _STATE.ARMED, cat_seconds)
+				_transition(entity_id, _STATE.ARMED, tended_seconds)
 		_STATE.ARMED:
 			if cats_here:
-				cat_seconds += 10
-			if cat_seconds >= _STATE.GROW_THRESHOLD_SECONDS:
-				_transition(entity_id, _STATE.PRESENT, cat_seconds)
+				tended_seconds += 10
+			if tended_seconds >= _STATE.GROW_THRESHOLD_SECONDS:
+				_transition(entity_id, _STATE.PRESENT, tended_seconds)
 			elif warmth < _STATE.WARMTH_MIN / 2 and not cats_here:
 				_transition(entity_id, _STATE.DORMANT, 0)
 			else:
-				_db.set_field(entity_id, &"plant_growth", &"cat_seconds", cat_seconds)
+				_db.set_field(entity_id, &"plant_growth", &"tended_seconds", tended_seconds)
 		_STATE.PRESENT:
-			if cat_presence[&"seconds"] < _STATE.DECAY_THRESHOLD_SECONDS:
+			if reclamation[&"seconds"] < _STATE.DECAY_THRESHOLD_SECONDS:
 				_transition(entity_id, _STATE.DORMANT, 0)
 
 
-func _transition(entity_id: int, new_state: StringName, new_cat_seconds: int) -> void:
+func _transition(entity_id: int, new_state: StringName, new_tended_seconds: int) -> void:
 	var growth: Dictionary = _db.get_component(entity_id, &"plant_growth")
 	var old_state: StringName = growth[&"state"]
 	growth[&"state"] = new_state
-	growth[&"cat_seconds"] = new_cat_seconds
+	growth[&"tended_seconds"] = new_tended_seconds
 	_db.set_component(entity_id, &"plant_growth", growth)
 
 	if old_state != _STATE.PRESENT and new_state == _STATE.PRESENT:

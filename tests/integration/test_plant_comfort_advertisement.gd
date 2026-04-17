@@ -36,7 +36,7 @@ func test_cat_comfort_higher_near_planted_server_than_unplanted():
 	var unplanted: int = _create_server_at(0, 3, 5)
 	_db.set_component(planted, &"plant_growth", {
 		&"state": _STATE.PRESENT,
-		&"cat_seconds": 400,
+		&"tended_seconds": 400,
 		&"variant": _STATE.VARIANT_MOSS,
 		&"attached_to": planted,
 	})
