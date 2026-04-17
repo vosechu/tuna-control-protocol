@@ -30,7 +30,11 @@ func build() -> void:
 
 
 func get_astar(species_id: StringName) -> AStar2D:
-	return _astars.get(species_id, AStar2D.new())
+	assert(
+		_astars.has(species_id),
+		"NavGraphBuilder: unregistered species: %s" % species_id,
+	)
+	return _astars[species_id]
 
 
 func _build_floor_nodes() -> void:
