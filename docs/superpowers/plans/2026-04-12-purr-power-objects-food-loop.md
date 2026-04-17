@@ -1,5 +1,13 @@
 # Purr-Power Objects & Food Loop Implementation Plan
 
+> **Partially shipped — chain currently broken (as of 2026-04-17).** Core HUM
+> reserve system, TUNA button/dispenser/arm loop, and contentment derivation
+> are in-tree and working. The petting → satisfied → purr → HUM charge chain
+> is **non-functional**: petting no longer advances through to HUM charge.
+> See memory `project_petting_chain_broken.md`. Re-verify against the current
+> code before treating any identifier, tick order, or signal name in this
+> document as canonical.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the gameplay layer for purr-power Ring 0: placeable objects (HUM device, TUNA dispenser, button, ARM), cat food-seeking behavior states, and player interaction verbs (click button, pet, squeak).

@@ -1,5 +1,13 @@
 # Purr-Power Foundation Implementation Plan
 
+> **Partially shipped — chain currently broken (as of 2026-04-17).** Core HUM
+> reserve system, TUNA button/dispenser/arm loop, and contentment derivation
+> are in-tree and working. The petting → satisfied → purr → HUM charge chain
+> is **non-functional**: petting no longer advances through to HUM charge.
+> See memory `project_petting_chain_broken.md`. Re-verify against the current
+> code before treating any identifier, tick order, or signal name in this
+> document as canonical.
+
 > **Note (2026-04-16):** Identifiers referenced in this document may be outdated.
 > `species_filter` was never implemented and is removed. `cat_presence` → `reclamation`,
 > `cat_seconds` → `tended_seconds`, `is_purring` → `is_satisfied`. Anchor rule and
