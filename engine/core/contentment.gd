@@ -16,12 +16,18 @@ func evaluate_all() -> void:
 	_satisfied_count = 0
 	var animals: Array[int] = _db.get_entities_with(&"desires")
 	for entity_id: int in animals:
-		var desires: Dictionary = _db.get_component(entity_id, &"desires")
-		var bars_met: int = 0
-		for bar: StringName in BARS:
-			if desires.has(bar) and desires[bar] >= THRESHOLD:
-				bars_met += 1
-		var is_satisfied: int = 1 if bars_met >= BARS_NEEDED else 0
+		var is_satisfied: int = 0
+		if _db.has_component(entity_id, &"debug_force_satisfied") and \
+				_db.get_field(entity_id, &"debug_force_satisfied", &"active") == 1:
+			is_satisfied = 1
+		else:
+			var desires: Dictionary = _db.get_component(entity_id, &"desires")
+			var bars_met: int = 0
+			for bar: StringName in BARS:
+				if desires.has(bar) and desires[bar] >= THRESHOLD:
+					bars_met += 1
+			if bars_met >= BARS_NEEDED:
+				is_satisfied = 1
 		_db.set_component(entity_id, &"contentment", {&"is_satisfied": is_satisfied})
 		if is_satisfied == 1:
 			_satisfied_count += 1
