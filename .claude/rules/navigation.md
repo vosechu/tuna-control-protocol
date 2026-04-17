@@ -11,19 +11,21 @@ Point graph using Godot's `AStar2D`. Not navmesh (too structured) or tile grid (
 
 ## Edge Types (tagged with traversal requirements)
 
-- `WALK` — all species
-- `JUMP_UP` — cats only, max 3U height
-- `JUMP_DOWN` — cats any height, ferrets max 1U
-- `CLIMB_TUBE` — ferrets + small animals only
-- `CLIMB_CABLE` — cats only
-- `RAMP` — all species
+- `WALK` — entities whose `traversal` array includes `WALK`.
+- `JUMP_UP` — entities whose `traversal` array includes `JUMP_UP`.
+- `JUMP_DOWN` — entities whose `traversal` array includes `JUMP_DOWN`.
+- `CLIMB_TUBE` — entities whose `traversal` array includes `CLIMB_TUBE`.
+- `CLIMB_CABLE` — entities whose `traversal` array includes `CLIMB_CABLE`.
+- `RAMP` — entities whose `traversal` array includes `RAMP`.
 
 ## Species Capability Matrix (from JSON)
 
 ```json
-{"cat": {"traversal": ["WALK","JUMP_UP","JUMP_DOWN","CLIMB_CABLE","RAMP"], "max_jump_height_ru": 3},
- "ferret": {"traversal": ["WALK","JUMP_DOWN","CLIMB_TUBE","RAMP"], "max_drop_ru": 1}}
+{"species_a": {"traversal": ["WALK","JUMP_UP","JUMP_DOWN","CLIMB_CABLE","RAMP"], "max_jump_height_ru": 3},
+ "species_b": {"traversal": ["WALK","JUMP_DOWN","CLIMB_TUBE","RAMP"], "max_drop_ru": 1}}
 ```
+
+The JSON groups capabilities under species for readability, but the pathfinder checks the `traversal` array on the entity's species definition, not the species name.
 
 ## Pathfinding
 
