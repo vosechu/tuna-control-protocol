@@ -172,6 +172,8 @@ Rules live in `.claude/rules/` as auto-loadable files.
 | `scene-tree.md` | Scene tree skeleton, animal scene, key ownership |
 | `tick-architecture.md` | 10 Hz sim tick, staggered eval, rendering interpolation, key numbers |
 | `animal-ai.md` | State machine, hysteresis, object advertisements, scoring loop |
+| `objects.md` | Object state components, ObjectStateManager API, OBJECT_CONFIG schema |
+| `food-system.md` | Tuna-can lifecycle, button/dispenser/arm flow, cat PACING/EATING loop |
 | `navigation.md` | AStar2D point graph, node/edge types, species capabilities, dynamic updates |
 | `secrets.md` | What never gets committed, where secrets go, .gitignore policy |
 | `ai-dev.md` | AI-DEV inline comment markers — permanent LLM instructions in code |
