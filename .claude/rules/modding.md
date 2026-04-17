@@ -72,5 +72,6 @@ Canonical example: `mods/tcp_cats/species/cat.jsonc`.
 
 Loading: `SpeciesSchemaValidator` (in `engine/mod/`) runs at mod load and rejects recipes missing any required field via `push_error`. Malformed recipes do not register as species.
 
-Related spec: `docs/superpowers/specs/2026-04-16-component-mindset-refactor-design.md`.
+Regression guard: `script/checks/no_species_dispatch` runs in `script/validate` and the pre-commit hook. It flags `String(...species...).contains("cat")` / `contains("ferret")` patterns and hardcoded `&"tcp_cats:cat"` / `&"tcp_ferrets:ferret"` literals in `engine/` and `nodes/`. Exempt: `tests/`, log-string contexts, the species-label field itself. If a check fails, add a capability to the recipe instead of branching on the species label.
+
 Capability-namespace convention: `docs/superpowers/specs/2026-04-10-mod-extraction-design.md`.

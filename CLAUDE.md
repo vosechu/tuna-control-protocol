@@ -33,6 +33,14 @@ behavior by reading the species label. If you are about to write
 capability from narrow to broad is a breaking change for mod authors —
 document it in release notes.
 
+**Granularity policy — hybrid, start narrow.** The first system that needs
+a capability defines a narrow tag (e.g. `tends_servers: true`). When a
+second system needs the same check, promote to a broader name used by both.
+Vocabulary grows from observed duplication, not speculation. The regression
+guard `script/checks/no_species_dispatch` blocks `String(species).contains("cat")`
+and hardcoded species IDs in `engine/` or `nodes/` so promotions can't
+silently shortcut into species branches.
+
 ---
 
 ## Design Frameworks

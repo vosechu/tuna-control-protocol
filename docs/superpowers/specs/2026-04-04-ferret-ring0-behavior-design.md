@@ -1,9 +1,10 @@
 # Ferret Ring 0 Behavior — Design Spec
 
-> **Note (2026-04-16):** Identifiers referenced in this document may be superseded by
-> `2026-04-16-component-mindset-refactor-design.md`. `species_filter` was never
-> implemented in code and is removed from the schema. `cat_presence` → `reclamation`,
-> `cat_seconds` → `tended_seconds`, `is_purring` → `is_satisfied` per Stage 2 renames.
+> **Note (2026-04-16):** Identifiers referenced in this document may be outdated.
+> `species_filter` was never implemented and is removed. `cat_presence` → `reclamation`,
+> `cat_seconds` → `tended_seconds`, `is_purring` → `is_satisfied`. Anchor rule and
+> species-recipe schema live in `CLAUDE.md` ("Species Are Component Recipes") and
+> `.claude/rules/modding.md` (Species Recipe Schema).
 
 **Date:** 2026-04-04
 **Goal:** Make ferrets visibly distinct from cats using existing systems. Two behaviors: curiosity patrol (sniffing around racks) and snuggle sleep (sleeping near warm/fuzzy things).
