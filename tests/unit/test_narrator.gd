@@ -53,7 +53,7 @@ func test_first_pet_log():
 
 func test_cat_departure_log():
 	var log: String = narrator.get_log_for_event(
-		&"cat_departed", {&"name": &"Mochi"},
+		&"creature_departed", {&"name": &"Mochi"},
 	)
 	assert_true(
 		log.contains("departed") or log.contains("standby"),

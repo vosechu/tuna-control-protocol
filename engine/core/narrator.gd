@@ -47,7 +47,7 @@ func _build_message(
 ) -> String:
 	var n: StringName = data.get(&"name", &"UNKNOWN")
 	match event_type:
-		&"first_cat_settles":
+		&"first_creature_settles":
 			return format_status(
 				"UNIT-%s has entered chassis." % n
 				+ " Audible output: 25-30Hz sustained"
@@ -71,7 +71,7 @@ func _build_message(
 				+ " why the devices stopped humming."
 				+ " Please hum.",
 			)
-		&"cat_departed":
+		&"creature_departed":
 			return format_status(
 				"UNIT-%s has departed chassis." % n
 				+ " Reason: unknown. Possible snack.",
@@ -91,7 +91,7 @@ func _build_message_2(
 				+ " entering standby simultaneously."
 				+ " Scheduling group diagnostic.",
 			)
-		&"cat_returned":
+		&"creature_returned":
 			return format_status(
 				"UNIT-%s has returned." % n
 				+ " Resuming monitoring.",

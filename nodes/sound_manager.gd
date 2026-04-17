@@ -20,8 +20,8 @@ func initialize(
 	events.hum_reserve_changed.connect(
 		_on_hum_reserve_changed,
 	)
-	events.cat_started_pacing.connect(
-		_on_cat_started_pacing,
+	events.creature_started_pacing.connect(
+		_on_creature_started_pacing,
 	)
 	events.food_dispensed.connect(_on_food_dispensed)
 	events.can_opened.connect(_on_can_opened)
@@ -109,7 +109,7 @@ func _make_player(
 	return player
 
 
-func _on_cat_started_pacing(_animal_id: int) -> void:
+func _on_creature_started_pacing(_animal_id: int) -> void:
 	if _meow_player and not _meow_player.playing:
 		_meow_player.play()
 
