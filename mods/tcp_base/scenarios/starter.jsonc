@@ -1,0 +1,20 @@
+{
+  // Starter scenario — the smallest playable bay for Phase 0 HUM cable hookup.
+  // Names one HUM device, a tuna dispenser + button pair, a robot arm on the
+  // floor, and two optional cats near the HUM. Consumed by the scenario loader
+  // to populate a fresh game state without hand-placed saves.
+  "schema_version": 1,
+  "id": "tcp_base:starter",
+  "entities": [
+    { "type": "tcp_base:hum_device",     "rack": 0, "slot": 0 },
+    { "type": "tcp_base:tuna_dispenser", "rack": 2, "slot": 1 },
+    {
+      "type": "tcp_base:tuna_button",
+      "rack": 2, "slot": 2,
+      "dispenser_ref": { "rack": 2, "slot": 1 }
+    },
+    { "type": "tcp_base:arm", "floor_rack": 0, "floor_slot_offset": 0 },
+    { "type": "tcp_cats:cat", "rack": 0, "slot": 7, "required": false },
+    { "type": "tcp_cats:cat", "rack": 0, "slot": 8, "required": false }
+  ]
+}

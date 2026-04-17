@@ -1,12 +1,14 @@
 class_name ModLoader extends RefCounted
 
 var validator: SpeciesSchemaValidator = SpeciesSchemaValidator.new()
+var scenario_validator: ScenarioSchemaValidator = ScenarioSchemaValidator.new()
 
 
 func load_all(mods_path: String) -> Dictionary:
 	var entity_defs := EntityDefRegistry.new()
 	var manifests: Array[ModManifest] = []
 	var sprite_resolver := SpriteResolver.new()
+	var scenarios := ScenarioRegistry.new()
 	validator.add_required_field("sprite_config")
 	validator.add_required_field("ambient_states")
 	validator.add_required_field("hud_color")
@@ -40,13 +42,14 @@ func load_all(mods_path: String) -> Dictionary:
 		seen_ids[manifest.id] = manifest.title
 
 	for manifest: ModManifest in parsed:
-		_load_mod_content(manifest, entity_defs)
+		_load_mod_content(manifest, entity_defs, scenarios)
 		manifests.append(manifest)
 
 	return {
 		"entity_defs": entity_defs,
 		"manifests": manifests,
 		"sprite_resolver": sprite_resolver,
+		"scenarios": scenarios,
 	}
 
 
@@ -75,10 +78,51 @@ func _discover_mods(mods_path: String) -> Array[String]:
 func _load_mod_content(
 		manifest: ModManifest,
 		entity_defs: EntityDefRegistry,
+		scenarios: ScenarioRegistry,
 ) -> void:
 	var mod_path: String = manifest.mod_path
 	_load_jsonc_dir(mod_path + "/species", entity_defs)
 	_load_jsonc_dir(mod_path + "/objects", entity_defs)
+	_load_scenarios_dir(mod_path + "/scenarios", scenarios)
+
+
+func _load_scenarios_dir(
+		dir_path: String,
+		registry: ScenarioRegistry,
+) -> void:
+	if not DirAccess.dir_exists_absolute(dir_path):
+		return
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry: String = dir.get_next()
+	while entry != "":
+		if not dir.current_is_dir() and (
+				entry.ends_with(".jsonc")
+				or entry.ends_with(".json")):
+			var file_path: String = dir_path + "/" + entry
+			var data: Dictionary = _parse_jsonc(file_path)
+			if data.is_empty():
+				entry = dir.get_next()
+				continue
+			if not data.has("id"):
+				push_error(
+					"ModLoader: missing 'id' in %s"
+					% file_path,
+				)
+				entry = dir.get_next()
+				continue
+			if not scenario_validator.is_valid(data):
+				push_error(
+					"ModLoader: rejecting invalid scenario from %s"
+					% file_path,
+				)
+				entry = dir.get_next()
+				continue
+			var scenario_id := StringName(str(data["id"]))
+			registry.register(scenario_id, data)
+		entry = dir.get_next()
 
 
 func _load_jsonc_dir(
