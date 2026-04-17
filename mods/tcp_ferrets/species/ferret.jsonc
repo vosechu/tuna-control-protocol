@@ -60,10 +60,6 @@
       "liedown": { "sprite": "_liedown_strip8.png", "frames": 8, "fps": 4.0 }
     }
   },
-  "animations": {
-    "required": ["idle", "walk", "sit", "sleep"],
-    "optional": ["sneak", "crouch", "liedown"]
-  },
   "states": {
     "idle": { "advertisements": [] },
     "sleeping": {

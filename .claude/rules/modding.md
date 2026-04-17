@@ -66,7 +66,7 @@ Every species recipe (`mods/<mod_id>/species/<id>.jsonc`) must declare:
 | `ambient_states` | object | `warm` and `cold` arrays of `{state, weight}` entries |
 | `hud_color` | `[r, g, b]` | Floats 0.0–1.0 for name labels |
 
-Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `animations.required/optional`, `tends_servers` (tag capability), `role_tags` (designer summary).
+Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `tends_servers` (tag capability), `role_tags` (designer summary).
 
 Canonical example: `mods/tcp_cats/species/cat.jsonc`.
 

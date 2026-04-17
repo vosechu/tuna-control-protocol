@@ -66,10 +66,6 @@
       "fright": { "sprite": "_fright_strip8.png", "frames": 8, "fps": 8.0 }
     }
   },
-  "animations": {
-    "required": ["idle", "walk", "sit", "sleep"],
-    "optional": ["groom", "stretch", "knead", "fright", "liedown", "standup"]
-  },
   "states": {
     "idle": {
       "advertisements": [
