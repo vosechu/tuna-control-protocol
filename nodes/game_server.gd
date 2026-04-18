@@ -13,6 +13,8 @@ var hum_system: HumSystem
 var contentment: Contentment
 var contentment_purr_bridge: ContentmentPurrBridge
 var food_system: FoodSystem
+var wiring_locks: WiringLockRegistry
+var wiring_system: WiringSystem
 var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
 var entity_defs: EntityDefRegistry
@@ -55,6 +57,12 @@ func _ready() -> void:
 	contentment_purr_bridge = ContentmentPurrBridge.new(db)
 	hum_system = HumSystem.new(db, Events)
 	food_system = FoodSystem.new(db, hum_system, Events)
+	wiring_locks = WiringLockRegistry.new()
+	# AI-DEV: cable_max_length_ru is the euclidean cap WiringSystem enforces on
+	# handle_connect. Lift into a ConfigRegistry lookup when one ships.
+	wiring_system = WiringSystem.new(
+		db, wiring_locks, Events, {&"cable_max_length_ru": 20},
+	)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
@@ -115,6 +123,9 @@ func _physics_process(_delta: float) -> void:
 	reclamation_system.tick()                               # 14
 	plant_growth_system.tick()                              # 15
 	_update_ambient_states()                                # 16
+	# Drop pickup locks whose owners haven't touched them in 20s. Cheap;
+	# runs once per tick so abandoned drags can't wedge the registry.
+	wiring_locks.tick_expire(db.get_tick(), 200)
 	db.flush_notifications()                                # 17
 
 

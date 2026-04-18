@@ -2,7 +2,7 @@
 # process defined in .claude/rules/llm-test-verification.md. If a stamp is
 # invalid, re-run the full verification process — do not manually update hashes.
 setup_hash: 030538bc
-verified_at: 2026-04-18T15:36:36Z
+verified_at: 2026-04-18T17:08:56Z
 tests:
   test_tick_order_matches_game_server: 0f9aa1f3
   test_commitment_decays_over_ticks: c48dd798
