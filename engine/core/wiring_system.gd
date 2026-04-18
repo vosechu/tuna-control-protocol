@@ -147,12 +147,28 @@ func _within_range(hum_id: int, device_id: int) -> bool:
 	return (delta_x * delta_x + delta_y * delta_y) <= (max_pu * max_pu)
 
 
-func _same_stripe(
-		_peer_id: int, _hum_id: int, _device_id: int,
-) -> bool:
-	# Solo baseline: single peer owns every stripe. MP wires a real check
-	# into this slot (see Task 17).
-	return true
+func _same_stripe(peer_id: int, hum_id: int, device_id: int) -> bool:
+	# AI-DEV: Solo baseline: single peer (id 1) owns every stripe, so both
+	# endpoints are always in-stripe. MP wires a peer-roster lookup into
+	# _peer_stripe() without touching this file shape.
+	var hum_stripe: int = _stripe_of(hum_id)
+	var dev_stripe: int = _stripe_of(device_id)
+	var peer_stripe: int = _peer_stripe(peer_id)
+	return hum_stripe == peer_stripe and dev_stripe == peer_stripe
+
+
+func _stripe_of(entity_id: int) -> int:
+	if not _db.has_component(entity_id, &"position"):
+		return -1
+	var x: int = _db.get_field(entity_id, &"position", &"x")
+	# 5-rack stripes in solo/invite MP; 3-rack in collab. Phase 2 ships
+	# the solo default; stripe size lives in config when MP proper lands.
+	return x / (Constants.RACK_WIDTH_PU * 5)
+
+
+func _peer_stripe(_peer_id: int) -> int:
+	# Solo: only peer 1 exists, assigned to stripe 0.
+	return 0
 
 
 func _emit_connect(hum_id: int, device_id: int) -> void:
