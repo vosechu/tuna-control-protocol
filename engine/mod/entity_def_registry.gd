@@ -162,6 +162,15 @@ func spawn(
 	if def.get("tends_servers", false):
 		db.set_component(id, &"tends_servers", {})
 
+	# Purr emitter: split recipe dict into two DB components.
+	# purr.intensity is the per-tick broadcast value (hot path, read by HumSystem).
+	# purr_config.rate_when_satisfied is the cold recipe snapshot (read by bridge).
+	if def.has("purr"):
+		var purr_cfg: Dictionary = def["purr"]
+		var rate: int = int(purr_cfg.get("rate_when_satisfied", 0))
+		db.set_component(id, &"purr", {&"intensity": 0})
+		db.set_component(id, &"purr_config", {&"rate_when_satisfied": rate})
+
 	if def.has("sprite_config"):
 		db.set_component(id, &"sprite_config", def["sprite_config"])
 
