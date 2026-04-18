@@ -7,6 +7,9 @@
   "id": "tcp_cats:cat",
   "name": "Cat",
   "tends_servers": true,
+  "purr": {
+    "rate_when_satisfied": 10
+  },
   "desires": {
     "warmth": 700,
     "comfort": 700,
