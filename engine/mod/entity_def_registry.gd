@@ -171,6 +171,13 @@ func spawn(
 		db.set_component(id, &"purr", {&"intensity": 0})
 		db.set_component(id, &"purr_config", {&"rate_when_satisfied": rate})
 
+	# HUM battery: recipe declares capacity; entity starts at full reserve.
+	# Falls back to HumSystem.DEFAULT_CAPACITY when recipe omits the field.
+	if def.has("hum"):
+		var hum_cfg: Dictionary = def["hum"]
+		var capacity: int = int(hum_cfg.get("capacity", HumSystem.DEFAULT_CAPACITY))
+		db.set_component(id, &"hum", {&"reserve": capacity, &"capacity": capacity})
+
 	if def.has("sprite_config"):
 		db.set_component(id, &"sprite_config", def["sprite_config"])
 

@@ -6,6 +6,9 @@
   "name": "HUM Device",
   "size_ru": 6,
   "placement": "rack",
+  "hum": {
+    "capacity": 10000
+  },
   "hum_receiver": {
     "radius_ru": 4
   },
