@@ -125,6 +125,8 @@ func _make_dispenser(rack: int, slot: int) -> int:
 	_db.set_component(id, &"object_type", {
 		&"type": &"tuna_dispenser",
 	})
+	_db.set_component(id, &"hum_powered", {})
+	_db.set_component(id, &"hum_cable", {&"hum_id": _hum_id})
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -177,5 +179,7 @@ func _make_arm(rack: int) -> int:
 	_db.set_component(id, &"object_type", {
 		&"type": &"arm",
 	})
+	_db.set_component(id, &"hum_powered", {})
+	_db.set_component(id, &"hum_cable", {&"hum_id": _hum_id})
 	_db.update_spatial(id, x, y)
 	return id

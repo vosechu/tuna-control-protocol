@@ -36,12 +36,36 @@ func apply(scenario_id: StringName) -> void:
 				"world_init aborted: required type missing: %s" % type_id
 			)
 			return
+	# Second pass: spawn, record ref_name → entity_id and defer cable_to links
+	# until every ref has resolved.
+	var refs: Dictionary = {}
+	var pending_cables: Array = []
 	for entry: Dictionary in entities:
 		var type_id: StringName = StringName(entry["type"])
 		if not _entity_defs.has_entity(type_id):
 			continue  # optional entry, silently skipped
 		var overrides: Dictionary = _overrides_for(entry)
-		_entity_defs.spawn(type_id, _db, overrides)
+		var entity_id: int = _entity_defs.spawn(type_id, _db, overrides)
+		if entry.has("ref_name"):
+			refs[StringName(entry["ref_name"])] = entity_id
+		if entry.has("cable_to"):
+			var cable: Dictionary = entry["cable_to"]
+			if cable.has("ref_name"):
+				pending_cables.append({
+					&"actuator_id": entity_id,
+					&"ref_name": StringName(cable["ref_name"]),
+				})
+	# Third pass: resolve cable_to links now that every ref is registered.
+	for cable: Dictionary in pending_cables:
+		var actuator_id: int = cable[&"actuator_id"]
+		var ref_name: StringName = cable[&"ref_name"]
+		if not refs.has(ref_name):
+			push_error(
+				"world_init: cable_to.ref_name not found: %s" % ref_name
+			)
+			continue
+		var hum_id: int = refs[ref_name]
+		_db.set_component(actuator_id, &"hum_cable", {&"hum_id": hum_id})
 
 
 func _overrides_for(entry: Dictionary) -> Dictionary:

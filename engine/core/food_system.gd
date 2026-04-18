@@ -44,14 +44,13 @@ func press_button(button_id: int) -> int:
 	if button_rack != disp_rack:
 		return Constants.INVALID_ID
 
-	# HUM cost check
+	# HUM cost check — cable-driven lookup.
 	var disp_data: Dictionary = _db.get_component(
 		dispenser_id, &"tuna_dispenser",
 	)
 	var cost: int = disp_data[&"hum_cost"]
-	var hum_id: int = _pick_hum_for(dispenser_id)
-	if hum_id == Constants.INVALID_ID \
-			or not _hum.has_reserve(hum_id, cost):
+	var hum_id: int = is_powered(dispenser_id, cost)
+	if hum_id == Constants.INVALID_ID:
 		return Constants.INVALID_ID
 
 	# Dispense
@@ -90,10 +89,8 @@ func tick_arms() -> void:
 			arm_data[&"radius_ru"],
 		)
 		var cost: int = arm_data[&"hum_cost"]
-		var arm_hum_id: int = _pick_hum_for(arm_id)
+		var arm_hum_id: int = is_powered(arm_id, cost)
 		if arm_hum_id == Constants.INVALID_ID:
-			continue
-		if not _hum.has_reserve(arm_hum_id, cost):
 			continue
 
 		var nearby: Array[int] = _db.query_radius(
@@ -130,13 +127,25 @@ func tick_arms() -> void:
 				_events.can_opened.emit(entity_id)
 
 
-func _pick_hum_for(_device_id: int) -> int:
-	# AI-DEV: TEMPORARY SHIM. Phase 2 replaces this with a hum_cable-driven lookup.
-	# Returns the first HUM entity that has any reserve, else INVALID_ID.
-	for hum_id: int in _db.get_entities_with(&"hum"):
-		if _hum.has_reserve(hum_id, 1):
-			return hum_id
-	return Constants.INVALID_ID
+func is_powered(device_id: int, cost: int) -> int:
+	# AI-DEV: Query whether a hum_powered device has a live cable to a HUM
+	# with enough reserve to cover `cost`. Returns the source hum_id on
+	# success or Constants.INVALID_ID on any failure. Tombstone-safe: a
+	# cable whose hum_id no longer resolves reports not-powered.
+	if not _db.has_component(device_id, &"hum_powered"):
+		return Constants.INVALID_ID
+	if not _db.has_component(device_id, &"hum_cable"):
+		return Constants.INVALID_ID
+	var hum_id: int = _db.get_field(device_id, &"hum_cable", &"hum_id")
+	var resolved: bool = (
+		hum_id != Constants.INVALID_ID
+		and _db.has_entity(hum_id)
+		and _db.has_component(hum_id, &"hum")
+		and _hum.has_reserve(hum_id, cost)
+	)
+	if not resolved:
+		return Constants.INVALID_ID
+	return hum_id
 
 
 func tick_cleanup() -> void:
