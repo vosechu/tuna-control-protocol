@@ -1,12 +1,13 @@
 extends GutTest
 
 # AI-DEV: AI **MUST NOT** modify this constant. It must match
-# game_server.gd:_physics_process step numbers 1-16.
+# game_server.gd:_physics_process step numbers 1-17.
 const EXPECTED_ORDER: Array[String] = [
 	"db.advance_tick",
 	"heat_grid.propagate",
 	"_scatter_desires",
 	"contentment.evaluate_all",
+	"contentment_purr_bridge.tick",
 	"hum_system.tick_charge",
 	"hum_system.tick_idle_drain",
 	"_decay_commitment",
