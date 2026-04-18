@@ -28,3 +28,25 @@ func test_new_game_populates_starter_scenario() -> void:
 		"Starter scenario should spawn exactly 1 TUNA dispenser")
 	assert_eq(arms.size(), 1,
 		"Starter scenario should spawn exactly 1 ARM")
+
+
+func test_debug_override_flips_is_satisfied() -> void:
+	# AI-DEV: End-to-end for the Phase 0 Shift+F1 workaround. Simulates
+	# the DebugHud body directly against Contentment without needing a
+	# scene tree or an InputEventKey. If this regresses, QA can't force
+	# cats to satisfied to exercise the cable loop while pet→satisfied
+	# stays broken.
+	var db := GameStateDB.new()
+	var c := Contentment.new(db)
+	var id: int = db.create_entity()
+	db.set_component(id, &"desires", {
+		&"warmth": 100, &"comfort": 100,
+		&"hunger": 100, &"attention": 100,
+	})
+	c.evaluate_all()
+	assert_eq(db.get_field(id, &"contentment", &"is_satisfied"), 0,
+		"Pre-override: low desires must read as unsatisfied")
+	db.set_component(id, &"debug_force_satisfied", {&"active": 1})
+	c.evaluate_all()
+	assert_eq(db.get_field(id, &"contentment", &"is_satisfied"), 1,
+		"Post-override: forced satisfaction must stick on next tick")
