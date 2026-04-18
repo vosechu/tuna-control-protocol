@@ -94,7 +94,7 @@ Right-click (mouse), `I` (keyboard), or `X` (controller) opens an inspect panel 
 
 **Skill tower:** LB+Y opens tower. D-Pad navigates nodes (follows link paths). A places cat. B closes.
 
-**Wiring view:** LB+RB toggles. Left Stick moves between endpoints. A on source starts wire, A on target completes. B cancels. Y on existing wire shows info / hold to disconnect.
+**Wiring view:** Tab (keyboard) or LB+RB (controller) toggles wiring mode. Click a HUM to start a fresh cable, or click an existing cable endpoint to **pick it up**. While a cable is in hand, the tip follows the cursor. Click a valid HUM-powered device to connect; the cable replaces any previous source atomically (one disconnect + one connect signal in the same tick). X (keyboard) / Y (controller) **deletes** the held cable. Escape / B **cancels** and retracts the cable to its original HUM. If the original HUM vanished mid-drag, the cable silently drops rather than stranding the cursor. Ability to disconnect without picking up is gone: disconnect is always mediated through a pickup.
 
 **Drawer items:** RB/LB cycles drawers (opens on focus). Left Stick navigates items inside. A picks up → placement mode. B cancels.
 
