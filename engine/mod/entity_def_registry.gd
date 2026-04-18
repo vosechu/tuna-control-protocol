@@ -162,6 +162,11 @@ func spawn(
 	if def.get("tends_servers", false):
 		db.set_component(id, &"tends_servers", {})
 
+	# Zero-data capability tag: presence of the key materializes the component,
+	# regardless of the value (recipes write `"hum_powered": {}`).
+	if def.has("hum_powered"):
+		db.set_component(id, &"hum_powered", {})
+
 	# Purr emitter: split recipe dict into two DB components.
 	# purr.intensity is the per-tick broadcast value (hot path, read by HumSystem).
 	# purr_config.rate_when_satisfied is the cold recipe snapshot (read by bridge).

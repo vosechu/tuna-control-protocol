@@ -44,6 +44,9 @@ var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
 # entity_id -> float (seconds elapsed in clearing)
 var _clearing_objects: Dictionary = {}
 var _starter_sprites: Array[Sprite2D] = []
+var _cable_layer: CableLayer
+var _dangling_tip: DanglingTip
+var _wiring_controller: WiringController
 
 @onready var game_server: Node = %GameServer
 
@@ -68,7 +71,90 @@ func _ready() -> void:
 	_setup_stats_bar()
 	_setup_narrator_panel()
 	_setup_debug_hud()
+	_setup_cable_layer()
+	_setup_wiring_controller()
 	# Camera position/zoom handled by camera_controller.gd
+
+
+func _setup_cable_layer() -> void:
+	var layer := CableLayer.new()
+	layer.name = "CableLayer"
+	layer.z_index = _Z_PLACED + 1
+	$World.add_child(layer)
+	layer.initialize(game_server.db, Events)
+	var tip := DanglingTip.new()
+	tip.name = "DanglingTip"
+	tip.z_index = _Z_PLACED + 2
+	$World.add_child(tip)
+	_cable_layer = layer
+	_dangling_tip = tip
+
+
+func _setup_wiring_controller() -> void:
+	var wc := WiringController.new()
+	wc.name = "WiringController"
+	$HUD.add_child(wc)
+	wc.initialize(self)
+	if _cable_layer != null:
+		wc.wiring_mode_changed.connect(_cable_layer.set_wiring_mode)
+	if _dangling_tip != null:
+		_dangling_tip.initialize(wc)
+	_wiring_controller = wc
+
+
+# ── Wiring-intent client adapter ──
+# Single-peer local loop. Networking rewires these to an ENet send when MP
+# ships; WiringController doesn't care which path is used.
+
+
+func send_wiring_intent(peer_id: int, intent: StringName, payload: Dictionary) -> void:
+	var ws: WiringSystem = game_server.wiring_system
+	match intent:
+		&"CABLE_START_INTENT":
+			ws.handle_start(peer_id, int(payload[&"hum_id"]))
+		&"CABLE_CONNECT_INTENT":
+			ws.handle_connect(
+				peer_id,
+				int(payload[&"source_hum_id"]),
+				int(payload[&"target_id"]),
+			)
+		&"CABLE_PICKUP_INTENT":
+			ws.handle_pickup_actuator_end(
+				peer_id,
+				game_server.db.get_tick(),
+				int(payload[&"actuator_id"]),
+			)
+		&"CABLE_CANCEL_INTENT":
+			ws.handle_cancel(peer_id, int(payload[&"actuator_id"]))
+		&"CABLE_DELETE_INTENT":
+			ws.handle_delete(peer_id, int(payload[&"actuator_id"]))
+
+
+func screen_to_world(screen_pos: Vector2) -> Vector2:
+	# Screen → world via the active camera's transform.
+	return $Camera.get_canvas_transform().affine_inverse() * screen_pos
+
+
+func entity_under_point(world_pos: Vector2) -> int:
+	var pu: Vector2i = Constants.world_to_pu(world_pos.x, world_pos.y)
+	var nearby: Array[int] = game_server.db.query_radius(
+		pu.x, pu.y, Constants.ru_to_pu(2),
+	)
+	if nearby.is_empty():
+		return Constants.INVALID_ID
+	return nearby[0]
+
+
+func is_hum(entity_id: int) -> bool:
+	return game_server.db.has_component(entity_id, &"hum")
+
+
+func has_existing_cable(entity_id: int) -> bool:
+	return game_server.db.has_component(entity_id, &"hum_cable")
+
+
+func is_hum_powered_device(entity_id: int) -> bool:
+	return game_server.db.has_component(entity_id, &"hum_powered")
 
 
 func _setup_debug_hud() -> void:

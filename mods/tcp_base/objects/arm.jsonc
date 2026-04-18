@@ -11,6 +11,7 @@
     "hum_cost": 30,
     "open_duration_ticks": 20
   },
+  "hum_powered": {},
   "physical": { "mass": 15000, "size_ru": 2 },
   "advertisements": []
 }

@@ -10,6 +10,7 @@
     "hum_cost": 50,
     "can_type": "tcp_tuna:tuna_can"
   },
+  "hum_powered": {},
   "physical": { "mass": 8000, "size_ru": 1 },
   "advertisements": [
     {

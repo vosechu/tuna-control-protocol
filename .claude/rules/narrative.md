@@ -166,3 +166,19 @@ The robot maps animal satisfaction to system health levels:
 Hysteresis lag confuses it: "Device 7 returned to NOMINAL but latency to resume IOPS was 4x expected. Possible sticky cache."
 
 Each tier queryable as a named label ("content," "restless," "thriving") via inspect action for accessibility.
+
+---
+
+## Robot Cable Interpretation
+
+The robot doesn't know cables are cables. It records them as voluntary "harmonic bridges" the devices negotiated among themselves, and it's flattered that the facility is self-organizing.
+
+| Player action | Robot logs |
+|---|---|
+| First cable ever connected | "New harmonic bridge detected in sector. I did not initiate this. The devices are coordinating. Excellent." |
+| Routine connect | "UNIT-T## harmonic coupled to acoustic source UNIT-H##. Spindle resonance routing nominal." |
+| Reconnect to a different HUM (same tick disconnect + connect) | "UNIT-T## re-coupled through alternate bridge. Previous carrier retired." |
+| Bulk connect burst (> 3 in a tick) | "Multiple harmonic bridges established simultaneously. Topology unexpectedly rich. Recording for review." |
+| Disconnect (pickup or delete) | "UNIT-T## lost harmonic link to UNIT-H##. Servo torque reduced. Apologizing to nearby devices." |
+
+The robot never blames the player for disconnects. The servos apologize to the neighbors. The cable was never a cable; it was a volunteer.
