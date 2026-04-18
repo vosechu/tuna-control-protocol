@@ -17,7 +17,7 @@ var plant_growth_system: PlantGrowthSystem
 var entity_defs: EntityDefRegistry
 var scenarios: ScenarioRegistry
 var world_init: WorldInitSystem
-var _settings: Settings
+var settings: Settings
 var _mod_loader := ModLoader.new()
 var _verb_resolver := VerbResolver.new()
 # AI-DEV: Phase 0 in-memory guard — prevents re-applying the starter
@@ -38,7 +38,11 @@ var _min_durations: Dictionary = {
 
 func _ready() -> void:
 	db = GameStateDB.new()
-	_settings = Settings.new()
+	settings = Settings.new()
+	# Phase 0: enable the debug Shift+F1 override in editor/debug builds.
+	# Release builds keep debug_enabled=false; DebugHud asserts on that.
+	if OS.has_feature("editor") or OS.has_feature("debug"):
+		settings.debug_enabled = true
 	var mod_result: Dictionary = _mod_loader.load_all(
 		"res://mods/",
 	)
@@ -595,7 +599,7 @@ func _spawn_starter_entities() -> void:
 	# scenario JSONC. Guarded against re-entry by _starter_applied so a
 	# second _ready (e.g. test re-use) won't double-spawn.
 	if not _starter_applied:
-		world_init.apply(_settings.starter_scenario_id)
+		world_init.apply(settings.starter_scenario_id)
 		_starter_applied = true
 		# TODO Phase 2: emit a robot_log signal once Events grows one.
 

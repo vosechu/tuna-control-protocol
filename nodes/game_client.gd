@@ -67,7 +67,21 @@ func _ready() -> void:
 	_setup_hum_bar()
 	_setup_stats_bar()
 	_setup_narrator_panel()
+	_setup_debug_hud()
 	# Camera position/zoom handled by camera_controller.gd
+
+
+func _setup_debug_hud() -> void:
+	if not has_node("HUD"):
+		var hud := CanvasLayer.new()
+		hud.name = "HUD"
+		add_child(hud)
+	var debug_hud := DebugHud.new()
+	debug_hud.name = "DebugHud"
+	$HUD.add_child(debug_hud)
+	# Phase 0: no inspect panel exists yet; pass null so DebugHud falls
+	# back to toggling all contentment-bearing entities on Shift+F1.
+	debug_hud.initialize(game_server.db, game_server.settings, null)
 
 
 func _setup_narrator_panel() -> void:
