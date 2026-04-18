@@ -10,6 +10,7 @@ var _db: GameStateDB
 var _events: Object
 var _hum: HumSystem
 var _food: FoodSystem
+var _hum_id: int = -1
 
 
 func before_each() -> void:
@@ -17,6 +18,8 @@ func before_each() -> void:
 	_events = EventsScript.new()
 	_hum = HumSystem.new(_db, _events)
 	_food = FoodSystem.new(_db, _hum, _events)
+	# Spawn a HUM entity so _pick_hum_for shim can find a battery
+	_hum_id = _make_hum_entity()
 
 
 func test_button_press_creates_sealed_can():
@@ -89,16 +92,16 @@ func test_dispense_drains_and_open_drains_hum():
 	var button_id: int = _make_button(1, 6, disp_id)
 	_make_arm(1)
 
-	var start_reserve: int = _hum.get_reserve()
+	var start_reserve: int = _hum.get_reserve(_hum_id)
 	_food.press_button(button_id)
-	var after_dispense: int = _hum.get_reserve()
+	var after_dispense: int = _hum.get_reserve(_hum_id)
 	assert_eq(
 		start_reserve - after_dispense, 50,
 		"Dispense should drain 50 HUM",
 	)
 
 	_food.tick_arms()
-	var after_open: int = _hum.get_reserve()
+	var after_open: int = _hum.get_reserve(_hum_id)
 	assert_eq(
 		after_dispense - after_open, 30,
 		"ARM open should drain 30 HUM",
@@ -142,6 +145,17 @@ func _make_button(
 		&"type": &"tuna_button",
 	})
 	_db.update_spatial(id, x, y)
+	return id
+
+
+func _make_hum_entity() -> int:
+	var id: int = _db.create_entity()
+	_db.set_component(id, &"hum", {
+		&"reserve": HumSystem.DEFAULT_CAPACITY,
+		&"capacity": HumSystem.DEFAULT_CAPACITY,
+	})
+	_db.set_component(id, &"position", {&"x": 0, &"y": 0})
+	_db.update_spatial(id, 0, 0)
 	return id
 
 

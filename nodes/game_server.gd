@@ -101,7 +101,7 @@ func _physics_process(_delta: float) -> void:
 	_scatter_desires()                                      # 3
 	contentment.evaluate_all()                              # 4
 	hum_system.tick_charge()                                # 5
-	hum_system.drain_idle()                                 # 6
+	hum_system.tick_idle_drain()                            # 6
 	_decay_commitment()                                     # 7
 	desire_resolver.mark_all_dirty()                        # 8
 	desire_resolver.evaluate_budget(_curiosity_trackers)    # 9

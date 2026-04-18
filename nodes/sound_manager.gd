@@ -158,7 +158,7 @@ func _on_box_squeaked(_box_id: int) -> void:
 
 
 func _on_hum_reserve_changed(
-		_old: int, new_reserve: int,
+		_hum_id: int, _old: int, new_reserve: int,
 ) -> void:
 	_hum_reserve_ratio = new_reserve * 1000 / HumSystem.DEFAULT_CAPACITY
 

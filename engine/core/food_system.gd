@@ -24,9 +24,8 @@ func press_button(button_id: int) -> int:
 	)
 	var dispenser_id: int = button_data[&"dispenser_id"]
 
-	if not _db.has_entity(dispenser_id):
-		return Constants.INVALID_ID
-	if not _db.has_component(dispenser_id, &"tuna_dispenser"):
+	if not _db.has_entity(dispenser_id) \
+			or not _db.has_component(dispenser_id, &"tuna_dispenser"):
 		return Constants.INVALID_ID
 
 	# Same-rack check
@@ -50,11 +49,13 @@ func press_button(button_id: int) -> int:
 		dispenser_id, &"tuna_dispenser",
 	)
 	var cost: int = disp_data[&"hum_cost"]
-	if not _hum.has_reserve(cost):
+	var hum_id: int = _pick_hum_for(dispenser_id)
+	if hum_id == Constants.INVALID_ID \
+			or not _hum.has_reserve(hum_id, cost):
 		return Constants.INVALID_ID
 
 	# Dispense
-	_hum.drain_action(cost)
+	_hum.drain_action(hum_id, cost)
 	var can_id: int = _db.create_entity()
 	var can_x: int = disp_pos[&"x"]
 	var can_y: int = (
@@ -89,8 +90,10 @@ func tick_arms() -> void:
 			arm_data[&"radius_ru"],
 		)
 		var cost: int = arm_data[&"hum_cost"]
-
-		if not _hum.has_reserve(cost):
+		var arm_hum_id: int = _pick_hum_for(arm_id)
+		if arm_hum_id == Constants.INVALID_ID:
+			continue
+		if not _hum.has_reserve(arm_hum_id, cost):
 			continue
 
 		var nearby: Array[int] = _db.query_radius(
@@ -104,9 +107,9 @@ func tick_arms() -> void:
 			)
 			if can[&"state"] != &"sealed":
 				continue
-			if not _hum.has_reserve(cost):
+			if not _hum.has_reserve(arm_hum_id, cost):
 				break
-			_hum.drain_action(cost)
+			_hum.drain_action(arm_hum_id, cost)
 			var updated: Dictionary = _db.get_component(
 				entity_id, &"tuna_can",
 			)
@@ -125,6 +128,15 @@ func tick_arms() -> void:
 			)
 			if _events and _events.has_signal(&"can_opened"):
 				_events.can_opened.emit(entity_id)
+
+
+func _pick_hum_for(_device_id: int) -> int:
+	# AI-DEV: TEMPORARY SHIM. Phase 2 replaces this with a hum_cable-driven lookup.
+	# Returns the first HUM entity that has any reserve, else INVALID_ID.
+	for hum_id: int in _db.get_entities_with(&"hum"):
+		if _hum.has_reserve(hum_id, 1):
+			return hum_id
+	return Constants.INVALID_ID
 
 
 func tick_cleanup() -> void:

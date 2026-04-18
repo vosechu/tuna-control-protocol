@@ -8,6 +8,7 @@ var db: GameStateDB
 var events: Object
 var hum: HumSystem
 var food: FoodSystem
+var hum_id: int = -1
 
 
 func before_each() -> void:
@@ -15,6 +16,8 @@ func before_each() -> void:
 	events = EventsScript.new()
 	hum = HumSystem.new(db, events)
 	food = FoodSystem.new(db, hum, events)
+	# Spawn a HUM entity so _pick_hum_for shim can find a battery
+	hum_id = _make_hum_entity()
 
 
 func test_press_button_dispenses_can_when_hum_available():
@@ -31,7 +34,7 @@ func test_press_button_dispenses_can_when_hum_available():
 func test_press_button_fails_without_hum():
 	var dispenser_id: int = _make_dispenser(1, 5)
 	var button_id: int = _make_button(1, 6, dispenser_id)
-	hum.drain_action(hum.get_reserve())
+	hum.drain_action(hum_id, hum.get_reserve(hum_id))
 
 	var result: int = food.press_button(button_id)
 	assert_eq(result, Constants.INVALID_ID,
@@ -41,9 +44,9 @@ func test_press_button_fails_without_hum():
 func test_press_button_drains_hum():
 	var dispenser_id: int = _make_dispenser(1, 5)
 	var button_id: int = _make_button(1, 6, dispenser_id)
-	var before: int = hum.get_reserve()
+	var before: int = hum.get_reserve(hum_id)
 	food.press_button(button_id)
-	var after: int = hum.get_reserve()
+	var after: int = hum.get_reserve(hum_id)
 	assert_lt(after, before,
 		"Dispensing should drain HUM")
 
@@ -80,7 +83,7 @@ func test_arm_ignores_distant_can():
 func test_arm_requires_hum_to_open():
 	_make_arm(1)
 	var can_id: int = _make_sealed_can(1)
-	hum.drain_action(hum.get_reserve())
+	hum.drain_action(hum_id, hum.get_reserve(hum_id))
 
 	food.tick_arms()
 	var can: Dictionary = db.get_component(can_id, &"tuna_can")
@@ -181,6 +184,17 @@ func _make_arm(rack: int) -> int:
 		&"type": &"arm",
 	})
 	db.update_spatial(id, x, y)
+	return id
+
+
+func _make_hum_entity() -> int:
+	var id: int = db.create_entity()
+	db.set_component(id, &"hum", {
+		&"reserve": HumSystem.DEFAULT_CAPACITY,
+		&"capacity": HumSystem.DEFAULT_CAPACITY,
+	})
+	db.set_component(id, &"position", {&"x": 0, &"y": 0})
+	db.update_spatial(id, 0, 0)
 	return id
 
 

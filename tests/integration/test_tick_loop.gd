@@ -8,7 +8,7 @@ const EXPECTED_ORDER: Array[String] = [
 	"_scatter_desires",
 	"contentment.evaluate_all",
 	"hum_system.tick_charge",
-	"hum_system.drain_idle",
+	"hum_system.tick_idle_drain",
 	"_decay_commitment",
 	"desire_resolver.mark_all_dirty",
 	"desire_resolver.evaluate_budget",

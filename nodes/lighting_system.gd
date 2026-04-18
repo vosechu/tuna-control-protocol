@@ -44,7 +44,7 @@ static func is_brownout(ratio: int) -> bool:
 
 
 func _on_hum_reserve_changed(
-		_old: int, new_reserve: int,
+		_hum_id: int, _old: int, new_reserve: int,
 ) -> void:
 	var ratio: int = new_reserve * 1000 / HumSystem.DEFAULT_CAPACITY
 	_target_brightness = reserve_to_brightness(ratio)

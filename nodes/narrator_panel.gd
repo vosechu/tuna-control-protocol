@@ -74,14 +74,14 @@ func _refresh_display() -> void:
 	_label.text = "\n".join(lines)
 
 
-func _on_brownout_entered() -> void:
+func _on_brownout_entered(_hum_id: int) -> void:
 	var log: String = _narrator.get_log_for_event(
 		&"first_brownout", {},
 	)
 	post_log(log)
 
 
-func _on_brownout_recovered() -> void:
+func _on_brownout_recovered(_hum_id: int) -> void:
 	var log: String = _narrator.get_log_for_event(
 		&"recovery", {},
 	)

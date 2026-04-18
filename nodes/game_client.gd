@@ -102,7 +102,7 @@ func _setup_hum_bar() -> void:
 	hum_bar.position = Vector2(2, 2)
 	hum_bar.name = "HumBar"
 	$HUD.add_child(hum_bar)
-	hum_bar.initialize(Events)
+	hum_bar.initialize(Events, game_server.db)
 
 
 func _setup_stats_bar() -> void:
