@@ -240,7 +240,7 @@ if [ $ERRORS -gt 0 ]; then
     echo "" >&2
     echo "These tests are no longer in a verified state. To restore verification you" >&2
     echo "MUST follow the full red-green-refactor process in:" >&2
-    echo "  .claude/rules/llm-test-verification.md" >&2
+    echo "  the /verify-test skill (.claude/skills/verify-test/SKILL.md)" >&2
     echo "" >&2
     echo "DO NOT skip the process by stamping directly. The stamp is the seal at the" >&2
     echo "end of verification, not a fix for verification failures." >&2

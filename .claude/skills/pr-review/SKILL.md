@@ -1,3 +1,9 @@
+---
+name: pr-review
+description: "Use when reviewing a pull request — universal checklist covering reviewer/author roles, security, testing, code quality, commits, AI-specific concerns, and failure-mode thinking across network/logic/edge-cases/multiplayer/simulation categories."
+user-invokable: true
+---
+
 # PR Review Checklist (Universal)
 
 ## Roles
@@ -29,7 +35,7 @@
 
 ## Testing
 - [ ] New behavior has tests
-- [ ] Tests follow red-green-refactor (see .claude/rules/llm-test-verification.md)
+- [ ] Tests follow red-green-refactor (invoke `/verify-test` for the full protocol)
 - [ ] Confirmed tests (those containing `# AI-DEV` comment markers) have NOT been modified
 - [ ] No integration tests where unit tests would suffice
 - [ ] Test names describe expected behavior

@@ -198,9 +198,16 @@ Rules live in `.claude/rules/` as auto-loadable files.
 | `ai-dev.md` | AI-DEV inline comment markers — permanent LLM instructions in code |
 | `naming-conventions.md` | Verb vocabulary, boolean prefixes, A/HC/LC structure, opposites |
 | `test-philosophy.md` | Sandi Metz test matrix, unit vs integration philosophy |
-| `signals.md` | Three signal patterns, event bus, ownership, UI pattern, scenario traces |
-| `llm-test-verification.md` | Red-green-refactor verification, test protection, post-hoc review |
-| `pr-review-checklist.md` | Review roles, security/testing/quality checklists, failure thinking |
+| `signals.md` | Three signal patterns, event bus, ownership, UI pattern (scenario traces moved to `/trace-signal-flow` skill) |
+
+### On-demand skills (replace former rules)
+
+| Skill | Invoke when |
+|---|---|
+| `/verify-test` | Writing, modifying, or verifying a test — red-green-refactor + mutation + stamp protocol. Required for `verify_tests` to pass. |
+| `/pr-review` | Reviewing a pull request — universal checklist, failure-mode thinking. |
+| `/edit-claude-md` | Creating or editing a CLAUDE.md file — size budget, structure, conditional-context patterns. |
+| `/trace-signal-flow` | Wiring a new cross-system signal or debugging signal propagation. Four worked traces. |
 
 ### Loaded by path
 

@@ -1,3 +1,9 @@
+---
+name: edit-claude-md
+description: "Use when creating or editing a CLAUDE.md file — structural guidance, size budget (~200 lines), important path imports, and the <important if='...'> block convention for conditional context."
+user-invokable: true
+---
+
 # CLAUDE.md Reference
 
 This is a reference for what a well-structured CLAUDE.md looks like. When integrating standards into a project, use this as a starting point and adapt it to the project's actual stack, commands, and conventions.
