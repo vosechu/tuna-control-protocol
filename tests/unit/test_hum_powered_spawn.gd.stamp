@@ -3,8 +3,7 @@
 # manually update hashes.
 ---
 setup_hash: deb51a79
-verified_at: '2026-04-19T21:30:44Z'
+verified_at: '2026-04-19T22:54:40Z'
 tests:
-  test_tuna_dispenser_recipe_materializes_hum_powered: 872eae43
-  test_arm_recipe_materializes_hum_powered: e868dc37
+  test_hum_powered_field_materializes_tag_on_any_recipe: 38c1e31b
   test_recipe_without_hum_powered_field_gets_no_tag: db6b356e

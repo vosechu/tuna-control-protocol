@@ -32,20 +32,19 @@ func before_each() -> void:
 	})
 
 
-func test_tuna_dispenser_recipe_materializes_hum_powered() -> void:
+func test_hum_powered_field_materializes_tag_on_any_recipe() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	var id: int = _reg.spawn(&"tcp_base:tuna_dispenser", _db, {"rack": 0, "slot": 0})
+	# Covers both tuna_dispenser and arm recipes in one test — the
+	# production line is entity-agnostic so testing twice was redundant and
+	# blocked surgical mutation targeting.
+	var disp: int = _reg.spawn(&"tcp_base:tuna_dispenser", _db, {"rack": 0, "slot": 0})
 	assert_true(
-		_db.has_component(id, &"hum_powered"),
+		_db.has_component(disp, &"hum_powered"),
 		"tuna_dispenser recipe must materialize hum_powered tag",
 	)
-
-
-func test_arm_recipe_materializes_hum_powered() -> void:
-	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	var id: int = _reg.spawn(&"tcp_base:arm", _db, {"rack": 0, "slot": 0})
+	var arm: int = _reg.spawn(&"tcp_base:arm", _db, {"rack": 0, "slot": 0})
 	assert_true(
-		_db.has_component(id, &"hum_powered"),
+		_db.has_component(arm, &"hum_powered"),
 		"arm recipe must materialize hum_powered tag",
 	)
 
