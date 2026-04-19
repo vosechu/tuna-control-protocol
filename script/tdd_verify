@@ -143,6 +143,9 @@ def cmd_start(test_file)
 
   rel = Pathname.new(abs).relative_path_from(Pathname.new(REPO_ROOT)).to_s
 
+  # Stamping scope: only tests/unit/ — see script/checks/verify_tests.
+  die "#{rel} is outside tests/unit/; stamping is scoped to unit tests only" unless rel.start_with?('tests/unit/')
+
   puts 'tdd_verify: running baseline tests...'
   result = run_gut
   if result[:exit] != 0
@@ -320,6 +323,9 @@ def cmd_restamp(test_file, reason)
 
   abs = File.expand_path(test_file, REPO_ROOT)
   die "test file not found: #{test_file}" unless File.exist?(abs)
+
+  rel = Pathname.new(abs).relative_path_from(Pathname.new(REPO_ROOT)).to_s
+  die "#{rel} is outside tests/unit/; stamping is scoped to unit tests only" unless rel.start_with?('tests/unit/')
 
   if reason.nil? || reason.strip.empty?
     die 'refusing to re-stamp without a reason; pass a short one-sentence explanation'

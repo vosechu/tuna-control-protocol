@@ -28,10 +28,15 @@ def parse_stamp(path)
 end
 
 REPO_ROOT = `git rev-parse --show-toplevel`.strip
-TESTS_DIR = File.join(REPO_ROOT, 'tests')
+# Stamping + mutation verification is scoped to tests/unit/ only.
+# Integration, scenario, scene, soak, and perf suites compose well-covered
+# systems; no single surgical mutation isolates a composition test to a
+# single failing suite, so they don't fit the tdd_verify cycle. They still
+# run in CI (gut_tests) — they just aren't stamp-gated.
+STAMPED_DIR = File.join(REPO_ROOT, 'tests', 'unit')
 
-unless Dir.exist?(TESTS_DIR)
-  warn "No tests directory at #{TESTS_DIR}"
+unless Dir.exist?(STAMPED_DIR)
+  warn "No unit tests directory at #{STAMPED_DIR}"
   exit 1
 end
 
@@ -39,8 +44,8 @@ def strip_ansi(str)
   str.gsub(/\e\[[0-9;]*m/, '')
 end
 
-test_files = Dir.glob(File.join(TESTS_DIR, '**/test_*.gd')).reject { |f| f.include?('/.godot/') }.sort
-stamp_files = Dir.glob(File.join(TESTS_DIR, '**/*.gd.stamp')).reject { |f| f.include?('/.godot/') }.sort
+test_files = Dir.glob(File.join(STAMPED_DIR, '**/test_*.gd')).reject { |f| f.include?('/.godot/') }.sort
+stamp_files = Dir.glob(File.join(STAMPED_DIR, '**/*.gd.stamp')).reject { |f| f.include?('/.godot/') }.sort
 
 missing_stamps = []
 orphan_stamps = []
