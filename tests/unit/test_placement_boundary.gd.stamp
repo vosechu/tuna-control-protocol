@@ -3,10 +3,6 @@
 # manually update hashes.
 ---
 setup_hash: e3b0c442
-verified_at: '2026-04-19T21:30:29Z'
+verified_at: '2026-04-19T23:26:22Z'
 tests:
-  test_rack_0_center_snaps_to_rack_0: d31111ea
-  test_rack_4_center_snaps_to_rack_4: 4836ddc7
-  test_gap_between_racks_returns_other: 5b4ef6ec
-  test_slot_boundary_is_per_slot_height: da12ccae
-  test_next_bay_resolves_via_world_to_bay: 95a893f1
+  test_first_and_last_rack_columns_snap_to_their_own_rack: 8a530405

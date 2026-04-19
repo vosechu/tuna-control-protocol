@@ -1,39 +1,26 @@
 extends GutTest
 
-
-func test_rack_0_center_snaps_to_rack_0():
-	var col: Rect2i = Constants.rack_column_rect_world(0, 0)
-	var center := Vector2i(col.position.x + col.size.x / 2, 50)
-	var q: SlotQuery = Constants.bay_local_to_slot(0, center)
-	assert_eq(q.rack, 0, "Center of rack column 0 snaps to rack 0")
-
-
-func test_rack_4_center_snaps_to_rack_4():
-	var col: Rect2i = Constants.rack_column_rect_world(0, 4)
-	var center := Vector2i(col.position.x + col.size.x / 2, 50)
-	var q: SlotQuery = Constants.bay_local_to_slot(0, center)
-	assert_eq(q.rack, 4, "Center of rack column 4 snaps to rack 4")
+# AI-DEV: The gap/slot-boundary/world_to_bay tests that used to live in
+# this file were redundant with tests/unit/test_constants_addressing.gd
+# (test_bay_local_to_slot_tags_other_for_gap_positions,
+# test_bay_local_to_slot_finds_slot_when_inside_slot_rect,
+# test_bay_index_round_trip_through_world_to_bay). The placement-boundary
+# unique coverage is the rack iteration upper-bound — rack 4, the last
+# rack, is only hit here; mid-range racks (0–2) are exercised elsewhere.
 
 
-func test_gap_between_racks_returns_other():
-	var col0: Rect2i = Constants.rack_column_rect_world(0, 0)
-	var gap_x: int = col0.end.x + 2
-	var q: SlotQuery = Constants.bay_local_to_slot(0, Vector2i(gap_x, 50))
-	assert_eq(q.zone, &"other", "Horizontal gap between rack columns is 'other'")
+func test_first_and_last_rack_columns_snap_to_their_own_rack():
+	# AI-DEV: Covers rack 0 and rack 4 in one test — both paths run the
+	# single `for r in range(RACK_COUNT)` line in bay_local_to_slot, so a
+	# surgical mutation can only target one test. Splitting them blocks
+	# the cycle. Rack 4 pins the upper bound (mid-range racks are
+	# exercised in test_constants_addressing.gd); rack 0 pins the lower.
+	var col_0: Rect2i = Constants.rack_column_rect_world(0, 0)
+	var center_0 := Vector2i(col_0.position.x + col_0.size.x / 2, 50)
+	var q_0: SlotQuery = Constants.bay_local_to_slot(0, center_0)
+	assert_eq(q_0.rack, 0, "Center of rack column 0 snaps to rack 0")
 
-
-func test_slot_boundary_is_per_slot_height():
-	# Pick slot 5 via slot_rect_world and confirm its center lands on slot 5.
-	var rect: Rect2i = Constants.slot_rect_world(0, 0, 5)
-	var center := Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2)
-	var q: SlotQuery = Constants.bay_local_to_slot(0, center)
-	assert_eq(q.zone, &"slot", "Center of slot rect lands in slot zone")
-	assert_eq(q.get_slot(), 5, "Slot index 5 round-trips through bay_local_to_slot")
-
-
-func test_next_bay_resolves_via_world_to_bay():
-	var b1_origin: Vector2i = Constants.bay_origin_world(1)
-	assert_eq(
-		Constants.world_to_bay(b1_origin), 1,
-		"Bay 1 origin resolves to bay 1",
-	)
+	var col_4: Rect2i = Constants.rack_column_rect_world(0, 4)
+	var center_4 := Vector2i(col_4.position.x + col_4.size.x / 2, 50)
+	var q_4: SlotQuery = Constants.bay_local_to_slot(0, center_4)
+	assert_eq(q_4.rack, 4, "Center of rack column 4 snaps to rack 4")
