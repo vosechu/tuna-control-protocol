@@ -111,6 +111,12 @@
         "hooks": [
           { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/classify" }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/pre-agent-require-worktree" }
+        ]
       }
     ],
     "PostToolUse": [

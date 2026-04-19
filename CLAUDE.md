@@ -9,6 +9,7 @@
 - **Use `script/validate` and `script/checks/gut_tests`** — not raw Godot commands.
 - **Explode early.** Integers for game values (ints with scaling, not floats). No `Variant`, no `null`. Guard at system boundaries; trust internally.
 - **Hook/tool warnings aren't wallpaper.** A non-blocking failure that repeats on every tool call is a signal something is wrong with the environment. Investigate at the first occurrence, not the tenth.
+- **Worktree isolation for code-writing work.** New feature from a clean base → spawn the Agent with `isolation: "worktree"` (or, for the main thread, `git worktree add` before touching code). Continuing an existing feature branch, or meta-edits to `.claude/` / `script/` / `CLAUDE.md`, → current branch is fine. The `pre-agent-require-worktree` hook enforces this on Agent spawns; read-only agent types (`Explore`, `claude-code-guide`, players, `statusline-setup`) are allowlisted.
 
 ---
 
