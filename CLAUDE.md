@@ -1,5 +1,18 @@
 # Tuna Control Protocol (TCP) — Datacenter Animal Habitat Simulator
 
+## Stop forgetting
+
+- **Capabilities, never species.** Branch on components, never on species labels. See "Species Are Component Recipes" below.
+- **Never a broken commit.** Every commit leaves `script/validate` green and the game bootable. No exceptions.
+- **Never use `--no-verify`** on commit or push, ever. If hooks fail, fix the underlying issue. There is no valid reason to bypass them.
+- **Never `git stash` with session work in flight.** Stash sweeps everything uncommitted; recovery is lossy. Use a branch (`git checkout -b test-foo HEAD`) or don't.
+- **Use `script/validate` and `script/checks/gut_tests`** — not raw Godot commands.
+- **Explode early.** Integers for game values (ints with scaling, not floats). No `Variant`, no `null`. Guard at system boundaries; trust internally.
+
+---
+
+## What the game is
+
 A cozy, abundance-driven game about raising thousands of animals in an abandoned datacenter. Players build interconnected infrastructure, animals arrive and thrive, and the game is about maximizing collective happiness. There is no lose condition. The challenge is finding the theoretical maximum — which is hard because animals have complex, interacting desires and emergent teaching behaviors.
 
 **The ultimate goal: feel buried in fluffy joy and thousands of kittens.**
