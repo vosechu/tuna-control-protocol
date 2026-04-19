@@ -31,6 +31,18 @@ PALETTES = {
         (0x29, 0xAD, 0xFF), (0x83, 0x76, 0x9C), (0xFF, 0x77, 0xA8), (0xFF, 0xCC, 0xAA),
     ],
     "grayscale": [(v, v, v) for v in range(0, 256, 17)][:16],
+    # TCP's art-direction palette (.claude/rules/art-direction.md §2).
+    # 6 cold + 6 warm = 12 canonical colors. Neither db16 nor pico8 covers
+    # TCP's desaturated mid-tones (Cable Gray, Dust Blue, Warning Amber),
+    # so use this palette to keep pixelize output on-model.
+    "tcp": [
+        # Cold (datacenter starting state)
+        (0x1A, 0x1E, 0x2E), (0x3B, 0x41, 0x57), (0x5B, 0x6B, 0x8A),
+        (0x4A, 0x9B, 0x9B), (0xC4, 0xA2, 0x4E), (0xD4, 0xDA, 0xE8),
+        # Warm (datacenter thriving state)
+        (0x2E, 0x20, 0x18), (0x6B, 0x52, 0x40), (0xC4, 0x95, 0x48),
+        (0xD4, 0x76, 0x3A), (0x5B, 0x8B, 0x4A), (0xF0, 0xE6, 0xD0),
+    ],
 }
 
 PALETTE_CHOICES = sorted(list(PALETTES.keys()) + ["sampled"])
@@ -60,7 +72,7 @@ def rembg_background(img: Image.Image) -> Image.Image:
     try:
         from rembg import remove
     except ImportError:
-        sys.exit("error: --rembg requires `pip install rembg` (pulls ~170MB ONNX weights on first run if not vendored)")
+        sys.exit("error: --rembg requires 'pip install rembg'. See script/pixelize_models/README.md")
     rgba = img.convert("RGBA")
     result = remove(rgba)
     if isinstance(result, Image.Image):

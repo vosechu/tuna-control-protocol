@@ -2,6 +2,18 @@
 
 Drop-in location for `script/pixelize --rembg` to find the U²-Net background-removal model without hitting the network.
 
+## Setup
+
+The `--rembg` flag needs the `rembg` package (plus its ONNX runtime). Install in a venv so you don't pollute your global environment:
+
+```sh
+python3 -m venv .venv-pixelize
+.venv-pixelize/bin/pip install rembg onnxruntime
+.venv-pixelize/bin/python script/pixelize input.jpg out.png --rembg --preview 8
+```
+
+The pure-PIL path (no `--rembg`) only needs Pillow, which Python ships or is a one-liner `pip install Pillow`.
+
 ## What goes here
 
 | File | Size | Purpose |
