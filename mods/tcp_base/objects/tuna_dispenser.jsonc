@@ -12,11 +12,8 @@
   },
   "hum_powered": {},
   "physical": { "mass": 8000, "size_ru": 1 },
-  "advertisements": [
-    {
-      "desire_type": "hunger",
-      "strength": 300,
-      "radius_ru": 6
-    }
-  ]
+  // Dispensers do not advertise hunger — only open tuna cans do. A
+  // dispenser is a source *of* food, not food itself. Future work:
+  // advertise excitement/noise channels when those ship.
+  "advertisements": []
 }

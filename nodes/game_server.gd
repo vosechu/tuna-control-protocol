@@ -522,7 +522,10 @@ func place_object(
 					&"max_occupants": 1,
 				}],
 			})
-			db.set_component(entity, &"hum_receiver", {&"radius_ru": 5})
+			# No hum_receiver — servers are wireless per hum-cable-system.md.
+			# Only dedicated HUM devices listen on the purr channel; servers
+			# emit heat. A stray hum_receiver here would compete for nearest-
+			# receiver matches in tick_charge and route purr into a non-HUM.
 		&"cardboard_box":
 			db.set_component(entity, &"advertisements", {
 				&"list": [
@@ -559,13 +562,8 @@ func place_object(
 				&"hum_cost": 50,
 				&"can_type": &"tcp_tuna:tuna_can",
 			})
-			db.set_component(entity, &"advertisements", {
-				&"list": [{
-					&"desire_type": &"hunger",
-					&"strength": 300,
-					&"radius_ru": 6,
-				}],
-			})
+			# No advertisements — food comes from open tuna cans only.
+			# Future work: an excitement/noise channel when those ship.
 		&"tuna_button":
 			var disp_id: int = _find_dispenser_in_rack(
 				world_x, world_y,
