@@ -1,3 +1,10 @@
+---
+paths:
+  - "engine/core/object_state_manager.gd"
+  - "engine/objects/**"
+  - "mods/**/objects/**"
+---
+
 # TCP Object Mechanics
 
 Placed/spawned objects are regular entities with a small set of components. Their behavior — state transitions, advertisement swaps, HP-driven degradation — is driven by `ObjectStateManager` reading a per-type config.

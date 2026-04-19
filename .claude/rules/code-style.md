@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.gd"
+---
+
 # TCP GDScript Code Style
 
 ## Types

@@ -1,3 +1,11 @@
+---
+paths:
+  - "nodes/camera_controller.gd"
+  - "nodes/heat_overlay.gd"
+  - "engine/spatial/**"
+  - "engine/environment/**"
+---
+
 # TCP Viewport LOD & Subscription Zones
 
 ## Zone Model

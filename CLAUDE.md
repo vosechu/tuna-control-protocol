@@ -189,42 +189,46 @@ Design collaboration uses specialized agents in `.claude/agents/`:
 
 Rules live in `.claude/rules/` as auto-loadable files.
 
-### Always loaded (code & architecture)
+### Always loaded (cross-cutting, small)
 
 | Rule file | Covers |
 |---|---|
-| `design-philosophy.md` | Pure Core, Redux state, integers, null, determinism, config-not-code, change detection, spawn templates, lifecycle hooks, relationships, GameStateDB reference |
-| `code-style.md` | Types, naming, returns, null handling, signals, comments, code examples |
-| `testing.md` | GUT, test suites, CI pipeline, coverage targets, test exemplars |
-| `signals.md` | Three signal patterns, event bus, ownership, UI pattern, scenario traces |
 | `file-structure.md` | Full `res://` directory tree |
-| `save-system.md` | GameStateDB, MessagePack format, save payload, versioning, sharing, migrator reference |
-| `networking.md` | Client-server protocol, deltas, bandwidth, interest management |
-| `viewport-lod.md` | Subscription zones, billboard rendering, tier model |
-| `modding.md` | Auto-detection, three-lane ordering, ID derivation, observable state reference |
-| `scene-tree.md` | Scene tree skeleton, animal scene, key ownership |
-| `tick-architecture.md` | 10 Hz sim tick, staggered eval, rendering interpolation, key numbers |
-| `animal-ai.md` | State machine, hysteresis, object advertisements, scoring loop |
-| `objects.md` | Object state components, ObjectStateManager API, OBJECT_CONFIG schema |
-| `food-system.md` | Tuna-can lifecycle, button/dispenser/arm flow, cat PACING/EATING loop |
-| `growth-system.md` | Reclamation + plant-growth state machine, tended_seconds accumulator, HUM brownout immunity |
-| `navigation.md` | AStar2D point graph, node/edge types, species capabilities, dynamic updates |
 | `secrets.md` | What never gets committed, where secrets go, .gitignore policy |
 | `ai-dev.md` | AI-DEV inline comment markers — permanent LLM instructions in code |
-| `llm-test-verification.md` | Red-green-refactor verification, test protection, post-hoc review |
 | `naming-conventions.md` | Verb vocabulary, boolean prefixes, A/HC/LC structure, opposites |
-| `pr-review-checklist.md` | Review roles, security/testing/quality checklists, failure thinking |
 | `test-philosophy.md` | Sandi Metz test matrix, unit vs integration philosophy |
+| `signals.md` | Three signal patterns, event bus, ownership, UI pattern, scenario traces |
+| `llm-test-verification.md` | Red-green-refactor verification, test protection, post-hoc review |
+| `pr-review-checklist.md` | Review roles, security/testing/quality checklists, failure thinking |
 
-### Loaded by path (design specs)
+### Loaded by path
 
-| Rule file | Loads when touching | Covers |
-|---|---|---|
-| `art-direction.md` | `**/*.png`, `**/*.tscn`, `sprites/**` | Pixel grid, palettes, cat models, zoom levels, lighting, z-order, robot arm visual |
-| `asset-pipeline.md` | `mods/tcp_base/**`, `**/*.png`, `**/*.ogg` | Directory structure, naming, sprite/sound lists, animation frame budgets |
-| `input-design.md` | `nodes/**`, `**/*.tscn`, `config/input/**` | Keyboard shortcuts, controller flow, inspect panel, tooltips, color-independent indicators |
-| `narrative.md` | `mods/tcp_base/**`, `**/*.json`, `**/locale/**` | Robot arc, animals leaving/returning, reclamation aesthetic, device naming, robot logs |
-| `sound-design.md` | `**/*.ogg`, `mods/tcp_base/sounds/**`, `mods/tcp_base/config/**` | Mixing strategy, purr variation, silence states, player feedback sounds, spatial audio |
+Each file's `paths:` frontmatter is authoritative; this table is the human index.
+
+| Rule file | Loads when touching |
+|---|---|
+| `code-style.md` | `**/*.gd` |
+| `testing.md` | `tests/**`, `script/checks/gut_tests`, `script/checks/verify_tests`, `script/stamp_tests` |
+| `design-philosophy.md` | `engine/**`, `nodes/**` |
+| `tick-architecture.md` | `nodes/game_server.gd`, `engine/core/**`, `engine/desires/**`, `engine/growth/**` |
+| `animal-ai.md` | `engine/animals/**`, `engine/desires/**`, `engine/core/{contentment,animal,desire}*`, `mods/*/species/**`, `config/balance/desire_thresholds.json` |
+| `objects.md` | `engine/core/object_state_manager.gd`, `engine/objects/**`, `mods/**/objects/**` |
+| `food-system.md` | `engine/core/food_system.gd`, `engine/core/object_state_manager.gd`, `mods/tcp_tuna/**` |
+| `hum-cable-system.md` | `engine/core/{hum_,wiring_,contentment}*`, `engine/core/food_system.gd`, `nodes/hud/{wiring,cable,hum_bar,dangling_tip}*`, `mods/tcp_base/config/hum.jsonc` |
+| `core-loop.md` | `engine/core/{hum_,food_system,contentment,wiring_}*`, `nodes/hud/hum_bar.gd`, `nodes/robot_narrator.gd` |
+| `growth-system.md` | `engine/growth/**`, `nodes/dynamic_plants.gd`, `mods/*/species/**` |
+| `navigation.md` | `engine/navigation/**`, `mods/*/species/**` |
+| `save-system.md` | `engine/**/{save,snapshot,serialize,migrat}*`, `tests/snapshots/saves/**` |
+| `networking.md` | `engine/**/{net_,network,peer}*`, `nodes/**/net_*` |
+| `viewport-lod.md` | `nodes/camera_controller.gd`, `nodes/heat_overlay.gd`, `engine/spatial/**`, `engine/environment/**` |
+| `scene-tree.md` | `nodes/**`, `**/*.tscn` |
+| `modding.md` | `mods/**`, `engine/mod/**` |
+| `art-direction.md` | `**/*.png`, `**/*.tscn`, `sprites/**` |
+| `asset-pipeline.md` | `mods/tcp_base/**`, `**/*.png`, `**/*.ogg` |
+| `input-design.md` | `nodes/**`, `**/*.tscn`, `config/input/**` |
+| `narrative.md` | `mods/tcp_base/**`, `**/*.json`, `**/locale/**` |
+| `sound-design.md` | `**/*.ogg`, `mods/tcp_base/sounds/**`, `mods/tcp_base/config/**` |
 
 Read `.claude/rules/` before writing any code.
 

@@ -1,3 +1,11 @@
+---
+paths:
+  - "tests/**"
+  - "script/checks/gut_tests"
+  - "script/checks/verify_tests"
+  - "script/stamp_tests"
+---
+
 # TCP Testing Rules
 
 ## Core Belief

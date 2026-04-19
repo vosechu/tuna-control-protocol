@@ -1,3 +1,9 @@
+---
+paths:
+  - "nodes/**"
+  - "**/*.tscn"
+---
+
 # TCP Scene Tree Skeleton
 
 Godot 4.6, GDScript. Prototype scope: 1 simulated bay (5 racks × 10 slots), a handful of cats/ferrets, tuna-can food chain.

@@ -1,3 +1,16 @@
+---
+paths:
+  - "engine/core/hum_*"
+  - "engine/core/wiring_*"
+  - "engine/core/contentment*"
+  - "engine/core/food_system.gd"
+  - "nodes/hud/wiring*"
+  - "nodes/hud/cable*"
+  - "nodes/hud/hum_bar.gd"
+  - "nodes/hud/dangling_tip.gd"
+  - "mods/tcp_base/config/hum.jsonc"
+---
+
 # TCP HUM & Cable System
 
 Per-device HUM batteries, emit/listen charging, and player-placed power cables to kinetic actuators. This is the mechanical spine of the purr-power loop described in `core-loop.md`.

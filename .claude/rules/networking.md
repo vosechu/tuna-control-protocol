@@ -1,3 +1,11 @@
+---
+paths:
+  - "engine/**/net_*"
+  - "engine/**/network*"
+  - "engine/**/peer*"
+  - "nodes/**/net_*"
+---
+
 # TCP Networking Rules
 
 ## Architecture

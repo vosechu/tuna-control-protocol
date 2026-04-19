@@ -1,3 +1,9 @@
+---
+paths:
+  - "mods/**"
+  - "engine/mod/**"
+---
+
 # TCP Modding Architecture Rules
 
 ## Base Game Is a Mod — Day One, Not Later

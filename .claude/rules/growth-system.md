@@ -1,3 +1,10 @@
+---
+paths:
+  - "engine/growth/**"
+  - "nodes/dynamic_plants.gd"
+  - "mods/*/species/**"
+---
+
 # TCP Reclamation Growth
 
 The datacenter is being reclaimed. When an entity that carries the `&"tends_servers"` capability settles on a host long enough in a warm-enough slot, a plant grows on that host. This is the mechanical core of the reclamation aesthetic from `narrative.md` and the slow-burn reward loop for "this slot is a good slot."

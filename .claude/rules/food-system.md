@@ -1,3 +1,10 @@
+---
+paths:
+  - "engine/core/food_system.gd"
+  - "engine/core/object_state_manager.gd"
+  - "mods/tcp_tuna/**"
+---
+
 # TCP Food System
 
 The shipped Ring 0 food chain: player clicks the button → dispenser drops a sealed can → arm auto-opens it → a hungry cat walks over and eats → can despawns. Every link spends HUM reserve from `HumSystem`; cat contentment replenishes it. This is the concrete loop that `core-loop.md` describes abstractly.

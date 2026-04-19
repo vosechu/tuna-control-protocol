@@ -1,3 +1,11 @@
+---
+paths:
+  - "nodes/game_server.gd"
+  - "engine/core/**"
+  - "engine/desires/**"
+  - "engine/growth/**"
+---
+
 # TCP Tick Architecture
 
 ## Fixed 10 Hz Simulation Tick

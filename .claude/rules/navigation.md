@@ -1,3 +1,9 @@
+---
+paths:
+  - "engine/navigation/**"
+  - "mods/*/species/**"
+---
+
 # TCP Navigation
 
 Point graph using Godot's `AStar2D`. Not navmesh (too structured) or tile grid (too vertical).

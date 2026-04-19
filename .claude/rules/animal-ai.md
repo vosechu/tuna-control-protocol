@@ -1,3 +1,14 @@
+---
+paths:
+  - "engine/animals/**"
+  - "engine/desires/**"
+  - "engine/core/contentment*"
+  - "engine/core/animal*"
+  - "engine/core/desire*"
+  - "mods/*/species/**"
+  - "config/balance/desire_thresholds.json"
+---
+
 # TCP Animal AI
 
 ## State Machine
