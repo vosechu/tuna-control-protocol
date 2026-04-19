@@ -72,7 +72,7 @@ func test_arm_opens_nearby_sealed_can():
 
 func test_arm_ignores_distant_can():
 	_make_arm(1)
-	var can_id: int = _make_sealed_can(5)
+	var can_id: int = _make_sealed_can(4)
 
 	food.tick_arms()
 	var can: Dictionary = db.get_component(can_id, &"tuna_can")
@@ -130,8 +130,9 @@ func test_eaten_can_despawns_after_delay():
 
 func _make_dispenser(rack: int, slot: int) -> int:
 	var id: int = db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})
@@ -152,8 +153,9 @@ func _make_button(
 		rack: int, slot: int, dispenser_id: int,
 ) -> int:
 	var id: int = db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})
@@ -169,16 +171,15 @@ func _make_button(
 
 func _make_arm(rack: int) -> int:
 	var id: int = db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-		+ Constants.FLOOR_HEIGHT_PU / 2
-	)
+	var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+	var x: int = rack_col.position.x + rack_col.size.x / 2
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var y: int = floor_rect.position.y + floor_rect.size.y / 2
 	db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})
 	db.set_component(id, &"arm", {
-		&"radius_ru": 3,
+		&"radius_px": 24,
 		&"hum_cost": 30,
 		&"open_duration_ticks": 20,
 	})
@@ -204,11 +205,10 @@ func _make_hum_entity() -> int:
 
 func _make_sealed_can(rack: int) -> int:
 	var id: int = db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-		+ Constants.FLOOR_HEIGHT_PU / 4
-	)
+	var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+	var x: int = rack_col.position.x + rack_col.size.x / 2
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var y: int = floor_rect.position.y + floor_rect.size.y / 4
 	db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})

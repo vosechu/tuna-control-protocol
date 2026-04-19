@@ -20,7 +20,7 @@ Per-device HUM batteries, emit/listen charging, and player-placed power cables t
 | Component | Shape | Carried by | Authority |
 |---|---|---|---|
 | `hum` | `{reserve: int, capacity: int}` | HUM entities | Server — saved |
-| `hum_receiver` | `{radius_ru: int}` | HUM entities | Server — saved |
+| `hum_receiver` | `{radius_px: int}` | HUM entities | Server — saved |
 | `purr` | `{intensity: int}` — per-tick broadcast strength | any "thing that purrs" (cats in Ring 1) | Server — saved, written by contentment→purr bridge |
 | `purr_config` | `{rate_when_satisfied: int}` | same recipe that declares `purr` | Server — materialized from recipe at spawn |
 | `hum_powered` | `{}` (capability tag) | any device that needs a cable to operate | Server — saved |

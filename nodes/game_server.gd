@@ -1,7 +1,6 @@
 extends Node
 
-const ANIMAL_SPEED_PU: int = 200  # position units per tick (20 pixels/sec at 10Hz)
-const FLOOR_Y_PU: int = Constants.FLOOR_Y * Constants.POSITION_SCALE  # 11200
+const ANIMAL_SPEED_PX: int = 2  # pixels per tick (20 pixels/sec at 10Hz)
 
 var db: GameStateDB
 var heat_grid: HeatGrid
@@ -58,10 +57,10 @@ func _ready() -> void:
 	hum_system = HumSystem.new(db, Events)
 	food_system = FoodSystem.new(db, hum_system, Events)
 	wiring_locks = WiringLockRegistry.new()
-	# AI-DEV: cable_max_length_ru is the euclidean cap WiringSystem enforces on
+	# AI-DEV: cable_max_length_px is the euclidean cap WiringSystem enforces on
 	# handle_connect. Lift into a ConfigRegistry lookup when one ships.
 	wiring_system = WiringSystem.new(
-		db, wiring_locks, Events, {&"cable_max_length_ru": 20},
+		db, wiring_locks, Events, {&"cable_max_length_px": 160},
 	)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
@@ -89,9 +88,13 @@ func _build_nav_for_objects() -> void:
 	var objects: Array[int] = db.get_entities_with(&"object_type")
 	for entity_id: int in objects:
 		var pos: Dictionary = db.get_component(entity_id, &"position")
-		var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
-		if layout[&"slot"] < Constants.SLOTS_PER_RACK:
-			nav_builder.add_rack_slot(layout[&"rack"], layout[&"slot"])
+		var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+		var bay: int = Constants.world_to_bay(world_pos)
+		if bay == Constants.INVALID_BAY:
+			continue
+		var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+		if q.zone == &"slot":
+			nav_builder.add_rack_slot(q.get_rack(), q.get_slot())
 
 
 func _physics_process(_delta: float) -> void:
@@ -150,14 +153,20 @@ func _scatter_desires() -> void:
 		if not db.has_component(entity_id, &"position"):
 			continue
 		var pos: Dictionary = db.get_component(entity_id, &"position")
-		var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
-		var rack: int = layout[&"rack"]
-		var slot: int = layout[&"slot"]
+		var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+		var bay: int = Constants.world_to_bay(world_pos)
+		if bay == Constants.INVALID_BAY:
+			continue
+		var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
 		var cell: int
-		if pos[&"y"] >= Constants.FLOOR_Y * Constants.POSITION_SCALE:
-			cell = Constants.floor_cell(rack)
-		else:
-			cell = Constants.rack_cell(rack, slot)
+		match q.zone:
+			&"slot":
+				cell = Constants.rack_cell(q.get_rack(), q.get_slot())
+			&"floor":
+				cell = Constants.floor_cell(q.get_rack())
+			_:
+				# Frame, baseboard, other — no heat cell, skip warmth update
+				continue
 		var temp: int = heat_grid.get_temperature(cell)
 		# Warmth desire is satisfaction: 0 = cold/desperate, 1000 = warm/satisfied.
 		# Temperature: 0 = cold, 1000 = hot. They match directly.
@@ -222,15 +231,15 @@ func _move_animals() -> void:
 		# so floor→slot edges are traversed where the path requires them.
 		# WANDERING moves directly on the floor plane (random floor targets
 		# are always reachable without a graph query).
-		var from_pu: Vector2i = Vector2i(pos[&"x"], pos[&"y"])
-		var target_pu: Vector2i = Vector2i(target[&"x"], target[&"y"])
-		var waypoint: Vector2i = target_pu
+		var from_px: Vector2i = Vector2i(pos[&"x"], pos[&"y"])
+		var target_px: Vector2i = Vector2i(target[&"x"], target[&"y"])
+		var waypoint: Vector2i = target_px
 		if state != &"WANDERING" and db.has_component(entity_id, &"species"):
 			var species_comp: Dictionary = db.get_component(entity_id, &"species")
-			waypoint = _next_path_waypoint(species_comp[&"id"], from_pu, target_pu)
+			waypoint = _next_path_waypoint(species_comp[&"id"], from_px, target_px)
 
 		var step_result: Dictionary = NavPathStepper.step(
-			from_pu, waypoint, ANIMAL_SPEED_PU,
+			from_px, waypoint, ANIMAL_SPEED_PX,
 		)
 		var new_pos: Vector2i = step_result[&"pos"]
 		db.set_component(entity_id, &"position", {&"x": new_pos.x, &"y": new_pos.y})
@@ -239,7 +248,7 @@ func _move_animals() -> void:
 		# Arrival is determined by reaching the FINAL target, not intermediate
 		# waypoints. A step snapping onto an intermediate nav point just ticks
 		# the path forward on the next tick.
-		if new_pos != target_pu:
+		if new_pos != target_px:
 			continue
 
 		# Food state arrivals
@@ -306,24 +315,24 @@ func _move_animals() -> void:
 
 
 func _next_path_waypoint(
-	species_id: StringName, from_pu: Vector2i, target_pu: Vector2i,
+	species_id: StringName, from_px: Vector2i, target_px: Vector2i,
 ) -> Vector2i:
 	# Returns the next intermediate nav-graph point to step toward, or the
 	# final target if the path is empty/trivial. Per-tick recomputation is
 	# cheap at current nav-graph size (~5-15 nodes) and avoids state.
 	var path: PackedVector2Array = nav_builder.get_path_points(
 		species_id,
-		Vector2(float(from_pu.x), float(from_pu.y)),
-		Vector2(float(target_pu.x), float(target_pu.y)),
+		Vector2(float(from_px.x), float(from_px.y)),
+		Vector2(float(target_px.x), float(target_px.y)),
 	)
 	if path.size() <= 1:
-		return target_pu
+		return target_px
 	for i: int in range(path.size()):
 		var pt: Vector2 = path[i]
 		var wp: Vector2i = Vector2i(roundi(pt.x), roundi(pt.y))
-		if wp != from_pu:
+		if wp != from_px:
 			return wp
-	return target_pu
+	return target_px
 
 
 func _update_ambient_states() -> void:
@@ -512,13 +521,13 @@ func place_object(
 	match object_type:
 		&"server_1u":
 			db.set_component(entity, &"heat_source", {
-				&"value": 1000, &"radius_ru": 5,
+				&"value": 1000, &"radius_px": 40,
 			})
 			db.set_component(entity, &"advertisements", {
 				&"list": [{
 					&"desire_type": &"warmth",
 					&"strength": 800,
-					&"radius_ru": 8,
+					&"radius_px": 64,
 					&"max_occupants": 1,
 				}],
 			})
@@ -532,13 +541,13 @@ func place_object(
 					{
 						&"desire_type": &"comfort",
 						&"strength": 700,
-						&"radius_ru": 4,
+						&"radius_px": 32,
 						&"max_occupants": 1,
 					},
 					{
 						&"desire_type": &"curiosity",
 						&"strength": 500,
-						&"radius_ru": 5,
+						&"radius_px": 40,
 						&"novelty_duration": 400,
 						&"novelty_cooldown": 300,
 					},
@@ -549,13 +558,13 @@ func place_object(
 				&"list": [{
 					&"desire_type": &"comfort",
 					&"strength": 800,
-					&"radius_ru": 4,
+					&"radius_px": 32,
 					&"max_occupants": 3,
 				}],
 			})
 		&"hum_device":
 			db.set_component(entity, &"hum_receiver", {
-				&"radius_ru": 4,
+				&"radius_px": 32,
 			})
 		&"tuna_dispenser":
 			db.set_component(entity, &"tuna_dispenser", {
@@ -578,7 +587,7 @@ func place_object(
 				)
 		&"arm":
 			db.set_component(entity, &"arm", {
-				&"radius_ru": 3,
+				&"radius_px": Constants.ARM_REACH_PX,
 				&"hum_cost": 30,
 				&"open_duration_ticks": 20,
 			})
@@ -587,12 +596,18 @@ func place_object(
 		entity, &"object_type", {&"type": object_type}
 	)
 	db.update_spatial(entity, world_x, world_y)
-	var layout: Dictionary = Constants.pu_to_bay_rack_slot(world_x, world_y)
-	var rack: int = int(layout[&"rack"])
-	var slot: int = int(layout[&"slot"])
-	# Add nav node if object is in a rack slot (not on the floor)
-	if slot < Constants.SLOTS_PER_RACK:
-		nav_builder.add_rack_slot(rack, slot)
+	var world_pos := Vector2i(world_x, world_y)
+	var bay: int = Constants.world_to_bay(world_pos)
+	var rack: int = Constants.INVALID_ID
+	var slot: int = Constants.INVALID_SLOT
+	if bay != Constants.INVALID_BAY:
+		var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+		if q.zone == &"slot":
+			rack = q.get_rack()
+			slot = q.get_slot()
+			nav_builder.add_rack_slot(rack, slot)
+		elif q.zone != &"other":
+			rack = q.rack
 	Events.object_placed.emit(
 		entity, rack, slot, object_type
 	)
@@ -605,9 +620,9 @@ func remove_object(entity_id: int) -> void:
 	var pos: Dictionary = db.get_component(
 		entity_id, &"position"
 	)
-	# Startle nearby animals
+	# Startle nearby animals (2 slot-heights radius)
 	var nearby: Array[int] = db.query_radius(
-		pos[&"x"], pos[&"y"], Constants.ru_to_pu(2)
+		pos[&"x"], pos[&"y"], 2 * Constants.SLOT_HEIGHT_PX
 	)
 	for other_id: int in nearby:
 		if not db.has_component(other_id, &"species"):
@@ -620,11 +635,19 @@ func remove_object(entity_id: int) -> void:
 			&"commitment_score": 0,
 		})
 		_state_timers[other_id] = 0.0
-	var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
-	# Remove nav node if object was in a rack slot
-	if layout[&"slot"] < Constants.SLOTS_PER_RACK:
-		nav_builder.remove_rack_slot(layout[&"rack"], layout[&"slot"])
-	Events.object_removed.emit(entity_id, layout[&"rack"], layout[&"slot"])
+	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+	var bay: int = Constants.world_to_bay(world_pos)
+	var rack: int = Constants.INVALID_ID
+	var slot: int = Constants.INVALID_SLOT
+	if bay != Constants.INVALID_BAY:
+		var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+		if q.zone == &"slot":
+			rack = q.get_rack()
+			slot = q.get_slot()
+			nav_builder.remove_rack_slot(rack, slot)
+		elif q.zone != &"other":
+			rack = q.rack
+	Events.object_removed.emit(entity_id, rack, slot)
 	db.remove_spatial(entity_id)
 	db.destroy_entity(entity_id)
 
@@ -640,7 +663,8 @@ func _spawn_starter_entities() -> void:
 		# TODO Phase 2: emit a robot_log signal once Events grows one.
 
 	# Starter-entity spawn — driven by each loaded species recipe's `starters` array.
-	var floor_y: int = FLOOR_Y_PU + Constants.FLOOR_HEIGHT_PU / 2
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var floor_y: int = floor_rect.position.y + floor_rect.size.y / 2
 	for species_id: StringName in entity_defs.get_all_entities():
 		var def: Dictionary = entity_defs.get_definition(species_id)
 		if not def.has("starters"):
@@ -648,10 +672,12 @@ func _spawn_starter_entities() -> void:
 		var starters: Array = def["starters"]
 		for entry: Dictionary in starters:
 			var rack: int = int(entry.get("rack", 0))
+			var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+			var starter_x: int = rack_col.position.x + rack_col.size.x / 2
 			var overrides: Dictionary = {
 				&"name": StringName(entry.get("name", "")),
 				&"position": {
-					&"x": Constants.rack_slot_to_pu(0, rack, 0).x,
+					&"x": starter_x,
 					&"y": floor_y,
 				},
 			}
@@ -668,16 +694,19 @@ func _spawn_starter_entities() -> void:
 
 
 func _spawn_rack_entities() -> void:
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var floor_y: int = floor_rect.position.y + floor_rect.size.y / 2
 	for rack_idx: int in Constants.RACK_COUNT:
 		var rack_entity: int = db.create_entity()
-		var x: int = Constants.rack_slot_to_pu(0, rack_idx, 0).x
-		var y: int = FLOOR_Y_PU
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack_idx)
+		var x: int = rack_col.position.x + rack_col.size.x / 2
+		var y: int = floor_y
 		db.set_component(rack_entity, &"position", {&"x": x, &"y": y})
 		db.set_component(rack_entity, &"advertisements", {&"list": [
 			{
 				&"desire_type": &"curiosity",
 				&"strength": 500,
-				&"radius_ru": 8,
+				&"radius_px": 64,
 				&"novelty_duration": 30,
 				&"novelty_cooldown": 100,
 			},
@@ -698,8 +727,14 @@ func _create_curiosity_trackers() -> void:
 func _find_dispenser_in_rack(
 		world_x: int, world_y: int,
 ) -> int:
-	var btn_layout: Dictionary = Constants.pu_to_bay_rack_slot(world_x, world_y)
-	var rack: int = int(btn_layout[&"rack"])
+	var btn_pos := Vector2i(world_x, world_y)
+	var btn_bay: int = Constants.world_to_bay(btn_pos)
+	if btn_bay == Constants.INVALID_BAY:
+		return Constants.INVALID_ID
+	var btn_q: SlotQuery = Constants.bay_local_to_slot(btn_bay, btn_pos)
+	if btn_q.zone == &"other":
+		return Constants.INVALID_ID
+	var rack: int = btn_q.rack
 	var dispensers: Array[int] = db.get_entities_with(
 		&"tuna_dispenser",
 	)
@@ -707,9 +742,14 @@ func _find_dispenser_in_rack(
 		var dpos: Dictionary = db.get_component(
 			disp_id, &"position",
 		)
-		var disp_layout: Dictionary = Constants.pu_to_bay_rack_slot(dpos[&"x"], dpos[&"y"])
-		var disp_rack: int = int(disp_layout[&"rack"])
-		if disp_rack == rack:
+		var dp := Vector2i(dpos[&"x"], dpos[&"y"])
+		var d_bay: int = Constants.world_to_bay(dp)
+		if d_bay == Constants.INVALID_BAY:
+			continue
+		var dq: SlotQuery = Constants.bay_local_to_slot(d_bay, dp)
+		if dq.zone == &"other":
+			continue
+		if dq.rack == rack:
 			return disp_id
 	return Constants.INVALID_ID
 
@@ -742,7 +782,7 @@ func _find_nearby_food(entity_id: int) -> int:
 		entity_id, &"position",
 	)
 	var nearby: Array[int] = db.query_radius(
-		pos[&"x"], pos[&"y"], Constants.ru_to_pu(3),
+		pos[&"x"], pos[&"y"], 3 * Constants.SLOT_HEIGHT_PX,
 	)
 	for other_id: int in nearby:
 		if db.has_component(other_id, &"tuna_can"):

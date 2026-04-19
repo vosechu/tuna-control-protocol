@@ -52,7 +52,7 @@ func _draw() -> void:
 func _world_pos(entity_id: int) -> Vector2:
 	var x: int = _db.get_field(entity_id, &"position", &"x")
 	var y: int = _db.get_field(entity_id, &"position", &"y")
-	return Vector2(Constants.to_world(x), Constants.to_world(y))
+	return Vector2(float(x), float(y))
 
 
 static func _bezier_quad(a: Vector2, m: Vector2, b: Vector2, t: float) -> Vector2:

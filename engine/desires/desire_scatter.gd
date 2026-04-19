@@ -24,8 +24,10 @@ func scatter_from_ads() -> void:
 		if not _db.has_component(entity_id, &"position"):
 			continue
 		var pos: Dictionary = _db.get_component(entity_id, &"position")
+		# Perception radius: 8 slot-heights = 64 pixels
+		var perception_px: int = 8 * Constants.SLOT_HEIGHT_PX
 		var nearby: Array[int] = _db.query_radius(
-			pos[&"x"], pos[&"y"], Constants.ru_to_pu(8),
+			pos[&"x"], pos[&"y"], perception_px,
 		)
 		# Track best strength per desire type
 		var best: Dictionary = {}  # desire_type -> strength
@@ -45,10 +47,8 @@ func scatter_from_ads() -> void:
 				+ absi(pos[&"y"] - other_pos[&"y"])
 			)
 			for ad: Dictionary in ads[&"list"]:
-				var radius_pu: int = Constants.ru_to_pu(
-					ad[&"radius_ru"],
-				)
-				if dist > radius_pu:
+				var radius_px: int = ad[&"radius_px"]
+				if dist > radius_px:
 					continue
 				# Skip action ads — their benefit comes from performing
 				if ad.has(&"action"):

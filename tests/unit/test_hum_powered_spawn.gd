@@ -20,7 +20,7 @@ func before_each() -> void:
 		"schema_version": 1,
 		"size_ru": 2,
 		"placement": "floor",
-		"arm": {"radius_ru": 3, "hum_cost": 30, "open_duration_ticks": 10},
+		"arm": {"radius_px": 24, "hum_cost": 30, "open_duration_ticks": 10},
 		"hum_powered": {},
 	})
 	_reg.register(&"tcp_base:plain_dispenser", {

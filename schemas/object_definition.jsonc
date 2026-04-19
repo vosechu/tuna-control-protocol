@@ -1,6 +1,6 @@
 // Object Definition Schema
 // All game values use integer scale: 0-1000 maps to 0.0-1.0
-// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+// Positions are stored as integer world pixels.
 //
 // A complete object file. New object type = new JSON file, not new code.
 // Located at: mods/<mod_id>/items/<object_type_id>.jsonc

@@ -63,7 +63,7 @@ Ordering inside `hp_thresholds`: highest `min_hp` first. `get_state_for_hp` retu
 |---|---|---|
 | `desire_type` | yes | Desire channel (`&"warmth"`, `&"hunger"`, `&"comfort"`, `&"curiosity"`, `&"openable"`, ...). |
 | `strength` | yes | 0–1000 scoring weight, matches the desire scale. |
-| `radius_ru` | yes | Effect radius in rack units. Converted to PU via `Constants.ru_to_pu`. |
+| `radius_px` | yes | Effect radius in rack units. Converted to PU via ``. |
 | `action` | optional | Sentinel (presence only — value not read). When present, `DesireScatter` skips the ad during passive satisfaction; consumers must do the work explicitly (PACING→EATING flow, arm tick, etc.). |
 | `max_occupants` | optional | Soft cap for pile-on-style ads. Consumer decides enforcement. |
 | `novelty_duration` | optional | On-arrival SNIFFING time for curiosity ads (in ticks/10, seconds). Read by arrival logic. |
@@ -99,7 +99,7 @@ Objects shipped as mod recipes follow this layout (see `mods/tcp_base/objects/`)
 }
 ```
 
-The component-name slot declares this object's specialized component (arms have `arm`, buttons have `tuna_button`, dispensers have `tuna_dispenser`). The component's fields are read by the system that owns that behavior (e.g. `FoodSystem` reads `arm.radius_ru` and `arm.hum_cost`).
+The component-name slot declares this object's specialized component (arms have `arm`, buttons have `tuna_button`, dispensers have `tuna_dispenser`). The component's fields are read by the system that owns that behavior (e.g. `FoodSystem` reads `arm.radius_px` and `arm.hum_cost`).
 
 ## Related rules
 

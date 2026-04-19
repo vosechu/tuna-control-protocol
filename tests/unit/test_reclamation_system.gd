@@ -12,11 +12,13 @@ func before_each() -> void:
 	_db = GameStateDB.new()
 	_system = _SYSTEM_SCRIPT.new(_db)
 	_server_id = _db.create_entity()
-	var slot_pu: Vector2i = Constants.rack_slot_to_pu(0, 2, 5)
-	_db.set_component(_server_id, &"position", {&"x": slot_pu.x, &"y": slot_pu.y})
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, 2, 5)
+	var sx: int = slot_rect.position.x + slot_rect.size.x / 2
+	var sy: int = slot_rect.position.y + slot_rect.size.y / 2
+	_db.set_component(_server_id, &"position", {&"x": sx, &"y": sy})
 	_db.set_component(_server_id, &"reclamation", {&"seconds": 0})
 	_cat_id = _db.create_entity()
-	_db.set_component(_cat_id, &"position", {&"x": slot_pu.x, &"y": slot_pu.y})
+	_db.set_component(_cat_id, &"position", {&"x": sx, &"y": sy})
 	_db.set_component(_cat_id, &"species", {&"id": &"tcp_cats:cat"})
 	_db.set_component(_cat_id, &"tends_servers", {})
 

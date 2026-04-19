@@ -265,16 +265,15 @@ Internal viewport: **224×128** (14×8 tiles). Layout constants in `engine/core/
 
 ### Coordinate system — use canonical helpers
 
-Two coordinate spaces: **PU** (position units, `POSITION_SCALE=100`, used by GameStateDB/AI/physics) and **world pixels** (used for rendering/input). Never do ad-hoc math with rack/slot offsets — always use the helpers in `constants.gd`:
+All positions are stored as integer **world pixels**. No PU, no `POSITION_SCALE`, no RU. There is one three-layer addressing API in `constants.gd`:
 
-- `rack_slot_to_pu(bay, rack, slot) -> Vector2i` — canonical PU position (X at rack center)
-- `pu_to_bay_rack_slot(pu_x, pu_y) -> Dictionary` — inverse
-- `rack_slot_to_world(bay, rack, slot) -> Vector2` — world pixels for sprite rendering
-- `world_to_rack_slot(world_x, world_y, bay) -> Dictionary` — click position to rack/slot
-- `world_to_pu(world_x, world_y) -> Vector2i` — click position to PU (accounts for RACK_SLOT0_Y offset)
-- `to_world(pu) -> float` / `from_world(w) -> int` — scalar conversion only
+- **Bay layer:** `bay_origin_world(bay)`, `bay_rect_world(bay)`, `world_to_bay(world_pos)`, `bay_center(bay)`
+- **Rack layer:** `rack_column_rect_world(bay, rack)`, `rack_interior_rect_world(bay, rack)`, `rack_frame_rect(bay, rack)`, `rack_baseboard_rect(bay, rack)`
+- **Slot layer:** `slot_rect_world(bay, rack, slot)`, `slot_origin_world(bay, rack, slot)`. Slot 0 is the BOTTOM slot; slot 9 is the top. The helper inverts the slot index internally — callers never flip Y.
+- **Floor:** `floor_rect_world(bay)`
+- **Reverse query:** `bay_local_to_slot(bay, world_pos) -> SlotQuery`. `SlotQuery.zone` is one of `&"slot"`, `&"frame"`, `&"baseboard"`, `&"floor"`, `&"other"`. `get_slot()` and `get_rack()` assert on misuse.
 
-`RACK_SLOT0_Y` accounts for the rack sprite's 8px transparent padding + 4px visible frame = 12px offset from `RACK_TOP_Y`. Dividing PU X by `RACK_WIDTH_PU` is wrong (it omits `LEFTMOST_RACK_OFFSET_PU` and uses width instead of stride). Always use the helpers.
+Radii and distances are always in pixels (`radius_px`). Never do ad-hoc math with rack/slot offsets — always use the helpers above.
 
 ### Tilemap layout (tcp_environment tileset)
 
@@ -333,8 +332,7 @@ script/validate
 
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
 - **LightingSystem (CanvasModulate) disabled:** Washes out colors at 224×128 viewport. Needs redesign.
-- **PU coordinate system adds unnecessary complexity:** `POSITION_SCALE=100` multiplier makes coordinate math confusing. Candidate for removal refactor. Animals hardcode Y to `FLOOR_Y - 1`; proper rack climbing will need real Y handling.
-- **Heat overlay alignment uses RACK_SLOT0_Y now** (was empirical `+4.0`). Other overlay positions may still be fragile.
+- **Animals hardcode Y to `FLOOR_Y - 1`** in `animal_node.gd`. Proper rack climbing will need real Y handling.
 
 ## GameStateDB Gotchas
 

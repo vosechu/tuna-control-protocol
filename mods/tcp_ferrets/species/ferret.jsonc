@@ -2,7 +2,7 @@
   // Ferret species definition — derived from game_server.gd hardcoded values
   // Slinky: warmth 300, comfort 600, curiosity 900
   // Bandit: warmth 400, comfort 800, curiosity 800
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "tcp_ferrets:ferret",
   "name": "Ferret",
   "desires": {
@@ -64,7 +64,7 @@
     "idle": { "advertisements": [] },
     "sleeping": {
       "advertisements": [
-        { "desire_type": "warmth", "strength": 200, "radius_ru": 1 }
+        { "desire_type": "warmth", "strength": 200, "radius_px": 8 }
       ]
     },
     "seeking": { "advertisements": [] },

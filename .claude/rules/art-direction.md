@@ -31,7 +31,7 @@ paths:
 | `BAY_PEEK_PX` | 20 | Visible slice of each neighboring bay |
 | `FLOOR_HEIGHT_PX` | 16 | One tile row (animals walk at `FLOOR_Y = 112`) |
 
-Every constant has a `_PU` twin (multiplied by `POSITION_SCALE = 100`) for the integer-core math. Downstream callers never compute `rack * 31 + 25` by hand — use the helpers in `constants.gd` (`rack_slot_to_pu`, `pu_to_bay_rack_slot`, `rack_slot_to_world`, `world_to_rack_slot`, `bay_center`). See CLAUDE.md → "Coordinate system — use canonical helpers."
+Downstream callers never compute `rack * 31 + 25` by hand — use the helpers in `constants.gd` (`slot_origin_world`, `bay_local_to_slot`, `rack_column_rect_world`, `bay_center`, `world_to_bay`). See CLAUDE.md → "Coordinate system — use canonical helpers."
 
 ### Layout (8 tile rows, y-down)
 
@@ -42,7 +42,7 @@ Row 6 (y=96-111): baseboard (behind rack bottom frame)
 Row 7 (y=112-127): floor surface — animals walk at FLOOR_Y = 112
 ```
 
-Rack sprite top-anchors at `RACK_TOP_Y = 16`. The sprite has 8px transparent padding above the visible rack + 4px visible frame, so `RACK_SLOT0_Y = 28` (top of slot 0 interior). Neighboring bay peeks render identically to the active bay (no desaturation) — abandonment contrast is conveyed by tile painting, not modulation.
+Rack sprite top-anchors at `RACK_TOP_Y = 16`. The sprite has 8px transparent padding above the visible rack + 4px visible frame. Use `Constants.slot_origin_world(bay, rack, 9)` for the top slot (slot 9 in bottom-first indexing) rather than deriving the pixel offset by hand. Neighboring bay peeks render identically to the active bay (no desaturation) — abandonment contrast is conveyed by tile painting, not modulation.
 
 **Cat silhouette at this scale:** a sitting cat is 40×40px native — about 5U tall. Cats are bigger than servers, which is physically accurate. Cats visually overflow rack interior horizontally (~8px each side) and span multiple slots vertically; they float in front of the rack plane in z-order.
 

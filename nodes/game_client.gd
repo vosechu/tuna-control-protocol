@@ -136,9 +136,9 @@ func screen_to_world(screen_pos: Vector2) -> Vector2:
 
 
 func entity_under_point(world_pos: Vector2) -> int:
-	var pu: Vector2i = Constants.world_to_pu(world_pos.x, world_pos.y)
+	var px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
 	var nearby: Array[int] = game_server.db.query_radius(
-		pu.x, pu.y, Constants.ru_to_pu(2),
+		px.x, px.y, 2 * Constants.SLOT_HEIGHT_PX,
 	)
 	if nearby.is_empty():
 		return Constants.INVALID_ID
@@ -234,15 +234,15 @@ func _build_bays() -> void:
 		)
 		# All bays render the same — no desaturation for neighboring bays
 		rack_row.add_child(sprite)
-	_build_ru_grid_overlay()
+	_build_slot_grid_overlay()
 
 
-func _build_ru_grid_overlay() -> void:
+func _build_slot_grid_overlay() -> void:
 	var OverlayScript: GDScript = preload(
-		"res://nodes/ru_grid_overlay.gd"
+		"res://nodes/slot_grid_overlay.gd"
 	)
 	var overlay := Node2D.new()
-	overlay.name = "RuGridOverlay"
+	overlay.name = "SlotGridOverlay"
 	overlay.set_script(OverlayScript)
 	overlay.z_index = _Z_DEBUG
 	overlay.visible = false
@@ -297,15 +297,18 @@ func _build_starter_objects() -> void:
 	var server_sprite := Sprite2D.new()
 	server_sprite.texture = _SERVER_TEX
 	server_sprite.centered = false
-	server_sprite.position = Constants.rack_slot_to_world(0, 1, 8)
+	# Server at rack 1, slot 1 (near top; slot 9-8 = 1 under new bottom-first semantics).
+	var server_slot_origin: Vector2i = Constants.slot_origin_world(0, 1, 1)
+	server_sprite.position = Vector2(server_slot_origin)
 	$World/PlacedObjects.add_child(server_sprite)
 	_starter_sprites.append(server_sprite)
 
 	var box_sprite := Sprite2D.new()
 	box_sprite.texture = _BOX_RACK_TEX
 	box_sprite.centered = false
-	# Starter box is in rack 0, slot 8 (2U tall — slots 8+9)
-	box_sprite.position = Constants.rack_slot_to_world(0, 0, 8)
+	# Box at rack 0, slot 1 (2U tall — occupies slots 1+2 under bottom-first semantics).
+	var box_slot_origin: Vector2i = Constants.slot_origin_world(0, 0, 1)
+	box_sprite.position = Vector2(box_slot_origin)
 	$World/PlacedObjects.add_child(box_sprite)
 	_starter_sprites.append(box_sprite)
 
@@ -403,7 +406,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_tree().quit()
 			return
 		if event.keycode == KEY_G:
-			var grid: Node2D = $World.get_node_or_null("RuGridOverlay")
+			var grid: Node2D = $World.get_node_or_null("SlotGridOverlay")
 			if grid:
 				grid.visible = not grid.visible
 			return
@@ -435,21 +438,11 @@ func _try_place_at(
 	world_pos: Vector2,
 	object_type: StringName,
 ) -> void:
-	var layout: Dictionary = Constants.world_to_rack_slot(
-		world_pos.x, world_pos.y, 0
-	)
-	var rack: int = int(layout[&"rack"])
-	var slot: int = int(layout[&"slot"])
-
-	var place_x: int
-	var place_y: int
-
-	# Detect floor click: below the rack slot area
-	var rack_bottom_y: float = float(
-		Constants.RACK_SLOT0_Y
-		+ Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PX
-	)
-	var is_floor_click: bool = world_pos.y >= rack_bottom_y
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
+	var bay: int = Constants.world_to_bay(click_px)
+	if bay == Constants.INVALID_BAY:
+		return
+	var query: SlotQuery = Constants.bay_local_to_slot(bay, click_px)
 
 	var always_rack: bool = (
 		object_type == &"server_1u"
@@ -457,38 +450,47 @@ func _try_place_at(
 		or object_type == &"tuna_dispenser"
 		or object_type == &"tuna_button"
 	)
+	var is_floor_click: bool = query.zone == &"floor"
 	var place_in_rack: bool = always_rack or (
 		not is_floor_click and object_type != &"arm"
+		and query.zone != &"other"
 	)
 
+	var place_x: int
+	var place_y: int
+
 	if place_in_rack:
-		var size_ru: int = 1
+		var rack_idx: int = query.rack if query.rack != Constants.INVALID_ID else 0
+		var slot_idx: int = 0
+		if query.zone == &"slot":
+			slot_idx = query.get_slot()
+		elif query.zone == &"frame":
+			slot_idx = Constants.SLOTS_PER_RACK - 1  # top slot
+		var size_slots: int = 1
 		if object_type == &"hum_device":
-			size_ru = 6
+			size_slots = 6
 		elif object_type == &"cardboard_box":
-			size_ru = 2
+			size_slots = 2
 		elif object_type == &"clothes_pile":
-			size_ru = 2
-		slot = clampi(
-			slot,
+			size_slots = 2
+		# Slot 0 is bottom; largest valid "lowest" slot for a size-N object is
+		# SLOTS_PER_RACK - size_slots when indexed from top, but since slot 0 is
+		# bottom, we clamp the placement slot to [0, SLOTS_PER_RACK - size_slots].
+		slot_idx = clampi(
+			slot_idx,
 			Constants.TOR_SWITCH_SLOTS,
-			Constants.SLOTS_PER_RACK - size_ru,
+			Constants.SLOTS_PER_RACK - size_slots,
 		)
-		var pos: Vector2i = Constants.rack_slot_to_pu(
-			0, rack, slot
-		)
-		place_x = pos.x
-		place_y = pos.y
+		var slot_rect: Rect2i = Constants.slot_rect_world(0, rack_idx, slot_idx)
+		place_x = slot_rect.position.x + slot_rect.size.x / 2
+		place_y = slot_rect.position.y + slot_rect.size.y / 2
 	else:
 		# Floor placement (box, pile, arm)
-		var pos: Vector2i = Constants.rack_slot_to_pu(
-			0, rack, 0
-		)
-		place_x = pos.x
-		place_y = (
-			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
+		var rack_idx: int = query.rack if query.rack != Constants.INVALID_ID else 0
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack_idx)
+		place_x = rack_col.position.x + rack_col.size.x / 2
+		var floor_rect: Rect2i = Constants.floor_rect_world(0)
+		place_y = floor_rect.position.y + floor_rect.size.y / 2
 
 	var entity_id: int = game_server.place_object(
 		object_type, place_x, place_y
@@ -500,11 +502,9 @@ func _try_place_at(
 
 
 func _try_remove_at(world_pos: Vector2) -> void:
-	var click_pu: Vector2i = Constants.world_to_pu(
-		world_pos.x, world_pos.y
-	)
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
 	var nearby: Array[int] = game_server.db.query_radius(
-		click_pu.x, click_pu.y, Constants.ru_to_pu(2)
+		click_px.x, click_px.y, 2 * Constants.SLOT_HEIGHT_PX
 	)
 	for entity_id: int in nearby:
 		if not game_server.db.has_component(
@@ -531,12 +531,11 @@ func _start_clearing(entity_id: int) -> void:
 func _create_object_sprite(
 	entity_id: int,
 	object_type: StringName,
-	pu_x: int,
-	pu_y: int,
+	px_x: int,
+	px_y: int,
 ) -> void:
 	var sprite := Sprite2D.new()
-	var floor_pu_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-	var is_on_floor: bool = pu_y >= floor_pu_y
+	var is_on_floor: bool = px_y >= Constants.FLOOR_Y
 	match object_type:
 		&"server_1u":
 			sprite.texture = _SERVER_TEX
@@ -548,31 +547,32 @@ func _create_object_sprite(
 			sprite.texture = _HUM_TEX
 	sprite.centered = false
 	if is_on_floor:
-		# Floor object: render at floor level
+		# Floor object: render at floor level (anchor bottom to FLOOR_Y)
 		sprite.position = Vector2(
-			Constants.to_world(pu_x),
+			float(px_x) - float(sprite.texture.get_width()) / 2.0,
 			float(Constants.FLOOR_Y) - float(sprite.texture.get_height()),
 		)
 	else:
-		# Rack object: convert PU → rack/slot → world pixels
-		var layout: Dictionary = Constants.pu_to_bay_rack_slot(
-			pu_x, pu_y
-		)
-		sprite.position = Constants.rack_slot_to_world(
-			int(layout[&"bay"]),
-			int(layout[&"rack"]),
-			int(layout[&"slot"]),
-		)
+		# Rack object: use slot origin (top-left of slot)
+		var world_px := Vector2i(px_x, px_y)
+		var bay: int = Constants.world_to_bay(world_px)
+		if bay == Constants.INVALID_BAY:
+			bay = 0
+		var query: SlotQuery = Constants.bay_local_to_slot(bay, world_px)
+		if query.zone == &"slot":
+			sprite.position = Vector2(Constants.slot_origin_world(
+				bay, query.get_rack(), query.get_slot(),
+			))
+		else:
+			sprite.position = Vector2(float(px_x), float(px_y))
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite
 
 
 func _try_click_entity(world_pos: Vector2) -> void:
-	var click_pu: Vector2i = Constants.world_to_pu(
-		world_pos.x, world_pos.y
-	)
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
 	var nearby: Array[int] = game_server.db.query_radius(
-		click_pu.x, click_pu.y, Constants.ru_to_pu(2),
+		click_px.x, click_px.y, 2 * Constants.SLOT_HEIGHT_PX,
 	)
 	for entity_id: int in nearby:
 		# Click on button → press it
@@ -628,7 +628,7 @@ func _squeak_box(box_id: int) -> void:
 	)
 	var nearby: Array[int] = game_server.db.query_radius(
 		box_pos[&"x"], box_pos[&"y"],
-		Constants.ru_to_pu(6),
+		6 * Constants.SLOT_HEIGHT_PX,
 	)
 	for entity_id: int in nearby:
 		if not game_server.db.has_component(

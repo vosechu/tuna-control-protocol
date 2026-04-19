@@ -122,9 +122,8 @@ func _on_panel_clicked(
 		entity_id, &"position",
 	)
 	_camera.position = Vector2(
-		Constants.to_world(pos[&"x"])
-			+ float(Constants.RACK_WIDTH_PX / 2),
-		Constants.to_world(pos[&"y"]),
+		float(pos[&"x"]) + float(Constants.RACK_WIDTH_PX / 2),
+		float(pos[&"y"]),
 	)
 
 

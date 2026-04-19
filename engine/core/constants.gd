@@ -1,57 +1,42 @@
 class_name Constants extends RefCounted
 
 const INVALID_ID: int = -1
-const POSITION_SCALE: int = 100
+const INVALID_BAY: int = -1
+const INVALID_SLOT: int = -1
 
 # ── Viewport ──
 
 const VIEWPORT_WIDTH: int = 224   # 14 tiles
 const VIEWPORT_HEIGHT: int = 128  # 8 tiles
+const VIEWPORT_BOTTOM: int = 128
 
-# ── Grid: rack slot dimensions ──
+# ── Grid: rack slot dimensions (world pixels) ──
 
 const SLOT_HEIGHT_PX: int = 8
-const SLOT_HEIGHT_PU: int = SLOT_HEIGHT_PX * POSITION_SCALE  # 800
 
 const RACK_WIDTH_PX: int = 23
-const RACK_WIDTH_PU: int = RACK_WIDTH_PX * POSITION_SCALE  # 2300
-
 const RACK_STRIDE_PX: int = 31
-const RACK_STRIDE_PU: int = RACK_STRIDE_PX * POSITION_SCALE  # 3100
-
 const RACK_GAP_PX: int = 8
-const RACK_GAP_PU: int = RACK_GAP_PX * POSITION_SCALE  # 800
 
 const RACK_COUNT: int = 5
 const SLOTS_PER_RACK: int = 10
 const TOR_SWITCH_SLOTS: int = 0
 
 const FLOOR_HEIGHT_PX: int = 16  # one tile row
-const FLOOR_HEIGHT_PU: int = FLOOR_HEIGHT_PX * POSITION_SCALE  # 1600
 
 # ── Layout Y positions (world pixels, top-down) ──
 
 const CEILING_Y: int = 0         # row 0
 const RACK_TOP_Y: int = 16       # row 1 — rack sprite top edge
-# Sprite has 8px transparent padding above the visible rack + 4px visible frame
-# = 12px from sprite top-left to slot 0 interior (measured from sprite pixels)
-const RACK_FRAME_PX: int = 12    # sprite top-left to slot 0 interior
-const RACK_SLOT0_Y: int = RACK_TOP_Y + RACK_FRAME_PX  # world Y of slot 0 top (28)
 const RACK_BOTTOM_Y: int = 112   # row 7 — rack sprite bottom (16 + 96)
 const FLOOR_Y: int = 112         # top of row 7 — floor surface
-const VIEWPORT_BOTTOM: int = 128 # row 8
 
-# ── Bay layout ──
+# ── Bay layout (world pixels) ──
 
 const LEFTMOST_RACK_OFFSET_PX: int = 25
-const LEFTMOST_RACK_OFFSET_PU: int = LEFTMOST_RACK_OFFSET_PX * POSITION_SCALE  # 2500
 
 const BAY_WIDTH_PX: int = 186
-const BAY_WIDTH_PU: int = BAY_WIDTH_PX * POSITION_SCALE  # 18600
-
 const BAY_STRIDE_PX: int = 226
-const BAY_STRIDE_PU: int = BAY_STRIDE_PX * POSITION_SCALE  # 22600
-
 const BAY_PEEK_PX: int = 20
 
 # ── Heat grid (only bay 0 simulated for now) ──
@@ -65,20 +50,7 @@ const HEAT_CELLS_TOTAL: int = HEAT_CELLS_RACK + HEAT_CELLS_FLOOR  # 55
 const UNIT: int = 1000
 const SWITCH_THRESHOLD: int = 50
 const EVAL_TIME_BUDGET_USEC: int = 1000
-const ARM_REACH_RU: int = 3
-
-# ============================================================================
-# NEW COORDINATE API — see docs/superpowers/specs/2026-04-19-coordinate-system-redesign.md
-# Old API (rack_slot_to_pu, POSITION_SCALE, ru_to_pu, etc.) remains alongside
-# during migration. Old API will be removed in the final commit of this
-# refactor. Prefer the new API in any code you write today.
-# Constants declared here (before static funcs) to satisfy gdlint
-# class-definitions-order; public helpers are appended at the bottom of
-# the file alongside the other static helpers.
-# ============================================================================
-
-const INVALID_BAY: int = -1
-const INVALID_SLOT: int = -1
+const ARM_REACH_PX: int = 24  # 3 slot-heights of vertical reach
 
 # AI-DEV: These numbers match the current 5-set rack sprite exactly. If a mod
 # pack ships differently-sized rack art, promote them to art-pack config
@@ -96,16 +68,6 @@ const _FLOOR_HEIGHT_PX: int = 16
 const _RACK_TOP_Y_IN_BAY: int = 16
 
 
-# ── Rack unit conversion ──
-
-static func ru_to_pu(ru: int) -> int:
-	return ru * SLOT_HEIGHT_PU
-
-
-static func pu_to_ru(pu: int) -> int:
-	return pu / SLOT_HEIGHT_PU
-
-
 # ── Heat grid cell indexing ──
 
 static func rack_cell(rack: int, slot: int) -> int:
@@ -116,97 +78,7 @@ static func floor_cell(rack: int) -> int:
 	return HEAT_CELLS_RACK + rack
 
 
-# ── World-space coordinate helpers (single source of truth) ──
-
-static func bay_origin_pu(bay_index: int) -> Vector2i:
-	return Vector2i(bay_index * BAY_STRIDE_PU, 0)
-
-
-static func rack_interior_pu(bay_index: int, rack_in_bay: int) -> int:
-	return bay_index * BAY_STRIDE_PU + LEFTMOST_RACK_OFFSET_PU + (rack_in_bay * RACK_STRIDE_PU)
-
-
-static func rack_slot_to_pu(bay_index: int, rack_in_bay: int, slot: int) -> Vector2i:
-	var x: int = rack_interior_pu(bay_index, rack_in_bay) + (RACK_WIDTH_PU / 2)
-	var y: int = slot * SLOT_HEIGHT_PU
-	return Vector2i(x, y)
-
-
-static func _floordiv(a: int, b: int) -> int:
-	var q: int = a / b
-	if (a ^ b) < 0 and q * b != a:
-		q -= 1
-	return q
-
-
-static func pu_to_bay_rack_slot(pu_x: int, pu_y: int) -> Dictionary:
-	var bay_index: int = _floordiv(pu_x, BAY_STRIDE_PU)
-	var bay_local_x: int = pu_x - (bay_index * BAY_STRIDE_PU)
-	var rack_in_bay: int = _floordiv(bay_local_x - LEFTMOST_RACK_OFFSET_PU, RACK_STRIDE_PU)
-	rack_in_bay = clampi(rack_in_bay, 0, RACK_COUNT - 1)
-	var slot: int = _floordiv(pu_y, SLOT_HEIGHT_PU)
-	slot = clampi(slot, 0, SLOTS_PER_RACK - 1)
-	return {&"bay": bay_index, &"rack": rack_in_bay, &"slot": slot}
-
-
-static func bay_center(bay_index: int) -> Vector2:
-	var bay_x: int = bay_index * BAY_STRIDE_PX + BAY_WIDTH_PX / 2
-	var center_y: int = VIEWPORT_HEIGHT / 2
-	return Vector2(float(bay_x), float(center_y))
-
-
-# ── World pixel ↔ rack/slot conversion ──
-
-## Convert a world-pixel click position to rack/slot indices.
-## bay: which bay the camera is viewing.
-## Returns {&"rack": int, &"slot": int}.
-static func world_to_rack_slot(
-	world_x: float, world_y: float, bay: int = 0,
-) -> Dictionary:
-	var bay_px: int = bay * BAY_STRIDE_PX
-	var local_x: float = world_x - float(bay_px) - float(LEFTMOST_RACK_OFFSET_PX)
-	var rack: int = int(local_x) / RACK_STRIDE_PX
-	rack = clampi(rack, 0, RACK_COUNT - 1)
-	var slot_y: float = world_y - float(RACK_SLOT0_Y)
-	var slot: int = int(slot_y) / SLOT_HEIGHT_PX
-	slot = clampi(slot, 0, SLOTS_PER_RACK - 1)
-	return {&"rack": rack, &"slot": slot}
-
-
-## Convert rack/slot to world-pixel position for rendering.
-## Returns top-left corner of the slot in world coordinates.
-static func rack_slot_to_world(
-	bay: int, rack: int, slot: int,
-) -> Vector2:
-	var x: float = float(
-		bay * BAY_STRIDE_PX
-		+ LEFTMOST_RACK_OFFSET_PX
-		+ rack * RACK_STRIDE_PX
-	)
-	var y: float = float(RACK_SLOT0_Y + slot * SLOT_HEIGHT_PX)
-	return Vector2(x, y)
-
-
-# ── Float / int conversion at rendering boundary ──
-
-static func to_world(v: int) -> float:
-	return float(v) / float(POSITION_SCALE)
-
-
-static func from_world(v: float) -> int:
-	return roundi(v * float(POSITION_SCALE))
-
-
-## Convert world-pixel position to PU coordinates.
-## Accounts for RACK_SLOT0_Y offset on Y axis.
-static func world_to_pu(world_x: float, world_y: float) -> Vector2i:
-	return Vector2i(
-		from_world(world_x),
-		from_world(world_y - float(RACK_SLOT0_Y)),
-	)
-
-
-# ── Bay layer (new coordinate API) ──────────────────────────────────────────
+# ── Bay layer ──────────────────────────────────────────────────────────────
 
 
 static func bay_origin_world(bay: int) -> Vector2i:
@@ -215,6 +87,12 @@ static func bay_origin_world(bay: int) -> Vector2i:
 
 static func bay_rect_world(bay: int) -> Rect2i:
 	return Rect2i(bay_origin_world(bay), Vector2i(BAY_WIDTH_PX, VIEWPORT_HEIGHT))
+
+
+static func bay_center(bay: int) -> Vector2:
+	var bay_x: int = bay * BAY_STRIDE_PX + BAY_WIDTH_PX / 2
+	var center_y: int = VIEWPORT_HEIGHT / 2
+	return Vector2(float(bay_x), float(center_y))
 
 
 static func world_to_bay(world_pos: Vector2i) -> int:

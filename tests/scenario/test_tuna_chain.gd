@@ -51,7 +51,7 @@ func _make_sealed_can(x: int, y: int) -> int:
 	_db.set_component(id, &"advertisements", {&"list": [{
 		&"desire_type": &"openable",
 		&"strength": 800,
-		&"radius_ru": 3,
+		&"radius_px": 24,
 		&"action": &"open",
 		&"action_duration": 30,
 	}]})
@@ -71,7 +71,7 @@ func _make_open_can(x: int, y: int) -> int:
 	_db.set_component(id, &"advertisements", {&"list": [{
 		&"desire_type": &"food",
 		&"strength": 800,
-		&"radius_ru": 5,
+		&"radius_px": 40,
 		&"action": &"eat",
 		&"action_duration": 50,
 	}]})
@@ -113,7 +113,7 @@ func test_arm_scores_sealed_can() -> void:
 
 
 func test_arm_ignores_can_beyond_reach() -> void:
-	# 5000 PU apart > ARM_REACH_RU (3 RU = 2100 PU).
+	# 5000 PU apart > ARM_REACH_PX (3 RU = 2100 PU).
 	# The can's ad radius is 3 RU so score_ad returns 0.
 	# The arm may WANDER due to low purpose, but must not
 	# target the distant can.

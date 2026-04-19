@@ -26,7 +26,7 @@ func test_content_cat_stays_content_when_hunger_above_threshold():
 func test_hungry_cat_targets_nearest_dispenser():
 	var cat_id: int = _make_hungry_cat(1, 5)
 	var disp1: int = _make_dispenser(1, 3)
-	_make_dispenser(5, 3)
+	_make_dispenser(4, 3)
 
 	var target: int = _find_nearest_dispenser(cat_id)
 	assert_eq(target, disp1,
@@ -94,8 +94,9 @@ func _make_content_cat() -> int:
 
 func _make_hungry_cat(rack: int, slot: int) -> int:
 	var id: int = _make_content_cat()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	db.set_component(id, &"position", {&"x": x, &"y": y})
 	db.set_field(id, &"desires", &"hunger", 200)
 	db.update_spatial(id, x, y)
@@ -104,8 +105,9 @@ func _make_hungry_cat(rack: int, slot: int) -> int:
 
 func _make_dispenser(rack: int, slot: int) -> int:
 	var id: int = db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	db.set_component(id, &"position", {&"x": x, &"y": y})
 	db.set_component(id, &"tuna_dispenser", {
 		&"hum_cost": 50,

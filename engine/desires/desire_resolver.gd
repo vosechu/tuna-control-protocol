@@ -75,16 +75,16 @@ func score_ad(
 
 	var animal_pos: Dictionary = _db.get_component(animal_id, &"position")
 	var object_pos: Dictionary = _db.get_component(object_id, &"position")
-	var dist_pu: int = (
+	var dist_px: int = (
 		absi(animal_pos[&"x"] - object_pos[&"x"])
 		+ absi(animal_pos[&"y"] - object_pos[&"y"])
 	)
-	var radius_pu: int = Constants.ru_to_pu(ad[&"radius_ru"])
+	var radius_px: int = ad[&"radius_px"]
 
-	if dist_pu > radius_pu:
+	if dist_px > radius_px:
 		return 0
 
-	var dist_factor: int = 1000 - (dist_pu * 1000 / radius_pu) if radius_pu > 0 else 1000
+	var dist_factor: int = 1000 - (dist_px * 1000 / radius_px) if radius_px > 0 else 1000
 
 	return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
 
@@ -100,8 +100,9 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 		return
 
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
-	var perception_pu: int = Constants.ru_to_pu(8)
-	var nearby: Array[int] = _db.query_radius(pos[&"x"], pos[&"y"], perception_pu)
+	# Perception radius: 8 slot-heights = 64 pixels
+	var perception_px: int = 8 * Constants.SLOT_HEIGHT_PX
+	var nearby: Array[int] = _db.query_radius(pos[&"x"], pos[&"y"], perception_px)
 
 	var tracker: CuriosityTracker = trackers.get(entity_id, null)
 	var current_tick: int = _db.get_tick()
@@ -202,8 +203,10 @@ func pop_highest_deficit() -> int:
 
 func _random_floor_position() -> Dictionary:
 	var rack: int = randi_range(0, Constants.RACK_COUNT - 1)
-	var center_x: int = Constants.rack_slot_to_pu(0, rack, 0).x
-	var jitter: int = randi_range(-Constants.RACK_WIDTH_PU / 2, Constants.RACK_WIDTH_PU / 2)
+	var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+	var center_x: int = rack_col.position.x + rack_col.size.x / 2
+	var jitter: int = randi_range(-Constants.RACK_WIDTH_PX / 2, Constants.RACK_WIDTH_PX / 2)
 	var x: int = center_x + jitter
-	var y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var y: int = floor_rect.position.y + floor_rect.size.y / 2
 	return {&"x": x, &"y": y}

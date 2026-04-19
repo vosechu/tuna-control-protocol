@@ -12,7 +12,7 @@ func before_each() -> void:
 func test_purr_near_hum_a_does_not_charge_hum_b() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the code.
 	var a: int = _make_hum(0, 0)
-	var b: int = _make_hum(Constants.ru_to_pu(50), 0)  # far outside any radius
+	var b: int = _make_hum((50 * Constants.SLOT_HEIGHT_PX), 0)  # far outside any radius
 	_sys.drain_action(a, 5000)
 	_sys.drain_action(b, 5000)
 	_make_purr_emitter(0, 0, 10)  # near A
@@ -37,7 +37,7 @@ func _make_hum(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"hum", {&"reserve": 10000, &"capacity": 10000})
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"hum_receiver", {&"radius_ru": 10})
+	_db.set_component(id, &"hum_receiver", {&"radius_px": 10})
 	return id
 
 

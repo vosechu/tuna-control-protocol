@@ -36,11 +36,12 @@ func _make_cat(x: int, y: int, warmth: int, warmth_weight: int = 500) -> int:
 	return id
 
 
-func _make_warm_server(x: int, y: int, strength: int = 800, radius_ru: int = 3) -> int:
+func _make_warm_server(x: int, y: int, strength: int = 800, radius_slots: int = 3) -> int:
 	var id: int = _db.create_entity()
+	var radius_px: int = radius_slots * Constants.SLOT_HEIGHT_PX
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"advertisements", {&"list": [
-		{&"desire_type": &"warmth", &"strength": strength, &"radius_ru": radius_ru, &"max_occupants": 1}
+		{&"desire_type": &"warmth", &"strength": strength, &"radius_px": radius_px, &"max_occupants": 1}
 	]})
 	_db.update_spatial(id, x, y)
 	return id
@@ -68,15 +69,16 @@ func _make_curiosity_source(
 	x: int,
 	y: int,
 	strength: int = 300,
-	radius_ru: int = 8,
+	radius_slots: int = 8,
 	novelty_duration: int = 30,
 	novelty_cooldown: int = 100,
 ) -> int:
 	var id: int = _db.create_entity()
+	var radius_px: int = radius_slots * Constants.SLOT_HEIGHT_PX
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"advertisements", {&"list": [
 		{&"desire_type": &"curiosity", &"strength": strength,
-			&"radius_ru": radius_ru,
+			&"radius_px": radius_px,
 			&"novelty_duration": novelty_duration,
 			&"novelty_cooldown": novelty_cooldown},
 	]})
@@ -93,7 +95,7 @@ func test_cold_cat_scores_warm_server_positively():
 	var server_id: int = _make_warm_server(0, 0)
 	var ad: Dictionary = {
 		&"desire_type": &"warmth", &"strength": 800,
-		&"radius_ru": 3, &"max_occupants": 1,
+		&"radius_px": 24, &"max_occupants": 1,
 	}
 	var score: int = _resolver.score_ad(cat_id, server_id, ad)
 	assert_gt(
@@ -108,7 +110,7 @@ func test_warm_cat_scores_server_very_low():
 	var server_id: int = _make_warm_server(0, 0)
 	var ad: Dictionary = {
 		&"desire_type": &"warmth", &"strength": 800,
-		&"radius_ru": 3, &"max_occupants": 1,
+		&"radius_px": 24, &"max_occupants": 1,
 	}
 	var score: int = _resolver.score_ad(cat_id, server_id, ad)
 	assert_lt(
@@ -118,13 +120,13 @@ func test_warm_cat_scores_server_very_low():
 
 
 func test_out_of_radius_scores_zero():
-	# Server at 0,0 with radius_ru=3 (3 * 700 = 2100 pu)
-	# Cat at 0, 8000 — beyond radius
+	# Server at 0,0 with radius 3 slots (24 px)
+	# Cat at 0, 8000 — way beyond radius
 	var cat_id: int = _make_cat(0, 8000, 100)
 	var server_id: int = _make_warm_server(0, 0, 800, 3)
 	var ad: Dictionary = {
 		&"desire_type": &"warmth", &"strength": 800,
-		&"radius_ru": 3, &"max_occupants": 1,
+		&"radius_px": 24, &"max_occupants": 1,
 	}
 	var score: int = _resolver.score_ad(cat_id, server_id, ad)
 	assert_eq(
@@ -139,7 +141,7 @@ func test_higher_personality_weight_produces_higher_score():
 	var server_id: int = _make_warm_server(0, 0)
 	var ad: Dictionary = {
 		&"desire_type": &"warmth", &"strength": 800,
-		&"radius_ru": 3, &"max_occupants": 1,
+		&"radius_px": 24, &"max_occupants": 1,
 	}
 	var score_low: int = _resolver.score_ad(cat_low_weight, server_id, ad)
 	var score_high: int = _resolver.score_ad(cat_high_weight, server_id, ad)
@@ -152,14 +154,14 @@ func test_higher_personality_weight_produces_higher_score():
 
 func test_score_decreases_with_distance():
 	# Cat at edge of radius should score lower than cat at center
-	var radius_ru: int = 3
-	var radius_pu: int = Constants.ru_to_pu(radius_ru)
+	var radius_slots: int = 3
+	var radius_px: int = radius_slots * Constants.SLOT_HEIGHT_PX
 	var cat_near: int = _make_cat(0, 0, 200)
-	var cat_far: int = _make_cat(0, radius_pu - 1, 200)
-	var server_id: int = _make_warm_server(0, 0, 800, radius_ru)
+	var cat_far: int = _make_cat(0, radius_px - 1, 200)
+	var server_id: int = _make_warm_server(0, 0, 800, radius_slots)
 	var ad: Dictionary = {
 		&"desire_type": &"warmth", &"strength": 800,
-		&"radius_ru": radius_ru, &"max_occupants": 1,
+		&"radius_px": radius_px, &"max_occupants": 1,
 	}
 	var score_near: int = _resolver.score_ad(cat_near, server_id, ad)
 	var score_far: int = _resolver.score_ad(cat_far, server_id, ad)
@@ -269,7 +271,7 @@ func test_curious_ferret_scores_curiosity_ad_positively():
 	var ferret_id: int = _make_ferret(0, 0, 200)
 	var rack_id: int = _make_curiosity_source(0, 0)
 	var ad: Dictionary = {
-		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
 		&"novelty_duration": 30, &"novelty_cooldown": 100,
 	}
 	var score: int = _resolver.score_ad(ferret_id, rack_id, ad)
@@ -283,7 +285,7 @@ func test_curiosity_ad_scores_zero_when_recently_visited():
 	var tracker: CuriosityTracker = CuriosityTracker.new()
 	tracker.visit(rack_id, 0)
 	var ad: Dictionary = {
-		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
 		&"novelty_duration": 30, &"novelty_cooldown": 100,
 	}
 	var score: int = _resolver.score_ad(ferret_id, rack_id, ad, tracker, 50)
@@ -297,7 +299,7 @@ func test_curiosity_ad_scores_normally_after_cooldown():
 	var tracker: CuriosityTracker = CuriosityTracker.new()
 	tracker.visit(rack_id, 0)
 	var ad: Dictionary = {
-		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
 		&"novelty_duration": 30, &"novelty_cooldown": 100,
 	}
 	var score: int = _resolver.score_ad(ferret_id, rack_id, ad, tracker, 101)
@@ -309,7 +311,7 @@ func test_satisfied_cat_scores_curiosity_at_zero():
 	var cat_id: int = _make_cat(0, 0, 800, 500)
 	var rack_id: int = _make_curiosity_source(0, 0)
 	var ad: Dictionary = {
-		&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
 		&"novelty_duration": 30, &"novelty_cooldown": 100,
 	}
 	var score: int = _resolver.score_ad(cat_id, rack_id, ad)

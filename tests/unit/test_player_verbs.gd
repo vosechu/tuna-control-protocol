@@ -40,8 +40,9 @@ func test_petting_clamps_at_1000():
 func test_squeak_sets_target_to_box():
 	var cat_id: int = _make_cat(500)
 	var box_id: int = db.create_entity()
-	var bx: int = 3 * Constants.RACK_WIDTH_PU
-	var by: int = 5 * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, 3, 5)
+	var bx: int = slot_rect.position.x + slot_rect.size.x / 2
+	var by: int = slot_rect.position.y + slot_rect.size.y / 2
 	db.set_component(box_id, &"position", {
 		&"x": bx, &"y": by,
 	})

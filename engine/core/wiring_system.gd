@@ -140,11 +140,12 @@ func _within_range(hum_id: int, device_id: int) -> bool:
 	var hy: int = _db.get_field(hum_id, &"position", &"y")
 	var dx: int = _db.get_field(device_id, &"position", &"x")
 	var dy: int = _db.get_field(device_id, &"position", &"y")
-	var max_ru: int = int(_config.get(&"cable_max_length_ru", 20))
-	var max_pu: int = Constants.ru_to_pu(max_ru)
+	# Config key `cable_max_length_px` (was `_ru`); fall back to 160px
+	# (20 slot-heights, matches the prior default of 20 RU).
+	var max_px: int = int(_config.get(&"cable_max_length_px", 160))
 	var delta_x: int = hx - dx
 	var delta_y: int = hy - dy
-	return (delta_x * delta_x + delta_y * delta_y) <= (max_pu * max_pu)
+	return (delta_x * delta_x + delta_y * delta_y) <= (max_px * max_px)
 
 
 func _same_stripe(peer_id: int, hum_id: int, device_id: int) -> bool:
@@ -163,7 +164,8 @@ func _stripe_of(entity_id: int) -> int:
 	var x: int = _db.get_field(entity_id, &"position", &"x")
 	# 5-rack stripes in solo/invite MP; 3-rack in collab. Phase 2 ships
 	# the solo default; stripe size lives in config when MP proper lands.
-	return x / (Constants.RACK_WIDTH_PU * 5)
+	# One bay = 5 racks = BAY_STRIDE_PX pixels.
+	return x / Constants.BAY_STRIDE_PX
 
 
 func _peer_stripe(_peer_id: int) -> int:

@@ -48,7 +48,7 @@ func _place_server(x: int, y: int) -> int:
 	_db.set_component(id, &"advertisements", {&"list": [{
 		&"desire_type": &"warmth",
 		&"strength": 800,
-		&"radius_ru": 8,
+		&"radius_px": 64,
 		&"max_occupants": 1,
 	}]})
 	_db.update_spatial(id, x, y)
@@ -60,10 +60,10 @@ func _place_box(x: int, y: int) -> int:
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"object_type", {&"type": &"cardboard_box"})
 	_db.set_component(id, &"advertisements", {&"list": [
-		{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4},
+		{&"desire_type": &"comfort", &"strength": 700, &"radius_px": 32},
 		{
 			&"desire_type": &"curiosity", &"strength": 500,
-			&"radius_ru": 5, &"action": &"shred",
+			&"radius_px": 40, &"action": &"shred",
 		},
 	]})
 	_db.update_spatial(id, x, y)
@@ -73,7 +73,7 @@ func _place_box(x: int, y: int) -> int:
 func _place_hum(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"hum_receiver", {&"radius_ru": 5})
+	_db.set_component(id, &"hum_receiver", {&"radius_px": 40})
 	_db.set_component(id, &"hum", {&"reserve": 0, &"capacity": 10000})
 	_db.update_spatial(id, x, y)
 	return id
@@ -134,7 +134,7 @@ func test_cat_seeks_the_cluster() -> void:
 	var server_id: int = _place_server(site_x, site_y)
 	var box_id: int = _place_box(site_x, site_y)
 	_place_hum(site_x, site_y)
-	var cat_id: int = _spawn_cat(site_x + Constants.ru_to_pu(3), site_y)
+	var cat_id: int = _spawn_cat(site_x + (3 * Constants.SLOT_HEIGHT_PX), site_y)
 
 	_resolver.mark_dirty(cat_id)
 	_resolver.evaluate_budget()

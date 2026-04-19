@@ -93,7 +93,7 @@ func test_100_ticks_no_errors() -> void:
 		&"x": 8000, &"y": 28000,
 	})
 	db.set_component(server, &"heat_source", {
-		&"value": 1000, &"radius_ru": 5,
+		&"value": 1000, &"radius_px": 5,
 	})
 	db.update_spatial(server, 8000, 28000)
 

@@ -85,7 +85,7 @@ The framework branches on components, not species labels. These are the capabili
 | `&"tends_servers"` | `{}` | Entity contributes to reclamation when near a server. |
 | `&"hum_powered"` | `{}` | Device needs a `hum_cable` to operate. |
 | `&"hum_cable"` | `{hum_id: int}` | Device is currently cabled to this HUM. `Constants.INVALID_ID` when unplugged. |
-| `&"hum_receiver"` | `{radius_ru: int}` | Entity listens on the `&"purr"` channel within its radius. |
+| `&"hum_receiver"` | `{radius_px: int}` | Entity listens on the `&"purr"` channel within its radius. |
 | `&"purr"` | `{intensity: int}` | Entity emits on the purr channel at this per-tick strength. |
 | `&"purr_config"` | `{rate_when_satisfied: int}` | Recipe-level rate used by the contentment→purr bridge. |
 

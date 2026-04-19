@@ -10,10 +10,10 @@ func test_mid_drag_save_reload_restores_cable() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var db := GameStateDB.new()
 	var locks := WiringLockRegistry.new()
-	var ws := WiringSystem.new(db, locks, null, {&"cable_max_length_ru": 20})
+	var ws := WiringSystem.new(db, locks, null, {&"cable_max_length_px": 160})
 	var adapter := WiringSaveAdapter.new(db, locks)
 	var hum: int = _make_hum(db, 0)
-	var tuna: int = _make_tuna(db, 500)
+	var tuna: int = _make_tuna(db, 20)
 	ws.handle_connect(1, hum, tuna)
 	ws.handle_pickup_actuator_end(1, 100, tuna)
 	# Snapshot mid-drag: live DB lacks the cable but the adapter still
@@ -27,7 +27,7 @@ func test_mid_drag_save_reload_restores_cable() -> void:
 	# Reload into a fresh DB with the same entity ids.
 	var db2 := GameStateDB.new()
 	_make_hum_with_id(db2, hum, 0)
-	_make_tuna_with_id(db2, tuna, 500)
+	_make_tuna_with_id(db2, tuna, 20)
 	var adapter2 := WiringSaveAdapter.new(db2, WiringLockRegistry.new())
 	adapter2.read_snapshot(payload)
 	assert_true(db2.has_component(tuna, &"hum_cable"))

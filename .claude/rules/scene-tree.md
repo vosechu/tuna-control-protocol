@@ -45,7 +45,7 @@ Root (Node)
 ```
 
 **What moved since the 2026-04-10 rescale:**
-- Racks are no longer five separate `Rack_N` nodes with `SlotGrid` children. A bay is one `rack_5set` sprite; slots are resolved by `Constants.pu_to_bay_rack_slot()` on click.
+- Racks are no longer five separate `Rack_N` nodes with `SlotGrid` children. A bay is one `rack_5set` sprite; slots are resolved by `Constants.bay_local_to_slot()` on click.
 - `EnvironmentTileMap` replaces the old `Floor` FloorArea / wall Sprite2D-per-column approach. See `asset-pipeline.md` for `TilePainter`.
 - `DynamicPlants` is a projection Node that watches `Events.plant_spawned` / `Events.plant_despawned` (see `growth-system.md`) and parents plant sprites onto the server sprites registered by `GameClient` during placement.
 

@@ -9,32 +9,33 @@ func before_each() -> void:
 	var locks := WiringLockRegistry.new()
 	# Max-length probed through handle_connect; the helper reach test covers
 	# the euclidean squared distance branch without poking internals.
-	_ws = WiringSystem.new(_db, locks, null, {&"cable_max_length_ru": 2})
+	# Cap: 2 slot-heights = 16 pixels.
+	_ws = WiringSystem.new(_db, locks, null, {&"cable_max_length_px": 16})
 
 
 func test_reach_allows_distance_below_max() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var hum: int = _make_hum(0, 0)
-	var tuna: int = _make_tuna(Constants.ru_to_pu(1), 0)
+	var tuna: int = _make_tuna(Constants.SLOT_HEIGHT_PX, 0)
 	assert_true(_ws.handle_connect(1, hum, tuna))
 
 
 func test_reach_rejects_distance_above_max() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var hum: int = _make_hum(0, 0)
-	var tuna: int = _make_tuna(Constants.ru_to_pu(3), 0)
+	var tuna: int = _make_tuna(3 * Constants.SLOT_HEIGHT_PX, 0)
 	assert_false(_ws.handle_connect(1, hum, tuna))
 
 
 func test_reach_uses_euclidean_not_manhattan() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	# Max 2 RU → 1600 PU. Point at (1200, 1200) is manhattan 2400 (would reject)
-	# but euclidean sqrt(1200^2 * 2) ≈ 1697 (exceeds 1600 → reject).
+	# Max 16 px. Point at (12, 12) is manhattan 24 (would reject)
+	# but euclidean sqrt(12^2 * 2) ≈ 17 (exceeds 16 → reject).
 	var hum: int = _make_hum(0, 0)
-	var tuna: int = _make_tuna(1200, 1200)
+	var tuna: int = _make_tuna(12, 12)
 	assert_false(_ws.handle_connect(1, hum, tuna))
-	# Same manhattan but euclidean under: (900, 900) → sqrt(1620000) ≈ 1273 (<1600).
-	var tuna_near: int = _make_tuna(900, 900)
+	# Same manhattan but euclidean under: (9, 9) → sqrt(162) ≈ 12.7 (<16).
+	var tuna_near: int = _make_tuna(9, 9)
 	assert_true(_ws.handle_connect(1, hum, tuna_near))
 
 

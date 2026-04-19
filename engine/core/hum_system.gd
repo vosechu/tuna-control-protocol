@@ -77,14 +77,13 @@ func tick_charge() -> void:
 		var best_id: int = Constants.INVALID_ID
 		var best_dist_sq: int = -1
 		for r_id: int in receivers:
-			var radius_ru: int = _db.get_field(r_id, &"hum_receiver", &"radius_ru")
-			var radius_pu: int = Constants.ru_to_pu(radius_ru)
+			var radius_px: int = _db.get_field(r_id, &"hum_receiver", &"radius_px")
 			var rx: int = _db.get_field(r_id, &"position", &"x")
 			var ry: int = _db.get_field(r_id, &"position", &"y")
 			var dx: int = ex - rx
 			var dy: int = ey - ry
 			var dist_sq: int = dx * dx + dy * dy
-			if dist_sq > radius_pu * radius_pu:
+			if dist_sq > radius_px * radius_px:
 				continue
 			if best_id == Constants.INVALID_ID \
 					or dist_sq < best_dist_sq \

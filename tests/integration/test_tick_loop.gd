@@ -58,11 +58,11 @@ func _make_animal(x: int, y: int, warmth_weight: int) -> int:
 	return id
 
 
-func _make_ad_object(x: int, y: int, desire_type: StringName, strength: int, radius_ru: int) -> int:
+func _make_ad_object(x: int, y: int, desire_type: StringName, strength: int, radius_px: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"advertisements", {&"list": [
-		{&"desire_type": desire_type, &"strength": strength, &"radius_ru": radius_ru, &"max_occupants": 1}
+		{&"desire_type": desire_type, &"strength": strength, &"radius_px": radius_px, &"max_occupants": 1}
 	]})
 	_db.update_spatial(id, x, y)
 	return id
@@ -141,7 +141,7 @@ func test_commitment_prevents_premature_transition() -> void:
 		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 300,
 	})
 	# Weak ad nearby — score will be less than 300 + 150 = 450
-	_make_ad_object(2400, 0, &"warmth", 400, 8)
+	_make_ad_object(24, 0, &"warmth", 400, 64)
 
 	_resolver.mark_dirty(cat)
 	_resolver.evaluate_budget()
@@ -153,7 +153,7 @@ func test_commitment_prevents_premature_transition() -> void:
 
 func test_commitment_eventually_allows_transition() -> void:
 	var cat: int = _make_animal(0, 0, 800)
-	_make_ad_object(2400, 0, &"warmth", 800, 8)
+	_make_ad_object(24, 0, &"warmth", 800, 64)
 	# Cat has moderate commitment that will decay
 	_db.set_component(cat, &"ai_state", {
 		&"state": &"IDLE", &"meta_state": &"AMBIENT", &"commitment_score": 200,

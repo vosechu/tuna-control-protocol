@@ -1,6 +1,6 @@
 // Transformation Chain Schema
 // All game values use integer scale: 0-1000 maps to 0.0-1.0
-// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+// Positions are stored as integer world pixels.
 //
 // Defines how objects transform into other objects over time or through interaction.
 // Prototype hardcodes cardboard_box -> bedding_scraps, but all future transformations

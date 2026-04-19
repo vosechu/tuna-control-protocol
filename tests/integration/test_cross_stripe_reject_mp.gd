@@ -10,7 +10,7 @@ func test_solo_peer_always_passes_stripe_check() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var db := GameStateDB.new()
 	var locks := WiringLockRegistry.new()
-	var ws := WiringSystem.new(db, locks, null, {&"cable_max_length_ru": 20})
+	var ws := WiringSystem.new(db, locks, null, {&"cable_max_length_px": 160})
 	# Place HUM in rack 0 and actuator in rack 6 — across the 5-rack stripe
 	# boundary in a stripe-aware world. Solo mode ignores the boundary and
 	# rejects only on out_of_reach.
@@ -23,7 +23,6 @@ func test_solo_peer_always_passes_stripe_check() -> void:
 	var tuna: int = db.create_entity()
 	db.set_component(tuna, &"tuna_dispenser", {&"hum_cost": 50})
 	db.set_component(tuna, &"hum_powered", {})
-	# In RU (SLOT_HEIGHT_PU units) within the 20 RU reach; in PU that's
-	# still well under a single-stripe width.
-	db.set_component(tuna, &"position", {&"x": Constants.ru_to_pu(5), &"y": 0})
+	# 5 slot-heights (40 px) is well within the 160 px cable reach.
+	db.set_component(tuna, &"position", {&"x": (5 * Constants.SLOT_HEIGHT_PX), &"y": 0})
 	assert_true(ws.handle_connect(1, hum, tuna))

@@ -34,15 +34,27 @@ func _apply_source(entity_id: int) -> void:
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	var hs: Dictionary = _db.get_component(entity_id, &"heat_source")
 
-	var layout: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
-	var rack: int = layout[&"rack"]
-	var slot: int = layout[&"slot"]
+	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+	var bay: int = Constants.world_to_bay(world_pos)
+	if bay == Constants.INVALID_BAY:
+		return
+	var query: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+	if query.zone != &"slot":
+		return
+	var rack: int = query.get_rack()
+	var slot: int = query.get_slot()
 	var value: int = hs[&"value"]
-	var radius: int = hs[&"radius_ru"]
+	# radius in slot units (slot_height per step). Field name in JSON is
+	# radius_px but for heat the semantics are "slot rows of falloff".
+	# We interpret stored value as pixels and divide by SLOT_HEIGHT_PX.
+	var radius_px: int = hs[&"radius_px"]
+	var radius: int = radius_px / Constants.SLOT_HEIGHT_PX
 
-	# "3U up, 1U down" scaled by radius: upward range = radius, downward = radius / 3.
-	# range(-radius, radius / 3 + 1) covers up to 3U upward (-3,-2,-1,0) and 1U downward (1).
-	for ds: int in range(-radius, radius / 3 + 1):
+	# Slot 0 is the BOTTOM; heat rises. "radius slots up, radius/3 down"
+	# means toward higher-index slots (up) and lower-index (down).
+	# Previously ds was measured from top-index; now ds means toward-top in
+	# slot space, so upward = +ds (higher slot indices).
+	for ds: int in range(-radius / 3, radius + 1):
 		var target_slot: int = slot + ds
 		if target_slot < 0 or target_slot >= Constants.SLOTS_PER_RACK:
 			continue
@@ -66,10 +78,10 @@ func _apply_source(entity_id: int) -> void:
 				_grid[right_cell] = mini(_grid[right_cell] + spill, Constants.UNIT)
 
 	# Floor only gets heat from servers near the bottom of the rack.
-	# Distance from source to floor = (SLOTS_PER_RACK - slot).
+	# With slot 0 at the bottom, floor distance = slot + 1.
 	# Downward range = radius / 3 (same as rack propagation).
 	var down_range: int = radius / 3
-	var floor_dist: int = Constants.SLOTS_PER_RACK - slot
+	var floor_dist: int = slot + 1
 	if floor_dist <= down_range:
 		var floor_idx: int = Constants.floor_cell(rack)
 		var floor_heat: int = value * (down_range + 1 - floor_dist) / (down_range + 1)

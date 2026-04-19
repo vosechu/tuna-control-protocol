@@ -113,8 +113,9 @@ func test_dispense_drains_and_open_drains_hum():
 
 func _make_dispenser(rack: int, slot: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})
@@ -135,8 +136,9 @@ func _make_button(
 		rack: int, slot: int, dispenser_id: int,
 ) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})
@@ -163,16 +165,15 @@ func _make_hum_entity() -> int:
 
 func _make_arm(rack: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-		+ Constants.FLOOR_HEIGHT_PU / 2
-	)
+	var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+	var x: int = rack_col.position.x + rack_col.size.x / 2
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var y: int = floor_rect.position.y + floor_rect.size.y / 2
 	_db.set_component(id, &"position", {
 		&"x": x, &"y": y,
 	})
 	_db.set_component(id, &"arm", {
-		&"radius_ru": 3,
+		&"radius_px": 24,
 		&"hum_cost": 30,
 		&"open_duration_ticks": 20,
 	})

@@ -39,14 +39,14 @@ func get_astar(species_id: StringName) -> AStar2D:
 
 func _build_floor_nodes() -> void:
 	# One floor node per rack, positioned at floor level center
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var floor_y: float = float(floor_rect.position.y + floor_rect.size.y / 2)
 	for rack: int in Constants.RACK_COUNT:
 		var nav_id: int = _next_nav_id
 		_next_nav_id += 1
-		var x: float = float(Constants.rack_slot_to_pu(0, rack, 0).x)
-		var y: float = float(
-			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU + Constants.FLOOR_HEIGHT_PU / 2
-		)
-		var pos := Vector2(x, y)
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+		var x: float = float(rack_col.position.x + rack_col.size.x / 2)
+		var pos := Vector2(x, floor_y)
 		_floor_nodes[rack] = nav_id
 		_floor_node_positions[rack] = pos
 		for species_id: StringName in _astars:
@@ -67,8 +67,9 @@ func add_rack_slot(rack: int, slot: int) -> void:
 		return  # already exists
 	var nav_id: int = _next_nav_id
 	_next_nav_id += 1
-	var x: float = float(Constants.rack_slot_to_pu(0, rack, slot).x)
-	var y: float = float(slot * Constants.SLOT_HEIGHT_PU)
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: float = float(slot_rect.position.x + slot_rect.size.x / 2)
+	var y: float = float(slot_rect.position.y + slot_rect.size.y / 2)
 	_slot_nodes[key] = nav_id
 	for species_id: StringName in _astars:
 		var astar: AStar2D = _astars[species_id]

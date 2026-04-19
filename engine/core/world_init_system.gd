@@ -73,23 +73,23 @@ func _overrides_for(entry: Dictionary) -> Dictionary:
 	# EntityDefRegistry.spawn() already consumes. Phase 0 uses bay index 0
 	# for all entities; cross-bay scenarios can add a `bay` field later.
 	#
-	# Rack placement: (rack, slot) → rack_slot_to_pu center.
+	# Rack placement: (rack, slot) → center of slot in world pixels.
 	# Floor placement: (floor_rack, floor_slot_offset) → rack X center,
-	# Y midway through the floor strip. Matches game_server.gd:615's
-	# FLOOR_Y_PU + FLOOR_HEIGHT_PU/2 pattern.
+	# Y midway through the floor strip.
 	var out: Dictionary = {}
 	if entry.has("rack") and entry.has("slot"):
 		var rack: int = int(entry["rack"])
 		var slot: int = int(entry["slot"])
-		var pu: Vector2i = Constants.rack_slot_to_pu(0, rack, slot)
-		out[&"position"] = {&"x": pu.x, &"y": pu.y}
+		var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+		var cx: int = slot_rect.position.x + slot_rect.size.x / 2
+		var cy: int = slot_rect.position.y + slot_rect.size.y / 2
+		out[&"position"] = {&"x": cx, &"y": cy}
 	elif entry.has("floor_rack"):
 		var floor_rack: int = int(entry["floor_rack"])
-		var floor_x: int = Constants.rack_slot_to_pu(0, floor_rack, 0).x
-		var floor_y: int = (
-			Constants.FLOOR_Y * Constants.POSITION_SCALE
-			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, floor_rack)
+		var floor_x: int = rack_col.position.x + rack_col.size.x / 2
+		var floor_rect: Rect2i = Constants.floor_rect_world(0)
+		var floor_y: int = floor_rect.position.y + floor_rect.size.y / 2
 		out[&"position"] = {&"x": floor_x, &"y": floor_y}
 	# dispenser_ref left unconsumed for now — tuna_button/dispenser wiring
 	# is handled by game_server.place_object today; scenario-time resolution

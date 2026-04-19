@@ -9,11 +9,11 @@ const OBJECT_CONFIG: Dictionary = {
 		&"state_ads": {
 			&"sealed": [{
 				&"desire_type": &"openable", &"strength": 800,
-				&"radius_ru": 3, &"action": &"open",
+				&"radius_px": 24, &"action": &"open",
 			}],
 			&"open": [{
 				&"desire_type": &"food", &"strength": 800,
-				&"radius_ru": 5, &"action": &"eat",
+				&"radius_px": 40, &"action": &"eat",
 			}],
 			&"empty": [],
 		},
@@ -21,17 +21,17 @@ const OBJECT_CONFIG: Dictionary = {
 	&"cardboard_box": {
 		&"state_ads": {
 			&"new": [
-				{&"desire_type": &"comfort", &"strength": 700, &"radius_ru": 4},
+				{&"desire_type": &"comfort", &"strength": 700, &"radius_px": 32},
 				{&"desire_type": &"curiosity", &"strength": 500,
-					&"radius_ru": 5, &"action": &"shred"},
+					&"radius_px": 40, &"action": &"shred"},
 			],
 			&"worn": [
-				{&"desire_type": &"comfort", &"strength": 400, &"radius_ru": 3},
+				{&"desire_type": &"comfort", &"strength": 400, &"radius_px": 24},
 				{&"desire_type": &"curiosity", &"strength": 300,
-					&"radius_ru": 4, &"action": &"shred"},
+					&"radius_px": 32, &"action": &"shred"},
 			],
 			&"scraps": [
-				{&"desire_type": &"comfort", &"strength": 600, &"radius_ru": 3},
+				{&"desire_type": &"comfort", &"strength": 600, &"radius_px": 24},
 			],
 		},
 		&"hp_thresholds": [

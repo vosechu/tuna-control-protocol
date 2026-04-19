@@ -68,7 +68,7 @@ func _update_ads_for_tuna(
 				&"list": [{
 					&"desire_type": &"openable",
 					&"strength": 800,
-					&"radius_ru": 3,
+					&"radius_px": 24,
 					&"action": &"open",
 					&"action_duration": 30,
 				}],
@@ -78,7 +78,7 @@ func _update_ads_for_tuna(
 				&"list": [{
 					&"desire_type": &"food",
 					&"strength": 800,
-					&"radius_ru": 5,
+					&"radius_px": 40,
 					&"action": &"eat",
 					&"action_duration": 50,
 				}],
@@ -97,12 +97,12 @@ func _update_ads_for_box(
 					{
 						&"desire_type": &"comfort",
 						&"strength": 700,
-						&"radius_ru": 4,
+						&"radius_px": 32,
 					},
 					{
 						&"desire_type": &"curiosity",
 						&"strength": 500,
-						&"radius_ru": 5,
+						&"radius_px": 40,
 						&"action": &"shred",
 						&"action_duration": 20,
 					},
@@ -114,12 +114,12 @@ func _update_ads_for_box(
 					{
 						&"desire_type": &"comfort",
 						&"strength": 400,
-						&"radius_ru": 3,
+						&"radius_px": 24,
 					},
 					{
 						&"desire_type": &"curiosity",
 						&"strength": 300,
-						&"radius_ru": 4,
+						&"radius_px": 32,
 						&"action": &"shred",
 						&"action_duration": 20,
 					},
@@ -130,7 +130,7 @@ func _update_ads_for_box(
 				&"list": [{
 					&"desire_type": &"comfort",
 					&"strength": 600,
-					&"radius_ru": 3,
+					&"radius_px": 24,
 				}],
 			})
 
@@ -154,8 +154,8 @@ func test_sealed_tuna_advertises_openable():
 		"Sealed tuna must advertise openable")
 	assert_eq(ads[&"list"][0][&"strength"], 800,
 		"Sealed tuna openable strength must be 800")
-	assert_eq(ads[&"list"][0][&"radius_ru"], 3,
-		"Sealed tuna openable radius must be 3")
+	assert_eq(ads[&"list"][0][&"radius_px"], 24,
+		"Sealed tuna openable radius must be 24")
 
 
 func test_sealed_to_open_changes_ads_to_food():
@@ -169,8 +169,8 @@ func test_sealed_to_open_changes_ads_to_food():
 		"Open tuna must advertise food")
 	assert_eq(ads[&"list"][0][&"strength"], 800,
 		"Open tuna food strength must be 800")
-	assert_eq(ads[&"list"][0][&"radius_ru"], 5,
-		"Open tuna food radius must be 5")
+	assert_eq(ads[&"list"][0][&"radius_px"], 40,
+		"Open tuna food radius must be 40")
 
 
 func test_open_to_empty_removes_advertisements():
@@ -225,8 +225,8 @@ func test_new_box_advertises_comfort_and_curiosity():
 		"New box first ad must be comfort")
 	assert_eq(ads[&"list"][0][&"strength"], 700,
 		"New box comfort strength must be 700")
-	assert_eq(ads[&"list"][0][&"radius_ru"], 4,
-		"New box comfort radius must be 4")
+	assert_eq(ads[&"list"][0][&"radius_px"], 32,
+		"New box comfort radius must be 32")
 	assert_eq(ads[&"list"][1][&"desire_type"], &"curiosity",
 		"New box second ad must be curiosity")
 	assert_eq(ads[&"list"][1][&"strength"], 500,
@@ -245,8 +245,8 @@ func test_damage_box_to_worn_changes_ads():
 	var ads: Dictionary = _db.get_component(id, &"advertisements")
 	assert_eq(ads[&"list"][0][&"strength"], 400,
 		"Worn box comfort strength must be 400")
-	assert_eq(ads[&"list"][0][&"radius_ru"], 3,
-		"Worn box comfort radius must be 3")
+	assert_eq(ads[&"list"][0][&"radius_px"], 24,
+		"Worn box comfort radius must be 24")
 	assert_eq(ads[&"list"][1][&"strength"], 300,
 		"Worn box curiosity strength must be 300")
 

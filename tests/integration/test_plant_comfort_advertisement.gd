@@ -13,7 +13,8 @@ func before_each() -> void:
 
 func _create_server_at(bay: int, rack: int, slot: int) -> int:
 	var eid: int = _db.create_entity()
-	var pos: Vector2i = Constants.rack_slot_to_pu(bay, rack, slot)
+	var rect: Rect2i = Constants.slot_rect_world(bay, rack, slot)
+	var pos := Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2)
 	_db.set_component(eid, &"position", {&"x": pos.x, &"y": pos.y})
 	_db.update_spatial(eid, pos.x, pos.y)
 	return eid
@@ -21,7 +22,8 @@ func _create_server_at(bay: int, rack: int, slot: int) -> int:
 
 func _create_cat_at(bay: int, rack: int, slot: int) -> int:
 	var eid: int = _db.create_entity()
-	var pos: Vector2i = Constants.rack_slot_to_pu(bay, rack, slot)
+	var rect: Rect2i = Constants.slot_rect_world(bay, rack, slot)
+	var pos := Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2)
 	_db.set_component(eid, &"position", {&"x": pos.x, &"y": pos.y})
 	_db.update_spatial(eid, pos.x, pos.y)
 	_db.set_component(eid, &"species", {&"id": &"tcp_cats:cat"})
@@ -45,7 +47,7 @@ func test_cat_comfort_higher_near_planted_server_than_unplanted():
 			&"source": &"plant_growth",
 			&"desire_type": &"comfort",
 			&"strength": _STATE.PLANT_COMFORT_STRENGTH,
-			&"radius_ru": _STATE.PLANT_ADVERT_RADIUS_RU,
+			&"radius_px": _STATE.PLANT_ADVERT_RADIUS_PX,
 		}]
 	})
 	var cat_near_plant: int = _create_cat_at(0, 1, 5)

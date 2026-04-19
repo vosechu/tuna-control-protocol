@@ -28,10 +28,10 @@ func test_ferret_visits_multiple_racks_over_time():
 	var rack_ids: Array[int] = []
 	for i: int in 5:
 		var rack_id: int = db.create_entity()
-		var x: int = i * 5000
+		var x: int = i * 10
 		db.set_component(rack_id, &"position", {&"x": x, &"y": 0})
 		db.set_component(rack_id, &"advertisements", {&"list": [
-			{&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 30,
+			{&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
 				&"novelty_duration": 30, &"novelty_cooldown": 100},
 		]})
 		db.update_spatial(rack_id, x, 0)

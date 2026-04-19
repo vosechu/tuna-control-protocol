@@ -79,18 +79,19 @@ All simulation runs in `_physics_process` (fixed 10Hz timestep via `Engine.physi
 GameStateDB is authoritative. Nodes project state to Godot systems (AnimationPlayer, ShaderMaterial, AudioStreamPlayer) in `_process`. Godot systems never write back to GameStateDB directly — they emit signals that the core interprets.
 
 ## Integer-Float Boundary
-Integer-to-float conversion happens in node wrappers only. Inside core: all int. Inside node rendering: all float. Never mix in the same function. Provide utility functions:
+Positions are integer world pixels everywhere in the core (GameStateDB, AI, physics). The rendering boundary converts to `Vector2`/`float` via explicit cast:
 
 ```gdscript
-static func to_world(v: int) -> float:
-    return float(v) / float(POSITION_SCALE)
-
-static func from_world(v: float) -> int:
-    return roundi(v * float(POSITION_SCALE))
+# In core — integer pixels
+var pos: Vector2i = db.get_component(id, &"position")
+# In node rendering — cast to float
+sprite.position = Vector2(pos)
 
 static func to_unit(v: int) -> float:
     return float(v) / float(UNIT)
 ```
+
+Never mix `int` and `float` coordinate math in the same function.
 
 ## Node Pooling
 Node wrappers for animals are pooled (expensive to create/destroy). RefCounted core objects are created/freed directly (cheap). Always `queue_free()`, never `free()` on nodes.
@@ -107,7 +108,6 @@ Base game assets use `preload()`. Mod assets use `ResourceLoader.load_threaded_r
 ```gdscript
 const UNIT := 1000              # General-purpose thousandths
 const PERCENT := 100            # Percentages as 0-10000 (hundredths of percent)
-const POSITION_SCALE := 100     # Sub-pixel positioning: 1 = 0.01 pixels
 
 # In core/ — integer math only
 var happiness: int = 850  # 850/1000 = 0.85

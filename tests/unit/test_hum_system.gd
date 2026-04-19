@@ -24,25 +24,29 @@ func _make_hum(capacity: int = HumSystem.DEFAULT_CAPACITY) -> int:
 	return id
 
 
-func _make_hum_device(rack: int, slot: int, radius_ru: int) -> int:
+func _make_hum_device(rack: int, slot: int, radius_slots: int) -> int:
 	# Creates a combined hum+hum_receiver+position entity (mirrors the recipe).
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"hum", {
 		&"reserve": HumSystem.DEFAULT_CAPACITY,
 		&"capacity": HumSystem.DEFAULT_CAPACITY,
 	})
-	_db.set_component(id, &"hum_receiver", {&"radius_ru": radius_ru})
+	_db.set_component(id, &"hum_receiver", {
+		&"radius_px": radius_slots * Constants.SLOT_HEIGHT_PX,
+	})
 	_db.update_spatial(id, x, y)
 	return id
 
 
 func _make_purring_entity(rack: int, slot: int, intensity: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"purr", {&"intensity": intensity})
 	_db.update_spatial(id, x, y)

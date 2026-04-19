@@ -65,19 +65,19 @@ class_name ObjectAdvertisement extends Resource
 
 @export var desire_type: StringName    # "warmth", "food", "comfort", "quiet", etc. ("influence channel")
 @export var strength: int = 500        # signed: positive = attractor (desire), negative = aversion. See Aversions section.
-@export var radius_ru: int = 3         # Rack units
+@export var radius_px: int = 3         # Rack units
 @export var falloff_curve: Curve       # Linear by default (samples 0.0-1.0 for rendering)
 @export var required_traversal: StringName = ""
 @export var max_occupants: int = 1
 var current_occupants: int = 0
 
 func score_for(animal: AnimalAgent, distance_ru: int) -> int:
-    if distance_ru > radius_ru: return 0
+    if distance_ru > radius_px: return 0
     if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
     if not is_available(): return 0
     var desire_weight: int = animal.get_desire_weight(desire_type)
     var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
-    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_ru) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_ru)) * 1000)
+    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_px) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_px)) * 1000)
     return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
 ```
 
@@ -87,8 +87,8 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
 {
   "clothes_pile": {
     "advertisements": [
-      {"desire_type": "comfort", "strength": 800, "radius_ru": 1, "max_occupants": 3},
-      {"desire_type": "stimulation", "strength": 400, "radius_ru": 1, "max_occupants": 1}
+      {"desire_type": "comfort", "strength": 800, "radius_px": 1, "max_occupants": 3},
+      {"desire_type": "stimulation", "strength": 400, "radius_px": 1, "max_occupants": 1}
     ]
   }
 }
@@ -142,7 +142,7 @@ Animals have **desires** (attractors — warmth, food, comfort) and **aversions*
 ### Terminology
 
 - **Desire** — a channel expressed as a weight on the entity's `desires` component. Positive weight = attractor (the animal is pulled toward ads on this channel). Negative weight = repulsor (aversion). No separate `aversions` component exists; aversions are just negative entries in the same dict.
-- **Signed advertisement** — objects emit ads with positive strength (attracting) or negative strength (repelling). A loud PDU advertises `{desire_type: &"noise", strength: -700, radius_ru: 4}`. The word "desire_type" is retained for schema continuity; read it as "influence channel."
+- **Signed advertisement** — objects emit ads with positive strength (attracting) or negative strength (repelling). A loud PDU advertises `{desire_type: &"noise", strength: -700, radius_px: 4}`. The word "desire_type" is retained for schema continuity; read it as "influence channel."
 - **Satisfaction/deficit** — tracked for positive-weight channels only. An entity can be "hungry for warmth" (low satisfaction, high deficit) but not "hungry for silence." Aversions are simply avoided while present, never "met."
 
 ### Scoring formula (extended)
@@ -151,10 +151,10 @@ The advertisement score function branches on sign, but lives in one function:
 
 ```gdscript
 func score_for(animal: AnimalAgent, distance_ru: int) -> int:
-    if distance_ru > radius_ru: return 0
+    if distance_ru > radius_px: return 0
     if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
 
-    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_ru) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_ru)) * 1000)
+    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_px) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_px)) * 1000)
 
     var weight: int = animal.get_desire_weight(desire_type)  # signed: positive = attractor, negative = aversion
     if strength >= 0 and weight >= 0:

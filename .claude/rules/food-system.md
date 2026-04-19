@@ -15,7 +15,7 @@ The shipped Ring 0 food chain: player clicks the button → dispenser drops a se
 |---|---|---|
 | Button | `tuna_button: {tethered_to: "tcp_base:tuna_dispenser"}` | Player-clickable trigger. No AI. |
 | Dispenser | `tuna_dispenser: {hum_cost, can_type}` | Spawns sealed cans when paired button is pressed. Advertises `hunger` to draw hungry cats to the right rack. |
-| Arm | `arm: {radius_ru, hum_cost, open_duration_ticks}` | Floor entity. Every tick, opens any sealed tuna_can within radius, paying HUM. No AI, no movement. |
+| Arm | `arm: {radius_px, hum_cost, open_duration_ticks}` | Floor entity. Every tick, opens any sealed tuna_can within radius, paying HUM. No AI, no movement. |
 | Tuna can | `tuna_can: {state, despawn_timer}` + `object_type: {type: "tuna_can"}` | Spawned by dispenser. State machine drives advertisements. |
 
 All numbers (HUM costs, radii, durations) are declared in the mod recipes at `mods/tcp_base/objects/` — no hardcoded values in engine code.
@@ -36,7 +36,7 @@ After entering `eaten`, the can's despawn timer runs; `FoodSystem.tick_cleanup()
 
 `FoodSystem` ticks in two phases, both called from `GameServer._physics_process`:
 
-1. `tick_arms()` — for each entity with an `arm` component, query `radius_ru` around its position for `tuna_can` entities. For each sealed can found, if `_hum.has_reserve(arm.hum_cost)`: drain, transition the can to `opened` (state + ad swap), emit `Events.can_opened(can_id)`. Stops early if HUM runs out.
+1. `tick_arms()` — for each entity with an `arm` component, query `radius_px` around its position for `tuna_can` entities. For each sealed can found, if `_hum.has_reserve(arm.hum_cost)`: drain, transition the can to `opened` (state + ad swap), emit `Events.can_opened(can_id)`. Stops early if HUM runs out.
 2. `tick_cleanup()` — for each `tuna_can` in state `eaten`, increment despawn_timer. When it hits `CAN_DESPAWN_TICKS`, `remove_spatial` + `destroy_entity`.
 
 The scheduler runs `tick_arms` before `tick_cleanup`, and both after `food_system.tick_arms()` in the documented tick order (see `nodes/game_server.gd::_physics_process`).

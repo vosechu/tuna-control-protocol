@@ -14,11 +14,11 @@ func test_heat_grid_propagation_under_budget():
 		# Use raw rack*stride positioning (same as test_heat_grid.gd helper)
 		# to stay within the 5-rack grid bounds.
 		db.set_component(eid, &"position", {
-			&"x": i * Constants.RACK_STRIDE_PU,
-			&"y": 5 * Constants.SLOT_HEIGHT_PU,
+			&"x": i * Constants.RACK_STRIDE_PX,
+			&"y": 5 * Constants.SLOT_HEIGHT_PX,
 		})
 		db.set_component(eid, &"heat_source", {
-			&"value": 800, &"radius_ru": 3,
+			&"value": 800, &"radius_px": 3,
 		})
 	var start: int = Time.get_ticks_usec()
 	for _i: int in 100:

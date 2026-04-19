@@ -10,7 +10,7 @@ func before_each() -> void:
 	_db = GameStateDB.new()
 	_locks = WiringLockRegistry.new()
 	_events = _FakeEvents.new()
-	_ws = WiringSystem.new(_db, _locks, _events, {&"cable_max_length_ru": 20})
+	_ws = WiringSystem.new(_db, _locks, _events, {&"cable_max_length_px": 160})
 
 
 func test_fresh_connect_writes_cable_and_emits() -> void:
@@ -27,7 +27,7 @@ func test_fresh_connect_writes_cable_and_emits() -> void:
 func test_connect_out_of_reach_denies() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var hum: int = _make_hum(0)
-	var tuna: int = _make_tuna(200_000)  # ~250 RU apart, beyond 20 RU budget
+	var tuna: int = _make_tuna(2000)  # 2000 px apart, beyond 160 px budget
 	var ok: bool = _ws.handle_connect(1, hum, tuna)
 	assert_false(ok)
 	assert_false(_db.has_component(tuna, &"hum_cable"))
@@ -55,8 +55,8 @@ func test_connect_from_non_hum_denies() -> void:
 func test_replace_on_connect_emits_disconnect_then_connect() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var hum_a: int = _make_hum(0)
-	var hum_b: int = _make_hum(2000)
-	var tuna: int = _make_tuna(1000)
+	var hum_b: int = _make_hum(20)
+	var tuna: int = _make_tuna(10)
 	_ws.handle_connect(1, hum_a, tuna)
 	_events.clear()
 	_ws.handle_connect(1, hum_b, tuna)

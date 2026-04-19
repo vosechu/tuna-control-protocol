@@ -8,27 +8,30 @@
   // `cable_to: { ref_name }` writes a hum_cable component on the spawned entity
   // pointing at the named HUM. Phase 2 provides UX for wiring cables at runtime;
   // this pre-cabling keeps a fresh game playable before the player builds any.
-  "schema_version": 1,
+  //
+  // schema v2: slot 0 is now the BOTTOM slot (was the top). All slot indices
+  // below are in bottom-first addressing.
+  "schema_version": 2,
   "id": "tcp_base:starter",
   "entities": [
-    { "type": "tcp_base:hum_device",     "rack": 0, "slot": 0, "ref_name": "hum_a" },
+    { "type": "tcp_base:hum_device",     "rack": 0, "slot": 9, "ref_name": "hum_a" },
     {
       "type": "tcp_base:tuna_dispenser",
-      "rack": 2, "slot": 1,
+      "rack": 2, "slot": 8,
       "ref_name": "tuna_a",
       "cable_to": { "ref_name": "hum_a" }
     },
     {
       "type": "tcp_base:tuna_button",
-      "rack": 2, "slot": 2,
-      "dispenser_ref": { "rack": 2, "slot": 1 }
+      "rack": 2, "slot": 7,
+      "dispenser_ref": { "rack": 2, "slot": 8 }
     },
     {
       "type": "tcp_base:arm",
       "floor_rack": 0, "floor_slot_offset": 0,
       "cable_to": { "ref_name": "hum_a" }
     },
-    { "type": "tcp_cats:cat", "rack": 0, "slot": 7, "required": false },
-    { "type": "tcp_cats:cat", "rack": 0, "slot": 8, "required": false }
+    { "type": "tcp_cats:cat", "rack": 0, "slot": 2, "required": false },
+    { "type": "tcp_cats:cat", "rack": 0, "slot": 1, "required": false }
   ]
 }
