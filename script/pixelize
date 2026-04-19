@@ -53,9 +53,7 @@ def load_image(source: str) -> Image.Image:
         req = urllib.request.Request(source, headers={"User-Agent": "pixelize/1.0"})
         with urllib.request.urlopen(req, timeout=20) as r:
             data = r.read()
-        tmp = Path("/tmp/pixelize_input.bin")
-        tmp.write_bytes(data)
-        return Image.open(tmp)
+        return Image.open(BytesIO(data))
     return Image.open(source)
 
 
@@ -152,6 +150,9 @@ def sample_palette(img: Image.Image, n: int = 16) -> list:
     raw = thumb.tobytes()
     opaque = [(raw[i], raw[i + 1], raw[i + 2]) for i in range(0, len(raw), 4) if raw[i + 3] > 0]
     if not opaque:
+        # Fully-transparent input (bg removal erased everything, or a bug
+        # upstream). db16 is the safest retro-canonical fallback — widely
+        # recognized and has a broad-enough spread that "something" renders.
         return PALETTES["db16"]
     side = max(1, int(len(opaque) ** 0.5))
     sample = Image.new("RGB", (side, side))
@@ -176,7 +177,7 @@ def quantize_to_palette(img: Image.Image, colors) -> Image.Image:
     return rgb.quantize(palette=palette_image(colors), dither=Image.Dither.NONE).convert("RGB")
 
 
-def compute_target(src_size, max_side, square):
+def compute_target(src_size: tuple[int, int], max_side: int, square: bool) -> tuple[int, int]:
     w, h = src_size
     if square:
         return (max_side, max_side)
