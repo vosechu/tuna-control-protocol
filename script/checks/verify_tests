@@ -15,14 +15,28 @@ require_relative File.join(SCRIPT_DIR, 'lib/test_stamp')
 
 # Parse a stamp file via regex (not YAML). Hex hashes starting with 0 get
 # misinterpreted as octal by Psych, so we pull them out as raw strings.
+#
+# tdd_verify's YAML serializer sometimes quotes hex values (single or double
+# quotes). Strip surrounding quotes so `setup_hash: 08970b19` and
+# `setup_hash: '08970b19'` parse identically.
+def unquote(str)
+  return str if str.nil?
+  if (str.start_with?("'") && str.end_with?("'")) ||
+     (str.start_with?('"') && str.end_with?('"'))
+    str[1..-2]
+  else
+    str
+  end
+end
+
 def parse_stamp(path)
   content = File.read(path)
-  setup_match = content[/^setup_hash:\s*(\S+)/, 1]
+  setup_match = unquote(content[/^setup_hash:\s*(\S+)/, 1])
   tests = {}
   content.each_line do |line|
     next unless line =~ /^\s{2,}(test_\w+):\s*(\S+)/
 
-    tests[Regexp.last_match(1)] = Regexp.last_match(2)
+    tests[Regexp.last_match(1)] = unquote(Regexp.last_match(2))
   end
   { 'setup_hash' => setup_match, 'tests' => tests }
 end
