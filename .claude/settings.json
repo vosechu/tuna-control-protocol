@@ -20,6 +20,7 @@
       "Bash(git reset *)",
       "Bash(git restore)",
       "Bash(git restore *)",
+      "Bash(git switch *)",
 
       "Bash(git clean -f*)",
 
@@ -86,7 +87,6 @@
       "Bash(git worktree list)",
       "Bash(git fetch *)",
       "Bash(git rev-parse *)",
-      "Bash(git switch)", "Bash(git switch *)",
       "Bash(git add *)", "Bash(git add)",
       "Bash(git commit *)", "Bash(git commit)",
       "Bash(git push)", "Bash(git push *)",
