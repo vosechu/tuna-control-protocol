@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # Converts an arbitrary image into a small pixel-art sprite.
 #
-# Pipeline: optional background knockout -> edge detection at full res ->
-# Lanczos downsample -> palette quantize -> composite edges as black pixels ->
+# Pipeline: background removal (rembg or corner flood-fill) ->
+# crop to opaque bbox -> optional pad-to-square -> contrast/saturation pre-pass ->
+# Sobel edges at full res -> aspect-preserving Lanczos downsample ->
+# palette quantize (fixed or source-sampled) -> composite edges as black pixels ->
 # optional integer upscale for preview.
 #
 # Usage: script/pixelize INPUT OUTPUT [options]
@@ -10,9 +12,10 @@
 import argparse
 import sys
 import urllib.request
+from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image, ImageChops, ImageEnhance, ImageFilter, ImageOps
 
 PALETTES = {
     "db16": [
@@ -30,6 +33,8 @@ PALETTES = {
     "grayscale": [(v, v, v) for v in range(0, 256, 17)][:16],
 }
 
+PALETTE_CHOICES = sorted(list(PALETTES.keys()) + ["sampled"])
+
 
 def load_image(source: str) -> Image.Image:
     if source.startswith(("http://", "https://")):
@@ -42,10 +47,31 @@ def load_image(source: str) -> Image.Image:
     return Image.open(source)
 
 
-def knockout_background(img: Image.Image, tolerance: int = 24) -> Image.Image:
-    # Flood-fills from the four corners with a near-color tolerance, sets
-    # matching pixels to transparent. Works well for catalog-style images on
-    # a roughly uniform (usually white) background. Not a full rembg.
+def rembg_background(img: Image.Image) -> Image.Image:
+    # Neural background removal via rembg's u2net model. The ~170MB model
+    # weights aren't checked in (see script/pixelize_models/README.md for why
+    # and where to get them). If the file exists at script/pixelize_models/,
+    # we point U2NET_HOME at it to skip the download. Otherwise rembg downloads
+    # to ~/.u2net/ on first use, hash-verified against its pinned MD5.
+    import os as _os
+    models_dir = Path(__file__).resolve().parent / "pixelize_models"
+    if (models_dir / "u2net.onnx").exists():
+        _os.environ["U2NET_HOME"] = str(models_dir)
+    try:
+        from rembg import remove
+    except ImportError:
+        sys.exit("error: --rembg requires `pip install rembg` (pulls ~170MB ONNX weights on first run if not vendored)")
+    rgba = img.convert("RGBA")
+    result = remove(rgba)
+    if isinstance(result, Image.Image):
+        return result.convert("RGBA")
+    return Image.open(BytesIO(result)).convert("RGBA")
+
+
+def knockout_background(img: Image.Image, tolerance: int = 32) -> Image.Image:
+    # Corner flood-fill with a near-color tolerance. Works for catalog-style
+    # images on a roughly uniform background. Cannot remove watermarks, shadows,
+    # or rescue cluttered photos — use --rembg for those.
     img = img.convert("RGBA")
     w, h = img.size
     pixels = img.load()
@@ -57,13 +83,11 @@ def knockout_background(img: Image.Image, tolerance: int = 24) -> Image.Image:
     stack = []
     for cx, cy in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]:
         stack.append((cx, cy, pixels[cx, cy]))
-
     while stack:
         x, y, target = stack.pop()
         if x < 0 or y < 0 or x >= w or y >= h or visited[x][y]:
             continue
-        cur = pixels[x, y]
-        if not close_enough(cur, target):
+        if not close_enough(pixels[x, y], target):
             continue
         visited[x][y] = True
         pixels[x, y] = (0, 0, 0, 0)
@@ -72,11 +96,57 @@ def knockout_background(img: Image.Image, tolerance: int = 24) -> Image.Image:
     return img
 
 
-def detect_edges(img: Image.Image, threshold: int) -> Image.Image:
-    # Returns a 1-bit mask (L mode, 0 or 255) where strong edges are 255.
+def crop_to_opaque_bbox(img: Image.Image) -> Image.Image:
+    bbox = img.getbbox()
+    return img.crop(bbox) if bbox else img
+
+
+def pad_to_square(img: Image.Image) -> Image.Image:
+    w, h = img.size
+    side = max(w, h)
+    canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    canvas.paste(img, ((side - w) // 2, (side - h) // 2))
+    return canvas
+
+
+def prepass(img: Image.Image, contrast: float, saturation: float) -> Image.Image:
+    if contrast != 1.0:
+        img = ImageEnhance.Contrast(img).enhance(contrast)
+    if saturation != 1.0:
+        img = ImageEnhance.Color(img).enhance(saturation)
+    return img
+
+
+def sobel_edges(img: Image.Image, threshold: int) -> Image.Image:
+    # Returns an L-mode mask (0 or 255) where gradient magnitude >= threshold.
+    # Uses PIL's Kernel filter for a full Sobel operator; magnitude is
+    # approximated as max(|Gx|, |Gy|) which is cheap and visually indistinct
+    # from sqrt(Gx^2 + Gy^2) at our output sizes.
     gray = img.convert("L").filter(ImageFilter.GaussianBlur(radius=1))
-    edges = gray.filter(ImageFilter.FIND_EDGES)
-    return edges.point(lambda v: 255 if v >= threshold else 0)
+    gx_kernel = ImageFilter.Kernel((3, 3), [-1, 0, 1, -2, 0, 2, -1, 0, 1], scale=1, offset=128)
+    gy_kernel = ImageFilter.Kernel((3, 3), [-1, -2, -1, 0, 0, 0, 1, 2, 1], scale=1, offset=128)
+    gx = gray.filter(gx_kernel).point(lambda v: min(255, abs(v - 128) * 2))
+    gy = gray.filter(gy_kernel).point(lambda v: min(255, abs(v - 128) * 2))
+    mag = ImageChops.lighter(gx, gy)
+    return mag.point(lambda v: 255 if v >= threshold else 0)
+
+
+def sample_palette(img: Image.Image, n: int = 16) -> list:
+    # Pick n representative colors from the opaque pixels using median cut.
+    # Downsample first so this stays cheap on large inputs.
+    rgba = img.convert("RGBA")
+    thumb = rgba.copy()
+    thumb.thumbnail((256, 256), Image.Resampling.LANCZOS)
+    raw = thumb.tobytes()
+    opaque = [(raw[i], raw[i + 1], raw[i + 2]) for i in range(0, len(raw), 4) if raw[i + 3] > 0]
+    if not opaque:
+        return PALETTES["db16"]
+    side = max(1, int(len(opaque) ** 0.5))
+    sample = Image.new("RGB", (side, side))
+    sample.putdata(opaque[: side * side])
+    q = sample.quantize(colors=n, method=Image.Quantize.MEDIANCUT)
+    pal = q.getpalette()[: n * 3]
+    return [(pal[i], pal[i + 1], pal[i + 2]) for i in range(0, n * 3, 3)]
 
 
 def palette_image(colors) -> Image.Image:
@@ -91,27 +161,45 @@ def palette_image(colors) -> Image.Image:
 
 def quantize_to_palette(img: Image.Image, colors) -> Image.Image:
     rgb = img.convert("RGB")
-    pal = palette_image(colors)
-    quantized = rgb.quantize(palette=pal, dither=Image.Dither.NONE)
-    return quantized.convert("RGB")
+    return rgb.quantize(palette=palette_image(colors), dither=Image.Dither.NONE).convert("RGB")
+
+
+def compute_target(src_size, max_side, square):
+    w, h = src_size
+    if square:
+        return (max_side, max_side)
+    if w >= h:
+        return (max_side, max(1, round(max_side * h / w)))
+    return (max(1, round(max_side * w / h)), max_side)
 
 
 def pixelize(source: str, size: int, palette_name: str, edge_threshold: int,
-             do_bg_remove: bool, add_outline: bool) -> Image.Image:
+             bg_mode: str, contrast: float, saturation: float,
+             square: bool, add_outline: bool) -> Image.Image:
     src = load_image(source).convert("RGBA")
     src = ImageOps.exif_transpose(src)
 
-    if do_bg_remove and src.getextrema()[3][0] == 255:
+    if bg_mode == "rembg":
+        src = rembg_background(src)
+    elif bg_mode == "flood" and src.getextrema()[3][0] == 255:
         src = knockout_background(src)
 
+    src = crop_to_opaque_bbox(src)
+
+    if square:
+        src = pad_to_square(src)
+
+    src = prepass(src, contrast, saturation)
+
     has_alpha = src.getextrema()[3][0] < 255
+    edge_mask = sobel_edges(src, edge_threshold)
 
-    edge_mask = detect_edges(src, edge_threshold)
-    edge_small = edge_mask.resize((size, size), Image.Resampling.LANCZOS)
-    edge_small = edge_small.point(lambda v: 255 if v >= 96 else 0)
+    target = compute_target(src.size, size, square)
 
-    small = src.resize((size, size), Image.Resampling.LANCZOS)
+    edge_small = edge_mask.resize(target, Image.Resampling.LANCZOS)
+    edge_small = edge_small.point(lambda v: 255 if v >= 128 else 0)
 
+    small = src.resize(target, Image.Resampling.LANCZOS)
     alpha = small.split()[3] if has_alpha else None
     rgb_small = small.convert("RGB")
 
@@ -120,9 +208,12 @@ def pixelize(source: str, size: int, palette_name: str, edge_threshold: int,
         bg.paste(rgb_small, mask=alpha)
         rgb_small = bg
 
-    colors = PALETTES[palette_name]
-    quantized = quantize_to_palette(rgb_small, colors)
+    if palette_name == "sampled":
+        colors = sample_palette(src, n=16)
+    else:
+        colors = PALETTES[palette_name]
 
+    quantized = quantize_to_palette(rgb_small, colors)
     result = quantized.convert("RGBA")
 
     if add_outline and has_alpha:
@@ -141,8 +232,8 @@ def pixelize(source: str, size: int, palette_name: str, edge_threshold: int,
 
     pix = result.load()
     em = edge_small.load()
-    for y in range(size):
-        for x in range(size):
+    for y in range(result.size[1]):
+        for x in range(result.size[0]):
             if em[x, y] >= 128:
                 r, g, b, a = pix[x, y]
                 if a > 0:
@@ -160,34 +251,55 @@ def main():
     ap = argparse.ArgumentParser(description="Convert an image to pixel art.")
     ap.add_argument("input", help="Input path or URL")
     ap.add_argument("output", help="Output PNG path")
-    ap.add_argument("--size", type=int, default=32, help="Output size (default 32)")
-    ap.add_argument("--palette", choices=sorted(PALETTES.keys()), default="db16")
-    ap.add_argument("--edge-threshold", type=int, default=60,
-                    help="Edge detection threshold 0-255 (higher = fewer edges)")
-    ap.add_argument("--no-bg-remove", action="store_true",
-                    help="Skip corner-based background knockout")
+    ap.add_argument("--size", type=int, default=48,
+                    help="Longest-side output size in pixels (default 48)")
+    ap.add_argument("--palette", choices=PALETTE_CHOICES, default="sampled",
+                    help="Palette: db16, pico8, grayscale, or 'sampled' (median-cut from source; default)")
+    ap.add_argument("--edge-threshold", type=int, default=80,
+                    help="Sobel edge threshold 0-255 (higher = fewer edges, default 80)")
+    ap.add_argument("--contrast", type=float, default=1.3,
+                    help="Contrast multiplier applied before downsample (default 1.3, 1.0 = off)")
+    ap.add_argument("--saturation", type=float, default=1.5,
+                    help="Saturation multiplier applied before downsample (default 1.5, 1.0 = off)")
+    bg = ap.add_mutually_exclusive_group()
+    bg.add_argument("--rembg", action="store_true",
+                    help="Use rembg neural segmentation (best quality; needs `pip install rembg`)")
+    bg.add_argument("--no-bg-remove", action="store_true",
+                    help="Skip background removal entirely (use when input already has alpha)")
+    ap.add_argument("--square", action="store_true",
+                    help="Pad output to square instead of preserving rectangular aspect")
     ap.add_argument("--outline", action="store_true",
                     help="Add black 1px outline around opaque regions")
     ap.add_argument("--preview", type=int, default=0,
                     help="Also write an Nx-upscaled preview (e.g. 8)")
     args = ap.parse_args()
 
+    if args.rembg:
+        bg_mode = "rembg"
+    elif args.no_bg_remove:
+        bg_mode = "none"
+    else:
+        bg_mode = "flood"
+
     result = pixelize(
         source=args.input,
         size=args.size,
         palette_name=args.palette,
         edge_threshold=args.edge_threshold,
-        do_bg_remove=not args.no_bg_remove,
+        bg_mode=bg_mode,
+        contrast=args.contrast,
+        saturation=args.saturation,
+        square=args.square,
         add_outline=args.outline,
     )
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     result.save(out)
-    print(f"wrote {out} ({args.size}x{args.size}, palette={args.palette})")
+    print(f"wrote {out} ({result.size[0]}x{result.size[1]}, palette={args.palette}, bg={bg_mode})")
 
     if args.preview > 0:
         big = result.resize(
-            (args.size * args.preview, args.size * args.preview),
+            (result.size[0] * args.preview, result.size[1] * args.preview),
             Image.Resampling.NEAREST,
         )
         preview_path = out.with_name(out.stem + f"_x{args.preview}" + out.suffix)
