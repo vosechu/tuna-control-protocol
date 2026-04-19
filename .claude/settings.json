@@ -16,8 +16,10 @@
 
       "Bash(git checkout)",
       "Bash(git checkout *)",
-      "Bash(git reset --hard)",
-      "Bash(git reset --hard *)",
+      "Bash(git reset)",
+      "Bash(git reset *)",
+      "Bash(git restore)",
+      "Bash(git restore *)",
 
       "Bash(git clean -f*)",
 
@@ -88,7 +90,7 @@
       "Bash(git add *)", "Bash(git add)",
       "Bash(git commit *)", "Bash(git commit)",
       "Bash(git push)", "Bash(git push *)",
-      "Bash(git mv *)", "Bash(git restore *)",
+      "Bash(git mv *)",
 
       "Bash(mkdir /tmp/*)", "Bash(mkdir -p /tmp/*)",
       "Bash(mkdir tmp/*)",  "Bash(mkdir -p tmp/*)",
