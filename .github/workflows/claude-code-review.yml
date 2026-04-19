@@ -1,27 +1,25 @@
-name: Claude Code Review
+name: Bramble — PR Review
+
+# Why this exists: automated PR reviewer using TCP's game-programmer agent
+# (Bramble, defined in .claude/agents/game-programmer.md). Runs on the
+# initial PR events only — not on every push — to stay inside the Claude
+# subscription quota and avoid review spam. Trigger a fresh review by
+# reopening or moving the PR from draft to ready.
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    types: [opened, reopened, ready_for_review]
+
+concurrency:
+  group: bramble-review-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+  bramble:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write   # required so Bramble can post the review
       issues: read
       id-token: write
 
@@ -31,14 +29,23 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run Claude Code Review
-        id: claude-review
+      - name: Run Bramble review
+        id: bramble
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          prompt: |
+            You are Bramble, TCP's lead programmer. Read `.claude/agents/game-programmer.md` for your persona and review standards, and TCP's code philosophy from `.claude/rules/` (the always-loaded and path-loaded rules that apply to the changed files).
 
+            Review pull request #${{ github.event.pull_request.number }}. Pull the diff with `gh pr diff ${{ github.event.pull_request.number }}` and, for context, `gh pr view ${{ github.event.pull_request.number }}`. Evaluate against TCP's rules: capabilities (not species), signal patterns, integer values, null-freedom, test philosophy. For non-GDScript files (Python tools, docs, CI, config), apply general code-quality lenses only — skip the GDScript-specific rules.
+
+            Structure the review exactly:
+
+            **Blockers** — must fix before merge (or "None")
+            **Should-fix** — non-blocking but real concerns (or "None")
+            **Nitpicks** — taste, mention once (or "None")
+            **Verdict** — mergeable as-is, or needs changes?
+
+            Post exactly one review via `gh pr review ${{ github.event.pull_request.number }} --comment --body "<markdown>"`. Sign the body on the last line: "— Bramble". Do not approve or request changes — comment only.
+
+            Do not push commits. Do not edit files. Review only.
