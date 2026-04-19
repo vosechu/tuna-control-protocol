@@ -269,6 +269,21 @@ func _on_agent_state_changed(old_state: StringName, new_state: StringName) -> vo
 func _on_animal_state_changed(animal_id: int, old_state: StringName, new_state: StringName) -> void:
 ```
 
+## Emit / listen, not produce / consume
+
+Name a cross-system signal by **what it is** (`purr`, `heat_cell_changed`, `cable_connected`), never by what consumes it (`hum_producer`, `warmth_producer`, `power_source`). The emitter does not know its listeners.
+
+Producer/consumer phrasing silently couples the emitter to a single downstream use. "Cats produce HUM" bakes HUM into the cat — removing HUM tomorrow means touching cats. "Cats emit on `purr`; HUM receivers listen on `purr`" lets any number of independent readers (HUM battery, ferret-calm system, sound mixer, narrator) consume the channel without modifying each other or the emitter.
+
+Concrete rules that follow from this:
+
+- **Don't generalize across physics.** Purring is acoustic; solar is electrical; heat is thermal. Each is its own channel with its own receiver. A single `power` channel that both cats and solar panels emit on is over-generalization that hides domain differences.
+- **Only things that genuinely produce the signal emit on its channel.** If you catch yourself writing "a tuning fork could also declare `purr`," stop — tuning forks ring. When that feature ships, it gets `ring` as a separate capability with its own receiver.
+- **The emitter's domain system writes the emission via a small scoped bridge.** For TCP: `ContentmentPurrBridge` reads `contentment` and writes `purr.intensity`. The bridge knows contentment and the purr channel; it never names HUM.
+- **Tests should assert the consumer doesn't read the emitter's domain state.** `HumSystem.tick_charge` reads only `hum_receiver`, `purr`, `position` — never `contentment`, never species labels. A unit test that greps the charge path for `contentment` catches regressions.
+
+Discovered while designing the HUM cable system; it's why Ring 1's naming shipped as `purr` (the thing) rather than `hum_producer` (the coupling).
+
 ## One Event Bus
 
 Not per-system buses. Not typed channels. One `Events` autoload with all signals declared in one file. At prototype scale this is trivially maintainable. If it grows past 50 signals, split into `Events` (simulation) and `UIEvents` (input/HUD) — but not before.

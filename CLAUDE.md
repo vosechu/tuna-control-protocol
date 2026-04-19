@@ -8,6 +8,7 @@
 - **Never `git stash` with session work in flight.** Stash sweeps everything uncommitted; recovery is lossy. Use a branch (`git checkout -b test-foo HEAD`) or don't.
 - **Use `script/validate` and `script/checks/gut_tests`** — not raw Godot commands.
 - **Explode early.** Integers for game values (ints with scaling, not floats). No `Variant`, no `null`. Guard at system boundaries; trust internally.
+- **Hook/tool warnings aren't wallpaper.** A non-blocking failure that repeats on every tool call is a signal something is wrong with the environment. Investigate at the first occurrence, not the tenth.
 
 ---
 

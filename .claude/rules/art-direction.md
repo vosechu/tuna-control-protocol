@@ -184,6 +184,8 @@ Shipped z-order inside `GameClient.World`:
 
 **Bay rendering:** each bay is a single `Sprite2D` placed at `(bay_index * BAY_STRIDE_PX, RACK_TOP_Y)` with `rack_5set_idle_strip1.png` as its texture. One sprite per bay is the single source of truth — never split into tiles (fragile when the artist updates the rack art).
 
+**Sprite offset, not position, for visual alignment.** An entity's logical position is where it *is* (feet on the ground for floor entities, nominal anchor for others). Visual padding in the sprite — transparent pixels above the feet, animation breathing room — is handled via `_sprite.offset.y`, never by shifting the entity's position. Example: cat sprites are 40×40 with ~8px transparent padding below the feet; `_sprite.offset.y = -12` lifts the art without moving the entity in sim. Position is what AI, heat, spatial queries, and navigation all read; if you tweak position to fix alignment, every one of those systems gets a different answer. New sprite with different padding → adjust its offset, not `FLOOR_Y`.
+
 **High-density stacking:** 4+ animals in the same column stack with 2-4px vertical jitter and 1-2px lateral offset. Distinguishing features (ears, tails) get +1 z within their sprite layers.
 
 **Robot arm** renders above placed objects but below HUD — floor entity, interacts with tuna cans. See `objects.md` for the arm component and `food-system.md` for its open-can loop.

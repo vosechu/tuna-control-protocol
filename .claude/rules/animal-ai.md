@@ -6,11 +6,13 @@ Two layers: **meta-state** (AMBIENT vs. GOAL_DIRECTED) and **specific states**.
 
 ### States
 
-**Ambient:** IDLE, GROOMING, LOAFING, STRETCHING, SLOW_BLINK, KNEADING, STARING, HEAD_TRACK, TAIL_FLICK, REPOSITIONING, WAR_DANCE (ferret), DEAD_SLEEP (ferret), SPEED_BUMP (ferret), SNIFFING (ferret), SLEEPING_ON_CAT (ferret), STASH_CHECK (ferret)
+**Ambient:** IDLE, GROOMING, LOAFING, STRETCHING, SLOW_BLINK, KNEADING, STARING, HEAD_TRACK, TAIL_FLICK, REPOSITIONING, SLEEPING, SNIFFING, SPEED_BUMP, STASH_CHECK
 
-**Goal-directed:** SEEKING, MOVING_TO, PERFORMING, COMPLETING
+**Goal-directed:** SEEKING, MOVING_TO, PERFORMING, COMPLETING, HUNGRY, PACING, EATING
 
 **Special:** STARTLED, RELOCATING, BEING_CARRIED
+
+**States are universal, not species-specific.** `SLEEPING` covers what old specs called `DEAD_SLEEP`. Different species may weight states differently (ferrets sleep more dramatically, cats loaf more) but the state machine is the same. Species-flavored visuals live in each species recipe's `states` animation mapping, not in the state name. If you're tempted to add a state like `DEAD_SLEEP` or `WAR_DANCE`, add an animation variant keyed off `SLEEPING` or an existing ambient state instead.
 
 ### Transitions
 
@@ -37,9 +39,11 @@ func tick(delta: float) -> void:  # delta is engine time, stays float
     commitment_score = maxi(0, commitment_score - int(10 * delta))  # Decays (10/1000 per sec)
 ```
 
+**Reset commitment on arrival/completion/cancellation.** When an entity transitions from `GOAL_DIRECTED` back to `AMBIENT`, set `commitment_score = 0`. Leaving a stale commitment value in place traps the entity: typical ad scores are 200–350 and decay at 1/tick, so a post-arrival commitment of 315 demands the next target score > 315 + 150 = 465, which no ad produces. Symptom: entities that sniff one target and never move again. The goal that earned the commitment has been achieved — the value is meaningless after arrival.
+
 ### Ambient State Selection
 
-Weighted random pool filtered by context: warm → grooming/kneading eligible, near other animal → slow blink eligible, ferret high energy → war dance, ferret low energy → dead sleep.
+Weighted random pool filtered by context: warm → grooming/kneading eligible, near other animal → slow blink eligible, high energy → SPEED_BUMP eligible, low energy → SLEEPING. Per-species weights live in the species recipe's `ambient_states` block, not in engine code.
 
 ---
 
@@ -78,6 +82,10 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
   }
 }
 ```
+
+### No `species_filter` on ads
+
+Advertisements never carry a species filter. The entity's own desire weights are the filter: a curiosity ad on a rack scores near-zero for a cat (curiosity weight ~100) and high for a ferret (weight ~700), emergently. Adding `species_filter: ["ferret"]` would be redundant and would also prevent any future curiosity-weighted species from ever interacting with the ad — exactly the species-label coupling the rest of the codebase avoids. If you want an ad only one species cares about today, give it a channel that species weights disproportionately.
 
 ### Scoring Loop (DesireResolver)
 
@@ -161,6 +169,15 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
 ### Scatter pattern integration
 
 Ambient aversions that radiate from a source (noise, heat-as-discomfort, crowding) follow the same scatter pattern as heat in `tick-architecture.md`. Example for noise: grid cells accumulate noise intensity from sources, and each tick the scatter phase projects cell-level noise into the receiving entity's `desires` satisfaction for the matching channel. Dirty-flagging works identically: when a value crosses a 100-band, mark the entity dirty.
+
+### Warmth: heat grid + warm objects
+
+Warmth satisfaction has two independent sources. Both run in scatter, both write the same `desires.warmth` channel:
+
+1. **Heat grid** (`_scatter_desires` in game_server) — sets warmth from the cell temperature under the entity. Only covers cells near powered servers.
+2. **Warm-object scatter** (`_scatter_warmth_from_objects`) — reduces warmth desire for entities near other entities that advertise warmth (clothes piles, sleeping cats, any entity with a `warmth` ad).
+
+The heat grid doesn't know about warm objects, and object ads don't reach the grid — so without the object scatter, an entity curled on a clothes pile far from any server registers as cold. Warmth ads pull entities toward the warm object (SEEKING); the object scatter makes them *feel* warm on arrival. New warm objects participate automatically via their `warmth` ad plus the scatter's capability-driven query — no per-object code path.
 
 ### Species configuration
 

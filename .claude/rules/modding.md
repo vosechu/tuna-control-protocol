@@ -21,6 +21,9 @@ Three lanes (first/default/last). Within each lane: topological sort by auto-det
 ## Config Schema Versioning
 Every config file type (species, objects, behaviors, infrastructure) includes a `"schema_version": 1` field. Schema changes require migration functions, same as save files. Adding versioning now is trivial; adding it later requires touching every existing file.
 
+## No magic defaults
+Required fields must be declared in every recipe. A missing field is a validation error at mod load time, not a silent fallback to some engine-side default. Silent defaults produce mysterious behavior for mod authors who don't know the value exists; explicit errors point at the exact line to fix. Schema validators (`SpeciesSchemaValidator`, `ScenarioSchemaValidator`, etc.) own this check and must `push_error` + skip, not paper over the gap.
+
 ## Config Layering
 Deep merge per-key. Later mods override earlier. `user://config/` always wins. To delete a key, set to `null`. ConfigRegistry produces frozen immutable dictionary.
 

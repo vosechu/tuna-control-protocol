@@ -27,6 +27,9 @@ Server runs full sim for all zones. Bandwidth managed via subscription — only 
 ## Wandering Cats Across Boundaries
 Cosmetic on receiving client. Real entities on server with authoritative positions. Receiving client follows position deltas, doesn't simulate AI. Exit subscribed zones = disappear. No stuck state.
 
+## Camera ownership
+Camera position and zoom are set in `nodes/camera/camera_controller.gd` — the script attached to the `Camera2D` node. `GameClient` must not touch `$Camera.position` or `$Camera.zoom`; observed behavior is that `camera_controller`'s initialization wins and any changes from `game_client._ready()` silently have no effect. If the camera needs to react to game state (follow an entity, zoom on an event), that logic lives in `camera_controller.gd` and reads from state or signals; the controller is the single authority.
+
 ## Physical Layout
 
 **Prototype:** 7 playable racks + 2 decorative half-racks, 42U per rack. Internal viewport 640×360. Floor strip ~40px below racks. Pixel scale: 7px/U (real-world proportioned). Full layout in `art-direction.md`.
