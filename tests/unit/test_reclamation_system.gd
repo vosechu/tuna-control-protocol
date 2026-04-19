@@ -29,20 +29,34 @@ func test_cat_overlapping_server_increments_presence():
 	assert_gt(pres, 0, "Cat overlapping server should increment reclamation")
 
 
-func test_cat_far_from_server_does_not_increment():
+func test_presence_decays_when_no_tender_is_near():
+	# AI-DEV: Covers both "starts at 0, stays at 0" and "starts at 500,
+	# decays below 500" in one test — both paths run the single
+	# `maxi(current - _DECAY_PER_TICK, 0)` line in the no-nearby branch,
+	# so a surgical mutation (`_DECAY_PER_TICK = 0`) can only target one
+	# failing test. Splitting them blocked the cycle (prior agent could
+	# not distinguish the two paired-invariant tests). The 0-floor path
+	# and the nonzero-decay path together pin both the clamp and the
+	# decrement behavior.
 	_db.set_component(_cat_id, &"position", {&"x": 99999, &"y": 99999})
+
+	# 1 tick from 0 stays at 0 (decrement clamps at 0).
 	_system.tick()
-	var pres: int = _db.get_field(_server_id, &"reclamation", &"seconds")
-	assert_eq(pres, 0, "Cat far from server should not increment reclamation")
+	var pres_from_zero: int = _db.get_field(
+		_server_id, &"reclamation", &"seconds"
+	)
+	assert_eq(pres_from_zero, 0,
+		"No tender near + starting at 0 should not go negative")
 
-
-func test_presence_decays_when_cat_leaves():
+	# From 500, 10 ticks of decay land strictly below the starting value.
 	_db.set_field(_server_id, &"reclamation", &"seconds", 500)
-	_db.set_component(_cat_id, &"position", {&"x": 99999, &"y": 99999})
 	for _i: int in 10:
 		_system.tick()
-	var pres: int = _db.get_field(_server_id, &"reclamation", &"seconds")
-	assert_lt(pres, 500, "Presence should decay when cat leaves")
+	var pres_from_500: int = _db.get_field(
+		_server_id, &"reclamation", &"seconds"
+	)
+	assert_lt(pres_from_500, 500,
+		"Presence should decay when tender leaves")
 
 
 func test_presence_capped_at_max():
