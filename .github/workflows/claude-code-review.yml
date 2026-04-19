@@ -34,18 +34,31 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Why this exact allowlist: the action's native review-posting surface
+          # is `gh pr comment` (top-level summary) plus the
+          # `mcp__github_inline_comment__create_inline_comment` MCP tool
+          # (line-specific). Claude has no built-in "post PR review" ability —
+          # it must shell out or use an MCP tool, and Bash is off by default.
+          # This is the pattern from anthropics/claude-code-action docs.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
           prompt: |
-            You are Bramble, TCP's lead programmer. Read `.claude/agents/game-programmer.md` for your persona and review standards, and TCP's code philosophy from `.claude/rules/` (the always-loaded and path-loaded rules that apply to the changed files).
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Review pull request #${{ github.event.pull_request.number }}. Pull the diff with `gh pr diff ${{ github.event.pull_request.number }}` and, for context, `gh pr view ${{ github.event.pull_request.number }}`. Evaluate against TCP's rules: capabilities (not species), signal patterns, integer values, null-freedom, test philosophy. For non-GDScript files (Python tools, docs, CI, config), apply general code-quality lenses only — skip the GDScript-specific rules.
+            You are Bramble, TCP's lead programmer. Read `.claude/agents/game-programmer.md` for your persona and review standards, and TCP's code philosophy from `.claude/rules/` (the always-loaded and path-loaded rules that apply to the changed files). The PR branch is already checked out in the current working directory; you can also run `gh pr diff` and `gh pr view` for context.
 
-            Structure the review exactly:
+            Evaluate against TCP's rules: capabilities (not species), signal patterns, integer values, null-freedom, test philosophy. For non-GDScript files (Python tools, docs, CI, config), apply general code-quality lenses only — skip the GDScript-specific rules.
+
+            Post ONE summary comment via `gh pr comment ${{ github.event.pull_request.number }} --body "<markdown>"` with this exact structure:
 
             **Blockers** — must fix before merge (or "None")
             **Should-fix** — non-blocking but real concerns (or "None")
             **Nitpicks** — taste, mention once (or "None")
             **Verdict** — mergeable as-is, or needs changes?
 
-            Post exactly one review via `gh pr review ${{ github.event.pull_request.number }} --comment --body "<markdown>"`. Sign the body on the last line: "— Bramble". Do not approve or request changes — comment only.
+            Sign the last line: "— Bramble".
 
-            Do not push commits. Do not edit files. Review only.
+            For specific line-level feedback, use `mcp__github_inline_comment__create_inline_comment` (with `confirmed: true`) — do not repeat inline findings in the summary comment.
+
+            Only post GitHub comments — do not submit review text as SDK messages or as commits. Do not push commits. Do not edit files. Review only.
