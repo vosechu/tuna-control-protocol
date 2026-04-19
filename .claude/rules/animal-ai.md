@@ -201,3 +201,26 @@ Universal 2-second CLEARING state. Object pulses, occupants receive eviction sti
 ## Ambient-to-Goal Ratio
 
 Target ~70/30 emerges naturally from desire math, not enforced. Well-met needs → 80-90% ambient. Critically unmet → 10-20% ambient. Dev metric: flag if 60-second average drops below 40%.
+
+## WANDERING (unmet-desire exploration)
+
+When an entity is AMBIENT, has `commitment == 0`, its worst desire is ≥ `WANDER_THRESHOLD` (shipped: 800), and no in-range advertisement beats the switch threshold, the resolver picks a random floor position and transitions to `WANDERING`. On arrival, commitment is still 0 so the resolver re-evaluates immediately. If the new position is within range of an ad, normal SEEKING takes over.
+
+**Why:** Perception radius is 8 RU. An entity can have a high unmet desire with the only satisfying ad outside perception — without WANDERING it would idle forever.
+
+**Species-agnostic.** WANDERING branches on components + desire deficits, not on species labels. Any entity with a `desires` component participates. The threshold is intentionally high so mildly uncomfortable entities don't wander.
+
+## Curiosity tracking
+
+Entities carrying `curiosity_tracker` remember which curiosity ads they recently visited. The desire resolver applies a novelty check before scoring — recently-visited targets score 0 until their per-target `novelty_cooldown` elapses. On arrival at a novel curiosity target, the entity enters `SNIFFING` for `novelty_duration` ticks.
+
+Current tuning (shipped in `game_server.gd`; should migrate to `config/balance/desire_thresholds.json`):
+
+| Source | strength | novelty_duration | cooldown |
+|---|---|---|---|
+| Rack | 500 | 30 ticks (3s) | 100 ticks (10s) |
+| Cat | 400 | 150 ticks (15s) | 50 ticks (5s) |
+| Cardboard box | 500 | 400 ticks (40s) | 300 ticks (30s) |
+| Clothes pile | 400 | 300 ticks (30s) | 200 ticks (20s) |
+
+Ferret recipes weight `curiosity` heavily (starting value 700) because scores are multiplicative — at curiosity 0 the ad scores 0 regardless of deficit. Other species can participate by declaring `curiosity` and `curiosity_tracker` in their recipe; the system is capability-driven.

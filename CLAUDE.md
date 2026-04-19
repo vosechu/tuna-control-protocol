@@ -347,3 +347,4 @@ See [README.md](README.md) for prerequisites, installation, and contributor guid
 
 - Design-phase work: brainstorm freely
 - Once implementation starts: all code changes need explicit user approval ("commit this")
+- **Godot `.gd.uid` sidecars belong in git.** Every `.gd` file gets a paired `.gd.uid` — scenes reference scripts by UID. Stage both in the same commit. Do NOT add `*.uid` to `.gitignore`; missing UIDs break scene references silently.
