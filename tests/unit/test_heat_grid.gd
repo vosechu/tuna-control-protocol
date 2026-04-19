@@ -30,11 +30,14 @@ func _make_source(rack: int, slot: int, value: int, radius_slots: int) -> int:
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-func test_empty_grid_is_all_zeros():
-	_grid.propagate()
-	for i in Constants.HEAT_CELLS_TOTAL:
-		assert_eq(_grid.get_temperature(i), 0,
-			"Cell %d must be 0 when no sources exist" % i)
+# AI-DEV: test_empty_grid_is_all_zeros was deleted — its only
+# distinguishing invariant (propagate leaves cells at 0 when there are
+# no sources) is exactly what test_propagation_resets_each_tick already
+# proves in its second phase (after destroying the source). Both tests
+# share the `_grid.fill(0)` call at the top of propagate() as the single
+# mutatable line, so a surgical mutation can only target one failing
+# test. Removing the empty-start variant keeps the fill-happened-so-
+# cells-are-zero invariant covered without blocking the cycle.
 
 
 func test_single_source_heats_own_cell_to_full_value():

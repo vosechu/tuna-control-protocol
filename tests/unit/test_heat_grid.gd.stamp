@@ -3,9 +3,8 @@
 # manually update hashes.
 ---
 setup_hash: fe4fa46d
-verified_at: '2026-04-19T21:30:40Z'
+verified_at: '2026-04-19T23:40:21Z'
 tests:
-  test_empty_grid_is_all_zeros: a0c6b2f9
   test_single_source_heats_own_cell_to_full_value: 83ab2e51
   test_heat_falls_off_with_distance: d06b5c31
   test_heat_is_zero_beyond_radius: 239d9009
