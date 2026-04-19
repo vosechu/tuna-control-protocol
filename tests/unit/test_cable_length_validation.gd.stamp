@@ -3,8 +3,6 @@
 # manually update hashes.
 ---
 setup_hash: 4dfd2b29
-verified_at: '2026-04-19T21:30:33Z'
+verified_at: '2026-04-19T23:00:15Z'
 tests:
-  test_reach_allows_distance_below_max: ec37e4f2
-  test_reach_rejects_distance_above_max: 67504f09
-  test_reach_uses_euclidean_not_manhattan: 53e8e928
+  test_reach_uses_euclidean_distance_with_max_cap: 795c0b6a
