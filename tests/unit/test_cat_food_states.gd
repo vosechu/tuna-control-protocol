@@ -7,59 +7,55 @@ func before_each() -> void:
 	db = GameStateDB.new()
 
 
-func test_content_cat_transitions_to_hungry_when_hunger_drops():
-	var cat_id: int = _make_content_cat()
-	db.set_field(cat_id, &"desires", &"hunger", 300)
-	var should_transition: bool = _should_become_hungry(cat_id)
-	assert_true(should_transition,
-		"Cat with hunger below 400 should transition to HUNGRY")
+func test_should_become_hungry_covers_both_sides_of_threshold():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# AI-DEV: Covers above-threshold (stay content) and below-threshold (go
+	# hungry) in one test — both paths execute the single
+	# `hunger < HUNGER_THRESHOLD` comparison inside
+	# CatFoodStates.should_become_hungry. Separate tests blocked surgical
+	# mutation targeting.
+	var below: int = _make_content_cat()
+	db.set_field(below, &"desires", &"hunger", 300)
+	assert_true(CatFoodStates.should_become_hungry(db, below),
+		"hunger 300 < threshold 400 → should become hungry")
+	var above: int = _make_content_cat()
+	db.set_field(above, &"desires", &"hunger", 500)
+	assert_false(CatFoodStates.should_become_hungry(db, above),
+		"hunger 500 > threshold 400 → should stay content")
 
 
-func test_content_cat_stays_content_when_hunger_above_threshold():
-	var cat_id: int = _make_content_cat()
-	db.set_field(cat_id, &"desires", &"hunger", 500)
-	var should_transition: bool = _should_become_hungry(cat_id)
-	assert_false(should_transition,
-		"Cat with hunger above threshold should stay content")
-
-
-func test_hungry_cat_targets_nearest_dispenser():
+func test_find_nearest_dispenser_picks_closer_and_returns_invalid_when_empty():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# AI-DEV: Covers "picks the closer dispenser" AND "returns INVALID_ID
+	# when none exist" in one test — both paths go through the same linear
+	# scan in CatFoodStates.find_nearest_dispenser. Separating them blocked
+	# surgical mutation targeting (any dispenser-search mutation broke both).
 	var cat_id: int = _make_hungry_cat(1, 5)
-	var disp1: int = _make_dispenser(1, 3)
+	# Empty world first: no dispensers exist.
+	assert_eq(CatFoodStates.find_nearest_dispenser(db, cat_id), Constants.INVALID_ID,
+		"No dispensers → INVALID_ID")
+	# Now add two dispensers: one close (rack 1), one far (rack 4).
+	var close_id: int = _make_dispenser(1, 3)
 	_make_dispenser(4, 3)
-
-	var target: int = _find_nearest_dispenser(cat_id)
-	assert_eq(target, disp1,
-		"Hungry cat should target nearest dispenser")
+	assert_eq(CatFoodStates.find_nearest_dispenser(db, cat_id), close_id,
+		"Closer dispenser should win the linear scan")
 
 
-func test_hungry_cat_without_dispenser_wanders():
-	var cat_id: int = _make_hungry_cat(1, 5)
-	var target: int = _find_nearest_dispenser(cat_id)
-	assert_eq(target, Constants.INVALID_ID,
-		"Hungry cat without dispenser should get INVALID_ID")
-
-
-func test_eating_cat_hunger_increases():
-	var cat_id: int = _make_content_cat()
-	db.set_field(cat_id, &"desires", &"hunger", 200)
-	var ai: Dictionary = db.get_component(
-		cat_id, &"ai_state",
-	)
-	ai[&"state"] = &"EATING"
-	db.set_component(cat_id, &"ai_state", ai)
-	var eat_amount: int = 500
-	var hunger: int = db.get_field(
-		cat_id, &"desires", &"hunger",
-	)
-	db.set_field(
-		cat_id, &"desires", &"hunger",
-		mini(1000, hunger + eat_amount),
-	)
-	assert_eq(
-		db.get_field(cat_id, &"desires", &"hunger"), 700,
-		"Eating should increase hunger satisfaction",
-	)
+func test_apply_eat_pulse_raises_hunger_and_clamps_at_1000():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# AI-DEV: Covers under-clamp and at-clamp paths — both exercise the single
+	# mini(1000, hunger + EAT_GAIN_PER_PULSE) line. Merging prevents shared-
+	# code mutation-target ambiguity.
+	var mid: int = _make_content_cat()
+	db.set_field(mid, &"desires", &"hunger", 200)
+	CatFoodStates.apply_eat_pulse(db, mid)
+	assert_eq(db.get_field(mid, &"desires", &"hunger"), 700,
+		"200 + 500 = 700, under the clamp")
+	var high: int = _make_content_cat()
+	db.set_field(high, &"desires", &"hunger", 800)
+	CatFoodStates.apply_eat_pulse(db, high)
+	assert_eq(db.get_field(high, &"desires", &"hunger"), 1000,
+		"800 + 500 should clamp at 1000")
 
 
 # ── Helpers ──
@@ -118,35 +114,3 @@ func _make_dispenser(rack: int, slot: int) -> int:
 	})
 	db.update_spatial(id, x, y)
 	return id
-
-
-func _should_become_hungry(entity_id: int) -> bool:
-	var desires: Dictionary = db.get_component(
-		entity_id, &"desires",
-	)
-	return desires[&"hunger"] < 400
-
-
-func _find_nearest_dispenser(entity_id: int) -> int:
-	var pos: Dictionary = db.get_component(
-		entity_id, &"position",
-	)
-	var dispensers: Array[int] = db.get_entities_with(
-		&"tuna_dispenser",
-	)
-	if dispensers.is_empty():
-		return Constants.INVALID_ID
-	var best_id: int = Constants.INVALID_ID
-	var best_dist: int = 999999
-	for disp_id: int in dispensers:
-		var dpos: Dictionary = db.get_component(
-			disp_id, &"position",
-		)
-		var dist: int = (
-			absi(dpos[&"x"] - pos[&"x"])
-			+ absi(dpos[&"y"] - pos[&"y"])
-		)
-		if dist < best_dist:
-			best_dist = dist
-			best_id = disp_id
-	return best_id

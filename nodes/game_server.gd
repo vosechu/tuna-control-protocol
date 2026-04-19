@@ -428,7 +428,8 @@ func _update_ambient_states() -> void:
 			var desires: Dictionary = db.get_component(
 				entity_id, &"desires",
 			)
-			if desires.has(&"hunger") and desires[&"hunger"] < 400:
+			if desires.has(&"hunger") \
+					and CatFoodStates.should_become_hungry(db, entity_id):
 				var target_id: int = _find_nearest_dispenser(
 					entity_id,
 				)
@@ -755,26 +756,7 @@ func _find_dispenser_in_rack(
 
 
 func _find_nearest_dispenser(entity_id: int) -> int:
-	var pos: Dictionary = db.get_component(
-		entity_id, &"position",
-	)
-	var dispensers: Array[int] = db.get_entities_with(
-		&"tuna_dispenser",
-	)
-	var best_id: int = Constants.INVALID_ID
-	var best_dist: int = 999999
-	for disp_id: int in dispensers:
-		var dpos: Dictionary = db.get_component(
-			disp_id, &"position",
-		)
-		var dist: int = (
-			absi(dpos[&"x"] - pos[&"x"])
-			+ absi(dpos[&"y"] - pos[&"y"])
-		)
-		if dist < best_dist:
-			best_dist = dist
-			best_id = disp_id
-	return best_id
+	return CatFoodStates.find_nearest_dispenser(db, entity_id)
 
 
 func _find_nearby_food(entity_id: int) -> int:
