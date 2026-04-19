@@ -10,12 +10,13 @@ user-invokable: true
 
 **Goal:** Build confidence that LLM-produced tests actually test what they claim, catch regressions, and are protected from future modification.
 
-**Trust chain:** Checklist runs → each step produces checkable artifacts → stamp script seals the result → verify script checks hashes → pre-commit hook enforces.
+**Trust chain:** `script/tdd_verify` drives the per-test red/green/mutate/restore cycle → records evidence in `.tdd-state.yaml` → `finish` writes the `.gd.stamp` and `.gd.audit.yaml` atomically → `script/checks/verify_tests` confirms hashes → pre-commit hook enforces.
 
 **Run tests:** `script/checks/gut_tests`
-**Stamp tests:** `script/stamp_tests <test_file>` (computes hashes, writes `.gd.stamp` sidecar)
-**Verify tests:** `script/checks/verify_tests` (checks all stamps exist, no orphans, all hashes match — used by CI and pre-commit)
-**Stamp files:** `*.gd.stamp` sidecar files alongside each test file
+**Verify a test file:** `script/tdd_verify start <file>` → per test: mutate, `mutation <name>`, restore, `restore <name>` → `finish`. tdd_verify is the **only** sanctioned stamping path; refuses duplicate mutations in a session and requires exactly one failing test per mutation step.
+**Cosmetic re-stamp (lint/whitespace/comments):** `script/tdd_verify restamp <file> '<reason>'` — does not require a cycle but appends the reason to the audit file.
+**Verify all stamps:** `script/checks/verify_tests` (checks every stamp exists, no orphans, all hashes match — used by CI and pre-commit).
+**Artifacts:** `*.gd.stamp` (hashes) and `*.gd.audit.yaml` (mutation trail) sidecars alongside each test file.
 
 ### Task structure
 
@@ -25,7 +26,7 @@ Create tasks using this pattern. Phase 1 produces the candidate list; each candi
 2. **Red-green-refactor: [test_function_name]** — Phase 2. One task per test candidate. The full Steps 5-13 cycle for a single test.
 3. *(repeat task 2 for each candidate)*
 4. **Quality + QA review for [module]** — Phases 3 + 4 combined. Review all tests, dispatch QA agent, address issues.
-5. **Stamp tests for [module]** — Phase 5. Run `script/stamp_tests`, then `script/checks/verify_tests`.
+5. **Stamp tests for [module]** — Phase 5. `script/tdd_verify start → mutation/restore per test → finish`, then `script/checks/verify_tests`.
 
 Do not create all tasks upfront. Create task 1 first. After task 1 completes, create one task per candidate plus the two closing tasks.
 
@@ -114,19 +115,22 @@ The marker MUST be inside each individual test function, not at the file level.
 
 Only after ALL previous phases are complete.
 
-- [ ] **Step 19: Run the stamp script.**
+- [ ] **Step 19: Drive the cycle through `script/tdd_verify`.**
 
 ```bash
-script/stamp_tests tests/unit/test_your_file.gd
+script/tdd_verify start tests/unit/test_your_file.gd
+# for each test:
+#   edit production to introduce a targeted mutation
+script/tdd_verify mutation test_name_here
+#   revert the mutation
+script/tdd_verify restore test_name_here
+# after all tests cycled:
+script/tdd_verify finish
 ```
 
-`script/stamp_tests` is a simple write operation:
-1. Reads the test file
-2. Computes a hash of the full file
-3. Computes a hash of each test function body
-4. Writes both to the sidecar `.gd.stamp` file alongside the test (e.g., `test_desire_resolver.gd.stamp`)
+`tdd_verify` owns the test runs and records evidence as it goes. `mutation` fails unless the targeted test — and no other test in the same suite — fails. `finish` refuses to stamp if any expected test has not completed a full mutation + restore, or if two mutation tree-hashes collide (duplicate mutations). On success it writes `.gd.stamp` + `.gd.audit.yaml` and removes `.tdd-state.yaml`.
 
-The stamp script does NOT run tests or verify anything. The verification already happened through Phases 1-4 of this checklist. The stamp seals the result.
+`script/tdd_verify` is the ONLY sanctioned way to produce or update a `.gd.stamp` file. There is no separate stamper — the audit trail lives in tdd_verify.
 
 - [ ] **Step 20: Run the verify script to confirm the stamp is valid.**
 
@@ -137,9 +141,9 @@ script/checks/verify_tests
 This checks three things:
 1. Every test file has a `.gd.stamp` sidecar
 2. No orphan `.gd.stamp` files without a corresponding test
-3. All file hashes and per-test hashes in stamps match the current file contents
+3. All setup hashes and per-test hashes in stamps match the current file contents
 
-This step should pass immediately after `script/stamp_tests` — it's a sanity check that the stamp wrote correctly.
+This step should pass immediately after `tdd_verify finish` — it's a sanity check that the stamp wrote correctly.
 
 ---
 
@@ -160,7 +164,7 @@ A narrow exception exists for changes that demonstrably do not affect what the t
 3. **The full test suite still passes** with the modified test included. Run `script/checks/gut_tests` and confirm zero failures before re-stamping.
 4. **You can articulate the diff in one sentence** without referring to test logic. If you find yourself explaining what the test does, the change isn't cosmetic — go through the full cycle.
 
-If all four conditions hold, run `script/stamp_tests <file>` to refresh the seal. The commit message must state which condition forced the change (e.g. "lint fix: wrap long lines in test_desire_resolver.gd; behavior unchanged").
+If all four conditions hold, run `script/tdd_verify restamp <file> '<one-sentence reason>'` to refresh the seal. The reason is appended to the audit file alongside a timestamp. The commit message must state the same reason (e.g. "lint fix: wrap long lines in test_desire_resolver.gd; behavior unchanged").
 
 **Transparency requirement:** When re-stamping under this exception, explicitly state in your response to the user: (a) that you are re-stamping without full re-verification, (b) which condition applies, and (c) what the specific change was. Do not silently re-stamp and move on — the user should be able to challenge the judgment call. A silent re-stamp that turns out to be wrong is worse than a verbose one that gets caught.
 
@@ -212,36 +216,43 @@ Exits non-zero if any check fails. Output names every failing file/test so the d
 
 ### Handling stale stamps
 
-- **Test body changed, stamp not updated:** `verify_tests` fails check 3. Re-run `script/stamp_tests` for that file.
-- **Test function renamed:** Old entry in stamp has no matching function (check 3 fails), new function has no hash (check 3 fails). Re-stamp the file.
-- **Test file deleted:** Orphan stamp detected (check 2). Delete the `.gd.stamp` file.
-- **New test file added:** Missing stamp detected (check 1). Run `script/stamp_tests` for the new file.
+- **Test body changed, stamp not updated:** `verify_tests` fails check 3. Run the full `tdd_verify` cycle for that file.
+- **Test function renamed:** Old entry in stamp has no matching function (check 3 fails), new function has no hash (check 3 fails). Run the full cycle.
+- **Test file deleted:** Orphan stamp/audit detected (check 2). Delete the `.gd.stamp` **and** `.gd.audit.yaml` sidecars.
+- **New test file added:** Missing stamp detected (check 1). Run the full `tdd_verify` cycle for the new file.
 - **Helper/fixture changed:** `setup_hash` mismatch (check 3). All tests in the file need re-verification since any test could depend on the changed helper.
+
+### Hitchhike unrelated cleanup onto setup-hash rehashes
+
+When `setup_hash` is going to be invalidated anyway — because you're adding a test, modifying `before_each`, or renaming a helper — that is the moment to land other hygiene changes in the same file at zero extra rehash cost: freeing leaked Nodes in `before_each`, converting bare `preload(...).new()` to `add_child_autofree(...)`, deleting dead helpers, fixing type annotations. Every test in the file is already going through a full mutation + restore cycle; bundling a hygiene fix adds no cycles.
+
+Do **not** cause the rehash for hygiene alone — the mutation-cycle cost isn't worth it. Wait for a real trigger and piggy-back.
 
 ---
 
 ## System Architecture
 
-Four artifacts cooperate. Each has one job; the separation is deliberate.
+Five artifacts cooperate. Each has one job; the separation is deliberate.
 
 ```
-Checklist (this rule file)   — agent does the work
+Skill (this file)         — the Phase 1–4 checklist the agent works through
      ↓
-Artifacts (test file, AI-DEV markers, QA review)
+script/tdd_verify         — owns the test runs; enforces red/green/mutate/restore
      ↓
-Stamp script                 — seals the result with hashes
+.tdd-state.yaml (transient) — session state, deleted on finish, git-ignored
      ↓
-.gd.stamp sidecar            — committed to git
+.gd.stamp + .gd.audit.yaml — both committed to git; stamp = hashes, audit = trail
      ↓
-Verify script                — pre-commit + CI check the seal
+script/checks/verify_tests — pre-commit + CI check the hashes match current code
      ↓
 Commit proceeds (or is blocked)
 ```
 
-1. **The checklist** — this rule file. Path-gated onto any test-file edit. The agent follows the 5 phases; there is no shortcut.
-2. **The stamp script** — `script/stamp_tests`. Pure write: takes a test file, computes hashes, writes a sidecar. Does NOT run tests or verify anything. The verification *already happened* through phases 1–4; the stamp is the seal on a completed result. Trust lives in the process, not the script. If the agent skips phases and just runs the script, the stamp is valid but the test is hollow — human code review and the QA phase are where that gets caught.
-3. **The verify script** — `script/checks/verify_tests`. Pure read: the three checks listed above. No arguments, checks everything. Runs in CI and the pre-commit hook.
-4. **The stamp file** — `*.gd.stamp` sidecar. YAML, committed to git, lives next to the test file.
+1. **The skill** — this file. Task-gated (invoked when writing or verifying tests). The agent works through Phases 1–4 in their head; Phase 5 is driven by the script.
+2. **`script/tdd_verify`** — Ruby CLI that runs the test suite itself for each step. It refuses to stamp without a full cycle, rejects duplicate mutations, and writes both the stamp and the audit atomically on `finish`. Earlier versions had a separate `stamp_tests` writer; it is deleted. Trust now lives in the tool's enforcement, not only in human review.
+3. **`script/lib/test_stamp.rb`** — shared hashing logic used by both tdd_verify (writer) and verify_tests (reader). One implementation so writer and reader cannot disagree.
+4. **`script/checks/verify_tests`** — Ruby reader. Pure: three checks (stamps exist, no orphans, hashes match). No arguments, checks everything. Runs in CI and the pre-commit hook.
+5. **The sidecars** — `*.gd.stamp` (flat YAML of hashes) and `*.gd.audit.yaml` (mutation_at, mutation_tree_hash, restored_at per test, plus restamp reasons). Both committed to git and reviewed alongside the test.
 
 ### Hashing rules
 
