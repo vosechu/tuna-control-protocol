@@ -21,8 +21,8 @@
   },
   "physical": { "mass": 1500, "size_ru": 1 },
   "strength": 1500,
-  "traversal": ["WALK", "JUMP_DOWN"],
-  "max_jump_height_ru": 0,
+  "traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
+  "max_jump_height_ru": 2,
   "variants": ["lilotter"],
   "ambient_states": {
     "warm": [

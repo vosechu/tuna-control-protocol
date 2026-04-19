@@ -218,89 +218,112 @@ func _move_animals() -> void:
 			})
 		# WANDERING skips nav check — random floor positions are always reachable
 
-		# Move toward target (X only — no jumping/climbing yet, Y stays locked)
-		var floor_y: int = pos[&"y"]
-		var dx: int = target[&"x"] - pos[&"x"]
-		var dist: int = absi(dx)
+		# Pick next waypoint. Nav-guided states step through nav-graph nodes
+		# so floor→slot edges are traversed where the path requires them.
+		# WANDERING moves directly on the floor plane (random floor targets
+		# are always reachable without a graph query).
+		var from_pu: Vector2i = Vector2i(pos[&"x"], pos[&"y"])
+		var target_pu: Vector2i = Vector2i(target[&"x"], target[&"y"])
+		var waypoint: Vector2i = target_pu
+		if state != &"WANDERING" and db.has_component(entity_id, &"species"):
+			var species_comp: Dictionary = db.get_component(entity_id, &"species")
+			waypoint = _next_path_waypoint(species_comp[&"id"], from_pu, target_pu)
 
-		if dist <= ANIMAL_SPEED_PU:
-			# Arrived (keep floor Y)
-			db.set_component(entity_id, &"position", {
-				&"x": target[&"x"], &"y": floor_y,
-			})
-			db.update_spatial(entity_id, target[&"x"], floor_y)
+		var step_result: Dictionary = NavPathStepper.step(
+			from_pu, waypoint, ANIMAL_SPEED_PU,
+		)
+		var new_pos: Vector2i = step_result[&"pos"]
+		db.set_component(entity_id, &"position", {&"x": new_pos.x, &"y": new_pos.y})
+		db.update_spatial(entity_id, new_pos.x, new_pos.y)
 
-			# Food state arrivals
-			if state == &"HUNGRY":
-				var food_id: int = _find_nearby_food(
+		# Arrival is determined by reaching the FINAL target, not intermediate
+		# waypoints. A step snapping onto an intermediate nav point just ticks
+		# the path forward on the next tick.
+		if new_pos != target_pu:
+			continue
+
+		# Food state arrivals
+		if state == &"HUNGRY":
+			var food_id: int = _find_nearby_food(
+				entity_id,
+			)
+			if food_id != Constants.INVALID_ID:
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"EATING",
+					&"meta_state": &"GOAL_DIRECTED",
+					&"commitment_score": 300,
+				})
+			else:
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"PACING",
+					&"meta_state": &"GOAL_DIRECTED",
+					&"commitment_score": 100,
+				})
+				Events.creature_started_pacing.emit(
 					entity_id,
 				)
-				if food_id != Constants.INVALID_ID:
-					db.set_component(entity_id, &"ai_state", {
-						&"state": &"EATING",
-						&"meta_state": &"GOAL_DIRECTED",
-						&"commitment_score": 300,
-					})
-				else:
-					db.set_component(entity_id, &"ai_state", {
-						&"state": &"PACING",
-						&"meta_state": &"GOAL_DIRECTED",
-						&"commitment_score": 100,
-					})
-					Events.creature_started_pacing.emit(
-						entity_id,
-					)
-				_state_timers[entity_id] = 0.0
-				continue
-			if state == &"RETURNING":
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"SETTLING",
-					&"meta_state": &"GOAL_DIRECTED",
-					&"commitment_score": 50,
-				})
-				_state_timers[entity_id] = 0.0
-				continue
-
-			# Determine arrival state based on what drew the animal here
-			var arrival_state: StringName = &"IDLE"
-			var arrival_duration: float = -1.0
-			if _curiosity_trackers.has(entity_id) and target[&"entity_id"] != Constants.INVALID_ID:
-				var target_id: int = target[&"entity_id"]
-				if db.has_component(target_id, &"advertisements"):
-					var ads: Dictionary = db.get_component(target_id, &"advertisements")
-					for ad: Dictionary in ads[&"list"]:
-						if ad[&"desire_type"] == &"curiosity":
-							arrival_state = &"SNIFFING"
-							arrival_duration = float(ad.get(&"novelty_duration", 100)) / 10.0
-							_curiosity_trackers[entity_id].visit(
-								target_id, db.get_tick()
-							)
-							break
-
+			_state_timers[entity_id] = 0.0
+			continue
+		if state == &"RETURNING":
 			db.set_component(entity_id, &"ai_state", {
-				&"state": arrival_state,
-				&"meta_state": &"AMBIENT",
-				&"commitment_score": 0,
+				&"state": &"SETTLING",
+				&"meta_state": &"GOAL_DIRECTED",
+				&"commitment_score": 50,
 			})
-			db.set_component(entity_id, &"target", {
-				&"x": Constants.INVALID_ID,
-				&"y": Constants.INVALID_ID,
-				&"entity_id": Constants.INVALID_ID,
-			})
-			# Override min duration for this SNIFFING session if set
-			if arrival_duration > 0.0:
-				_state_timers[entity_id] = 0.0
-				_min_durations_override[entity_id] = arrival_duration
-		else:
-			# Move one step toward target (X only)
-			var move_x: int = 0
-			if dx != 0:
-				move_x = ANIMAL_SPEED_PU * dx / dist
-			if move_x == 0 and dx != 0:
-				move_x = 1 if dx > 0 else -1
-			var new_x: int = pos[&"x"] + move_x
-			db.set_component(entity_id, &"position", {&"x": new_x, &"y": floor_y})
-			db.update_spatial(entity_id, new_x, floor_y)
+			_state_timers[entity_id] = 0.0
+			continue
+
+		# Determine arrival state based on what drew the animal here
+		var arrival_state: StringName = &"IDLE"
+		var arrival_duration: float = -1.0
+		if _curiosity_trackers.has(entity_id) and target[&"entity_id"] != Constants.INVALID_ID:
+			var target_id: int = target[&"entity_id"]
+			if db.has_component(target_id, &"advertisements"):
+				var ads: Dictionary = db.get_component(target_id, &"advertisements")
+				for ad: Dictionary in ads[&"list"]:
+					if ad[&"desire_type"] == &"curiosity":
+						arrival_state = &"SNIFFING"
+						arrival_duration = float(ad.get(&"novelty_duration", 100)) / 10.0
+						_curiosity_trackers[entity_id].visit(
+							target_id, db.get_tick()
+						)
+						break
+
+		db.set_component(entity_id, &"ai_state", {
+			&"state": arrival_state,
+			&"meta_state": &"AMBIENT",
+			&"commitment_score": 0,
+		})
+		db.set_component(entity_id, &"target", {
+			&"x": Constants.INVALID_ID,
+			&"y": Constants.INVALID_ID,
+			&"entity_id": Constants.INVALID_ID,
+		})
+		# Override min duration for this SNIFFING session if set
+		if arrival_duration > 0.0:
+			_state_timers[entity_id] = 0.0
+			_min_durations_override[entity_id] = arrival_duration
+
+
+func _next_path_waypoint(
+	species_id: StringName, from_pu: Vector2i, target_pu: Vector2i,
+) -> Vector2i:
+	# Returns the next intermediate nav-graph point to step toward, or the
+	# final target if the path is empty/trivial. Per-tick recomputation is
+	# cheap at current nav-graph size (~5-15 nodes) and avoids state.
+	var path: PackedVector2Array = nav_builder.get_path_points(
+		species_id,
+		Vector2(float(from_pu.x), float(from_pu.y)),
+		Vector2(float(target_pu.x), float(target_pu.y)),
+	)
+	if path.size() <= 1:
+		return target_pu
+	for i: int in range(path.size()):
+		var pt: Vector2 = path[i]
+		var wp: Vector2i = Vector2i(roundi(pt.x), roundi(pt.y))
+		if wp != from_pu:
+			return wp
+	return target_pu
 
 
 func _update_ambient_states() -> void:

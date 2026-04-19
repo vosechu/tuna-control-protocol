@@ -126,29 +126,30 @@ present_output() {
     fi
 }
 
-run_tests_dir() {
-    local dir="$1"
-    local name="$2"
-
-    if [ ! -d "$PROJECT_ROOT/$dir" ]; then
-        return 0
-    fi
-
-    # Check if there are any test files
-    if ! ls "$PROJECT_ROOT/$dir"/test_*.gd >/dev/null 2>&1; then
-        return 0
-    fi
+run_tests_dirs() {
+    # Run one Godot invocation over multiple test dirs. Passing each dir as
+    # a separate -gdir flag avoids paying ~0.7s of Godot boot per suite.
+    local label="$1"
+    shift
+    local args=()
+    local dir
+    for dir in "$@"; do
+        [ -d "$PROJECT_ROOT/$dir" ] || continue
+        ls "$PROJECT_ROOT/$dir"/test_*.gd >/dev/null 2>&1 || continue
+        args+=("-gdir=res://$dir")
+    done
+    if [ ${#args[@]} -eq 0 ]; then return 0; fi
 
     local OUTPUT
     OUTPUT=$("$GODOT" --headless --path "$PROJECT_ROOT" \
-        -s addons/gut/gut_cmdln.gd -gdir="res://$dir" -gexit 2>&1)
+        -s addons/gut/gut_cmdln.gd "${args[@]}" -gexit 2>&1)
 
     if printf '%s' "$OUTPUT" | grep -q "All tests passed"; then
         return 0
     fi
 
     echo ""
-    echo "===== FAIL: $name tests ====="
+    echo "===== FAIL: $label tests ====="
     present_output "$OUTPUT"
     echo ""
     echo "Failing tests:"
@@ -193,18 +194,16 @@ FAILED=0
 if [ -n "$SINGLE_FILE" ]; then
     run_tests_file "$SINGLE_FILE" || FAILED=$((FAILED + 1))
 else
-    if [ -z "$FILTER" ] || [ "$FILTER" = "unit" ]; then
-        run_tests_dir "tests/unit" "Unit" || FAILED=$((FAILED + 1))
-    fi
-    if [ -z "$FILTER" ] || [ "$FILTER" = "scene" ]; then
-        run_tests_dir "tests/scene" "Scene" || FAILED=$((FAILED + 1))
-    fi
-    if [ -z "$FILTER" ] || [ "$FILTER" = "integration" ]; then
-        run_tests_dir "tests/integration" "Integration" || FAILED=$((FAILED + 1))
-    fi
-    if [ -z "$FILTER" ] || [ "$FILTER" = "scenario" ]; then
-        run_tests_dir "tests/scenario" "Scenario" || FAILED=$((FAILED + 1))
-    fi
+    DIRS=()
+    LABEL=""
+    case "$FILTER" in
+        unit)        DIRS=(tests/unit);        LABEL="Unit" ;;
+        scene)       DIRS=(tests/scene);       LABEL="Scene" ;;
+        integration) DIRS=(tests/integration); LABEL="Integration" ;;
+        scenario)    DIRS=(tests/scenario);    LABEL="Scenario" ;;
+        "")          DIRS=(tests/unit tests/scene tests/integration tests/scenario); LABEL="All" ;;
+    esac
+    run_tests_dirs "$LABEL" "${DIRS[@]}" || FAILED=$((FAILED + 1))
 fi
 
 if [ $FAILED -gt 0 ]; then

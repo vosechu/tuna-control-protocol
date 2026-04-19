@@ -20,31 +20,28 @@ else
   done < <(find engine nodes -name "*.gd" 2>/dev/null)
 fi
 
-FAIL=0
+# Filter out test files, then single grep over the survivors with all
+# patterns OR'd via -E alternation. grep prints `file:line:match` per hit.
+SCAN_FILES=()
+for f in "${FILES[@]}"; do
+  [ -f "$f" ] || continue
+  case "$f" in tests/*) continue;; esac
+  SCAN_FILES+=("$f")
+done
 
 # Pattern 1: String(*species*).contains("cat") or ("ferret")
 # Pattern 2: hardcoded &"tcp_cats:cat" / &"tcp_ferrets:ferret" outside string-literal contexts.
-# Heuristic: warn on any match; exemptions listed below.
-PATTERNS=(
-  'String\([^)]*species[^)]*\)\.contains\("cat"\)'
-  'String\([^)]*species[^)]*\)\.contains\("ferret"\)'
-  '&"tcp_cats:cat"'
-  '&"tcp_ferrets:ferret"'
-)
+PATTERN='String\([^)]*species[^)]*\)\.contains\("cat"\)|String\([^)]*species[^)]*\)\.contains\("ferret"\)|&"tcp_cats:cat"|&"tcp_ferrets:ferret"'
 
-for f in "${FILES[@]}"; do
-  [ -f "$f" ] || continue
-  # Skip test files
-  case "$f" in tests/*) continue;; esac
-  for pat in "${PATTERNS[@]}"; do
-    MATCHES=$(grep -nE "$pat" "$f" || true)
-    if [ -n "$MATCHES" ]; then
-      echo "FAIL: species dispatch found in $f:"
-      echo "$MATCHES"
-      FAIL=1
-    fi
-  done
-done
+FAIL=0
+if [ ${#SCAN_FILES[@]} -gt 0 ]; then
+  MATCHES=$(grep -nE "$PATTERN" "${SCAN_FILES[@]}" 2>/dev/null || true)
+  if [ -n "$MATCHES" ]; then
+    echo "FAIL: species dispatch found:"
+    echo "$MATCHES"
+    FAIL=1
+  fi
+fi
 
 if [ "$FAIL" -eq 1 ]; then
   echo ""

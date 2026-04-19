@@ -15,6 +15,7 @@ fi
 FAILED=0
 PASSED=0
 SKIPPED=0
+TOTAL_START=$(date +%s.%N)
 
 for check in "$CHECKS_DIR"/*; do
     if [ ! -x "$check" ]; then continue; fi
@@ -26,21 +27,24 @@ for check in "$CHECKS_DIR"/*; do
     fi
 
     printf "  %-30s" "$NAME"
+    START=$(date +%s.%N)
     OUTPUT=$("$check" 2>&1)
     STATUS=$?
+    ELAPSED=$(awk "BEGIN {printf \"%.2f\", $(date +%s.%N) - $START}")
 
     if [ $STATUS -eq 0 ]; then
-        echo "ok"
+        printf "ok    %6ss\n" "$ELAPSED"
         PASSED=$((PASSED + 1))
     else
-        echo "FAIL"
+        printf "FAIL  %6ss\n" "$ELAPSED"
         echo "$OUTPUT" | sed 's/^/    /' >&2
         FAILED=$((FAILED + 1))
     fi
 done
 
+TOTAL=$(awk "BEGIN {printf \"%.2f\", $(date +%s.%N) - $TOTAL_START}")
 echo ""
-echo "$PASSED passed, $FAILED failed, $SKIPPED skipped"
+echo "$PASSED passed, $FAILED failed, $SKIPPED skipped in ${TOTAL}s"
 
 if [ $FAILED -gt 0 ]; then
     exit 1

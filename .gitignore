@@ -31,3 +31,4 @@ Thumbs.db
 
 # Superpowers brainstorm visual companion
 .superpowers/
+.tdd-state.yaml

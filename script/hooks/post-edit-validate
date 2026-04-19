@@ -4,6 +4,16 @@
 
 FILE=$(jq -r '.tool_input.file_path' 2>/dev/null)
 
+# A `script/tdd_verify` session deliberately introduces temporary red states
+# between `mutation` and `restore`. The validator would fail every such edit
+# and drown out the tdd_verify workflow. Skip while a session is active —
+# tdd_verify runs the tests itself and enforces that the mutation targets
+# exactly the test under verification.
+REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+if [ -f "$REPO_ROOT/.tdd-state.yaml" ]; then
+    exit 0
+fi
+
 # Skip files that have no checks (docs, images, audio, imports).
 case "$FILE" in
   *.md|*.txt|*.png|*.wav|*.ogg|*.import|*.uid) exit 0 ;;
