@@ -2,9 +2,8 @@
 # If a stamp is invalid, re-run the full verification process — do not
 # manually update hashes.
 ---
-setup_hash: 08970b19
-verified_at: '2026-04-19T21:30:50Z'
+setup_hash: '08970b19'
+verified_at: '2026-04-19T23:04:03Z'
 tests:
-  test_petting_fills_attention: 3a55db8a
-  test_petting_clamps_at_1000: 2e20850d
-  test_squeak_sets_target_to_box: 0fff2c69
+  test_pet_animal_fills_attention_clamping_at_1000: 5361af03
+  test_squeak_box_retargets_nearby_pacing_cat: d73d343b

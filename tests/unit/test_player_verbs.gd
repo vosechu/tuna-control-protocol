@@ -7,69 +7,49 @@ func before_each() -> void:
 	db = GameStateDB.new()
 
 
-func test_petting_fills_attention():
-	var cat_id: int = _make_cat(300)
-	var fill_amount: int = 500
-	var attention: int = db.get_field(
-		cat_id, &"desires", &"attention",
-	)
-	db.set_field(
-		cat_id, &"desires", &"attention",
-		mini(1000, attention + fill_amount),
-	)
+func test_pet_animal_fills_attention_clamping_at_1000():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# AI-DEV: Covers both partial-fill and clamp-at-max in one test — both
+	# paths execute the same `mini(1000, attention + PET_FILL_AMOUNT)` line in
+	# PlayerVerbs.pet_animal. Testing them separately was redundant and
+	# blocked surgical mutation targeting.
+	var cat_partial: int = _make_cat(300)
+	PlayerVerbs.pet_animal(db, cat_partial)
 	assert_eq(
-		db.get_field(cat_id, &"desires", &"attention"),
+		db.get_field(cat_partial, &"desires", &"attention"),
 		800,
-		"Petting should add to attention bar",
+		"Petting 300-attention cat with +500 should land at 800",
 	)
-
-
-func test_petting_clamps_at_1000():
-	var cat_id: int = _make_cat(900)
-	db.set_field(
-		cat_id, &"desires", &"attention",
-		mini(1000, 900 + 500),
-	)
+	var cat_near_max: int = _make_cat(900)
+	PlayerVerbs.pet_animal(db, cat_near_max)
 	assert_eq(
-		db.get_field(cat_id, &"desires", &"attention"),
+		db.get_field(cat_near_max, &"desires", &"attention"),
 		1000,
-		"Attention should clamp at 1000",
+		"Petting 900-attention cat with +500 should clamp at 1000",
 	)
 
 
-func test_squeak_sets_target_to_box():
+func test_squeak_box_retargets_nearby_pacing_cat():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var cat_id: int = _make_cat(500)
 	var box_id: int = db.create_entity()
 	var slot_rect: Rect2i = Constants.slot_rect_world(0, 3, 5)
 	var bx: int = slot_rect.position.x + slot_rect.size.x / 2
 	var by: int = slot_rect.position.y + slot_rect.size.y / 2
-	db.set_component(box_id, &"position", {
-		&"x": bx, &"y": by,
-	})
-	db.set_component(box_id, &"object_type", {
-		&"type": &"cardboard_box",
-	})
+	db.set_component(box_id, &"position", {&"x": bx, &"y": by})
+	db.set_component(box_id, &"object_type", {&"type": &"cardboard_box"})
+	# Move the cat into range of the box so squeak's radius query hits it.
+	db.set_component(cat_id, &"position", {&"x": bx, &"y": by})
+	db.update_spatial(cat_id, bx, by)
 
-	db.set_component(cat_id, &"target", {
-		&"x": bx, &"y": by,
-		&"entity_id": box_id,
-	})
-	db.set_component(cat_id, &"ai_state", {
-		&"state": &"RETURNING",
-		&"meta_state": &"GOAL_DIRECTED",
-		&"commitment_score": 200,
-	})
+	PlayerVerbs.squeak_box(db, box_id)
 
-	var target: Dictionary = db.get_component(
-		cat_id, &"target",
-	)
+	var target: Dictionary = db.get_component(cat_id, &"target")
 	assert_eq(target[&"entity_id"], box_id,
-		"Squeak should set cat target to the box")
-	var ai: Dictionary = db.get_component(
-		cat_id, &"ai_state",
-	)
+		"Squeak should set cat target entity_id to the box")
+	var ai: Dictionary = db.get_component(cat_id, &"ai_state")
 	assert_eq(ai[&"state"], &"RETURNING",
-		"Squeak should set cat to RETURNING state")
+		"Squeak should transition a PACING cat into RETURNING state")
 
 
 func _make_cat(attention: int) -> int:
