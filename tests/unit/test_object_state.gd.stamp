@@ -2,23 +2,17 @@
 # If a stamp is invalid, re-run the full verification process — do not
 # manually update hashes.
 ---
-setup_hash: 7f037a2b
-verified_at: '2026-04-19T21:30:48Z'
+setup_hash: 450e17ef
+verified_at: '2026-04-19T23:58:57Z'
 tests:
-  test_sealed_tuna_advertises_openable: 9e7447b2
-  test_sealed_to_open_changes_ads_to_food: 1de32d43
-  test_open_to_empty_removes_advertisements: bfefa6cb
-  test_sealed_to_open_to_empty_full_lifecycle: 73ba53da
-  test_tuna_open_ad_has_eat_action: 9405f440
-  test_tuna_sealed_ad_has_open_action: 003e3f63
-  test_new_box_advertises_comfort_and_curiosity: 1ade3799
-  test_damage_box_to_worn_changes_ads: c4e141cc
-  test_damage_box_to_scraps_removes_curiosity: 76d91ed7
-  test_box_hp_does_not_go_below_zero: 623ded66
-  test_box_full_degradation_lifecycle: 8de46080
-  test_box_damage_within_same_state_does_not_change_ads: 74fcb870
-  test_worn_box_has_shred_action: 745cbd3a
-  test_scraps_has_no_action: bd2b3683
-  test_box_state_boundary_at_501: a6c526d4
-  test_box_state_boundary_at_500: a0bb9dd2
-  test_box_state_boundary_at_1: ad5b8b6c
+  test_sealed_tuna_advertises_openable: 4e3b7e90
+  test_sealed_to_open_transitions_to_food_ad_with_eat_action: 1483d750
+  test_open_to_empty_removes_advertisements: a24ce052
+  test_tuna_sealed_ad_has_open_action: 10867d13
+  test_new_box_state_and_ads: 853067db
+  test_damage_box_to_worn_changes_ads: 0f35d2e2
+  test_damage_box_to_scraps_removes_curiosity: 214f1974
+  test_box_hp_does_not_go_below_zero: 7cf0fb67
+  test_box_damage_within_same_state_does_not_change_ads: 1749e1ea
+  test_worn_box_has_shred_action: 988a9cd3
+  test_scraps_has_no_action: df6e52ad
