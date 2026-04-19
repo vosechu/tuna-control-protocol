@@ -125,6 +125,21 @@ Dedicated animations for ambient states. Currently using existing animations as 
 | A5 | `zzz_particle` | — | 3 | 8x8 | **Low** | Floating Z's above sleeping animals. Procedural position. |
 | A6 | `heart_particle` | — | 3 | 8x8 | **Low** | Floating hearts for content animals near companions. |
 
+### HUM Cable System (Phase 2)
+
+Deferred from the cable system PR. The wiring HUD currently runs with an empty `DanglingTip` glyph and no socket affordance on host sprites.
+
+| # | Asset | Frames | Size | Priority | Description |
+|---|---|---|---|---|---|
+| C1 | `cable_tip_dangling_strip1` | 1 | 10x10 | **High** | Cursor glyph for the picked-up cable end while wiring mode is active. Dotted circle, transparent center, unlit Slate Void. Path: `mods/tcp_base/sprites/infrastructure/cables/cable_tip_dangling_strip1.png`. Referenced by `nodes/hud/dangling_tip.gd`. |
+| C2 | HUM device socket inset | — | 10x10 region | **High** | Bake a 10×10 socket indentation into the existing `hum_device_static_strip1.png` sprite at its connection point. Unlit Slate Void by default; runtime shader lifts it in wiring mode to cue a valid target. |
+| C3 | TUNA dispenser socket inset | — | 10x10 region | **High** | Same treatment for the dispenser sprite. The tuna dispenser currently has no dedicated `_strip1` sprite — if one is authored first (see #TBD), bake the socket into it. Otherwise add the inset to whatever sprite renders for `tcp_base:tuna_dispenser`. |
+| C4 | ARM socket inset | — | 10x10 region | **High** | Same treatment for `arm_idle.png` (or whichever sprite is canonical for the ARM entity). |
+
+Notes:
+- Socket insets must be pixel-aligned to the 10×10 grid so the `cable_tip_dangling` glyph visually registers to the inset when the cursor hovers.
+- Shader-driven wiring-mode highlight is out of scope for the art pass; asset just needs the baked inset.
+
 ### Prototype Gaps (from asset-pipeline.md spec)
 
 Assets listed in the pipeline spec's "Must-Have" list that don't exist yet:
