@@ -94,7 +94,7 @@ cat satisfied  →  HumSystem.tick_charge  →  reserve ++
                                          reserve approaches 0 → brownout visuals
 ```
 
-Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. If reserve is insufficient, food actions silently no-op (button press returns `INVALID_ID`; arm tick skips the can). This is graceful-degradation, not an error state — the game is still playable, just slower to feed cats.
+Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. Dispensers and arms both route drain through `FoodSystem._is_powered(device_id, cost)`, which checks `hum_powered` + `hum_cable` + live HUM + reserve and returns the `hum_id` to drain (or `INVALID_ID`). Full contract in `hum-cable-system.md`. If reserve is insufficient or the cable is missing, food actions silently no-op (button press returns `INVALID_ID`; arm tick skips the can). This is graceful-degradation, not an error state — the game is still playable, just slower to feed cats.
 
 ## Events
 
@@ -103,7 +103,9 @@ Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. I
 | `food_dispensed(can_id)` | `game_client._try_click_entity` | Can entity ID |
 | `can_opened(can_id)` | `FoodSystem.tick_arms` | Can entity ID |
 | `creature_started_pacing(animal_id)` | `game_server._update_ambient_states` (HUNGRY→PACING transition) | Animal entity ID |
-| `hum_reserve_changed(old, new)` | `HumSystem._emit_if_changed` | Raw reserve values (0–10000). Consumers compute ratio via `HumSystem.DEFAULT_CAPACITY`. |
+| `hum_reserve_changed(hum_id, old, new)` | `HumSystem._emit_if_changed` | Per-HUM reserve values. HUD aggregates for display. |
+| `cable_connected(hum_id, device_id, cable_type)` | `WiringSystem` | Cable type is `&"hum_power"` today. |
+| `cable_disconnected(old_hum_id, device_id)` | `WiringSystem` (player pickup/delete/replace) | Cause-agnostic; HUM despawn relies on tombstone reads, not an event. |
 
 The HUD's HumBar, SoundManager, and LightingSystem all subscribe to `hum_reserve_changed`. See `.claude/rules/signals.md` for the full signal taxonomy.
 
@@ -111,5 +113,6 @@ The HUD's HumBar, SoundManager, and LightingSystem all subscribe to `hum_reserve
 
 - `.claude/rules/objects.md` — Object state mechanics underlying the tuna can.
 - `.claude/rules/core-loop.md` — Design intent for the purr-power loop this implements.
+- `.claude/rules/hum-cable-system.md` — Per-HUM battery, cable component, `_is_powered` contract.
 - `.claude/rules/animal-ai.md` — Desire scoring (how hungry cats pick targets).
 - `.claude/rules/signals.md` — Event bus ownership for cross-system signals.

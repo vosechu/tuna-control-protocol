@@ -42,12 +42,14 @@ The player never has to pick which cat purrs. Every purring cat contributes addi
 
 ## Ring 1: The Innermost Graph
 
-Four nodes, five edges, one clean positive loop with a buffer.
+Four nodes, five edges, one clean positive loop with a buffer. Mechanics and component shapes live in `hum-cable-system.md`; this section is the design intent only.
+
+**Each HUM is its own battery.** There is no global pool. A purring cat charges the nearest HUM receiver in range; a cable from HUM-A to a dispenser drains only HUM-A. Two HUMs on opposite sides of the bay run two independent loops. The HUD aggregates for display; the simulation does not.
 
 ```mermaid
 flowchart LR
     CC[Contented Cat]
-    HUM[(Harmonic Uptime Matrix<br/>Battery + Live Purr Pool)]
+    HUM[(Harmonic Uptime Matrix<br/>per-device battery)]
     ARM[Robot Arm + Lights]
     TREATS[Dispensed Treats]
 
@@ -163,15 +165,16 @@ Then the cats settle, purring resumes, the bar climbs back. The player did not r
 
 - **Battery capacity.** How many cat-seconds of reserve does a fresh battery hold? Needs playtest.
 - **Noise dampening.** Should there be infrastructure the player can place to reduce aversions from loud objects, or does the player only control placement? Leaning toward placement-only for Ring 1 simplicity.
-- **Multi-rack HUM.** In multiplayer, do neighboring racks share HUM reserve? Heat already spills across rack boundaries as a positive externality — HUM spillover would be the same shape, but it changes the strategic picture. Defer until Ring 1 is proven.
+- **Multi-rack HUM.** In multiplayer, do neighboring racks share HUM reserve? Ring 1 shipped with per-device batteries and no spillover (each HUM is its own battery; `hum-cable-system.md`). A later pass may still add opt-in spillover; it's a strategy lever, not a correctness bug.
 - **Cricket-cake station.** Does the arm also dispense non-tuna food, or only treats? Affects how ferret/cat dependencies resolve in Ring 3.
 
 ---
 
 ## Related Rules
 
+- `hum-cable-system.md` — mechanics: components, emit/listen charging, per-HUM drain, cables
 - `animal-ai.md` — desire/aversion scoring; Ring 2 inputs plug in here
-- `tick-architecture.md` — HUM update runs in the tick loop as a batch column op on the `contentment` component
+- `tick-architecture.md` — contentment→purr bridge runs before `tick_charge`
 - `narrative.md` — robot voice, log formatting, discovery pacing
 - `sound-design.md` — purr as audible metric; lullaby ping at 20% reserve
 - `viewport-lod.md` — brownout lighting is a global shader state, not per-zone

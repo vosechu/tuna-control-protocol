@@ -26,6 +26,16 @@ func _physics_process(_delta: float) -> void:
     db.clamp_all(&"desires", &"warmth", 0, 1000)
     db.clamp_all(&"desires", &"social", 0, 1000)
 
+    # Step 3b: Purr emitter update — contentment→purr bridge
+    #   For every entity with both `contentment` and `purr`:
+    #     purr.intensity = purr_config.rate_when_satisfied if satisfied else 0
+    #   Must run before tick_charge so charge reads current intensity.
+    contentment_purr_bridge.tick()
+
+    # Step 3c: HUM charge — emit/listen, per-entity batteries
+    hum_system.tick_charge()       # sum purr intensity at nearest hum_receiver
+    hum_system.tick_idle_drain()   # per-HUM decay
+
     # Step 4: AI scoring — adaptive time budget, priority ordered
     desire_resolver.evaluate_budget()
 

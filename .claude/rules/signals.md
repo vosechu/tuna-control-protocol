@@ -37,8 +37,11 @@ extends Node
 signal heat_cell_changed(cell_id: int, old_temp: float, new_temp: float)
 signal object_placed(object_id: int, rack: int, slot: int, object_type: StringName)
 signal object_removed(object_id: int, rack: int, slot: int)
-signal cable_connected(from_id: int, to_id: int, cable_type: StringName)
-signal cable_disconnected(from_id: int, to_id: int)
+signal cable_connected(hum_id: int, device_id: int, cable_type: StringName)
+signal cable_disconnected(hum_id: int, device_id: int)
+signal hum_reserve_changed(hum_id: int, old_reserve: int, new_reserve: int)
+signal hum_brownout_entered(hum_id: int)
+signal hum_brownout_recovered(hum_id: int)
 
 # Animal events (emitted by AnimalRegistry or individual AnimalAgents)
 signal animal_state_changed(animal_id: int, old_state: StringName, new_state: StringName)
@@ -242,7 +245,7 @@ func _score_warmth(animal: AnimalAgent) -> float:
 signal state_changed(old_state: StringName, new_state: StringName)
 signal heat_cell_changed(cell_id: int, old_temp: float, new_temp: float)
 signal object_placed(object_id: int, rack: int, slot: int, object_type: StringName)
-signal cable_disconnected(from_id: int, to_id: int)
+signal cable_disconnected(hum_id: int, device_id: int)
 signal animal_relocated(animal_id: int, from_pos: Vector2, to_pos: Vector2)
 
 # WRONG — present tense (ambiguous: is it happening? should it happen?)
