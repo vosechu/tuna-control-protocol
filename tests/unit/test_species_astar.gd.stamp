@@ -3,7 +3,7 @@
 # manually update hashes.
 ---
 setup_hash: e8926996
-verified_at: '2026-04-19T21:30:31Z'
+verified_at: '2026-04-19T23:34:02Z'
 tests:
   test_floor_nodes_exist: 31b82fdb
   test_floor_nodes_connected: 976d7978
