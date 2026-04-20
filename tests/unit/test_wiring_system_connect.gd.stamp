@@ -3,8 +3,9 @@
 # manually update hashes.
 ---
 setup_hash: 0ff8c9b6
-verified_at: '2026-04-19T23:15:18Z'
+verified_at: '2026-04-20T02:44:45Z'
 tests:
+  test_fresh_connect_writes_cable_and_emits: f35acb47
   test_connect_out_of_reach_denies: 73da6d8b
   test_connect_to_non_hum_powered_denies: f7eb3f8b
   test_connect_from_non_hum_denies: 3187df75
