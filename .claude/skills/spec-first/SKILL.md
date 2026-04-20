@@ -48,6 +48,21 @@ knows it's about to write code has incentive to generate shallow
 descriptions; a subagent that only knows it's drafting descriptions has
 no such pressure.
 
+### Variant: pure-function subsystems (YAML input/output)
+
+For purely-functional subsystems (coordinate helpers, utility math,
+parsers, pure-core transforms), skip the prose-descriptions layer.
+Write the contract as a YAML table of `input → expected_output` rows.
+See Drew Breunig's `whenwords` library for the canonical form of this
+pattern. The table is the contract; a subagent mechanically generates
+the test file from the table (no interpretation). Phase 3 (QA
+descriptions) collapses — there's nothing to interpret, the YAML is
+eyeballable. Phases 5–8 run normally.
+
+Use prose descriptions (the main flow below) only when the behavior
+can't be expressed as input→output: state transitions, signal
+emissions, ordering invariants, side effects on a shared store.
+
 ### Phase 1 — Draft test descriptions
 
 Dispatch a subagent with: the feature spec, `.claude/rules/testing.md`,
@@ -117,30 +132,93 @@ A failure that reads "Parse error: SlotQuery not found" is a cheat —
 rewrite the test so the specific missing behavior is what fails, not
 the missing type. Commit.
 
-### Phase 5 — Implement the feature
+### Phase 5 — Implement the feature (information-hiding)
 
-Dispatch a subagent with: the spec, the description list, the test
-file, path-gated rules. Task: make the tests pass. Commit:
+The default failure mode here is hard-coding to test inputs — the
+implementation agent reads the test file, sees specific input values
+and expected outputs, writes `if x == 27: return 64` style branches.
+The structural defense is to **withhold the test bodies** from the
+implementation subagent. If it never sees the specific values, it
+can't hard-code to them; it has to implement the semantics.
+
+Prepare an **implementation brief** and dispatch a subagent with ONLY
+that brief, not free access to `tests/`. The brief contains:
+
+- The feature spec.
+- The description list (Phase 1) or the YAML table keys (variant), but
+  **not** the YAML input/output rows.
+- The test function *signatures only* — the output of
+  `grep -oE '^func test_[a-z_0-9]+' tests/unit/<file>.gd`. Signatures,
+  not bodies.
+- Path-gated rules for the systems being touched.
+
+Instruct the subagent explicitly: "Do not read the test file bodies,
+only the signatures provided. Implement from the spec and descriptions;
+you will not see the specific inputs the tests use."
+
+Tests run after the subagent is done. If tests pass, the agent
+implemented semantics rather than values — it couldn't have hard-coded
+to inputs it never saw. Commit:
 
 ```
-feat(<feature>): implement to pass test descriptions
+feat(<feature>): implement to pass test descriptions (brief-only)
 ```
 
 Commit before Phase 6. Do not defer the commit to "after QA passes" —
 a cheat embedded in git history can be reviewed; a cheat squashed into
 a retroactively-rationalized final commit cannot.
 
-### Phase 6 — QA the implementation
+**Escape hatch:** if the subagent genuinely cannot implement from the
+brief alone (ambiguous spec, genuinely needs an example), that's a
+signal to go back and tighten the spec or add canonical examples to
+Phase 1's descriptions. Do not just hand over the test file; the
+information asymmetry is the defense.
 
-Dispatch a **fresh** subagent. Task: read the Phase 5 commit and answer
-each question, citing specific file:line locations:
+### Phase 6 — QA the implementation (adversarial)
 
-- Does any production branch on a specific input value that matches a
-  test input? `if rack == 2 and slot == 5: return Vector2i(27, 64)` is
-  the smoking gun. List every site.
-- Does the implementation reimplement the test's assertion as production
-  logic (e.g. the test asserts `rect.size == Vector2i(23, 8)` and the
-  production code hard-returns that)?
+Two-step defense against agent rubber-stamping: **automated grep first,
+adversarial subagent second.** The grep is uncheatable (it's not an
+agent); the subagent starts from the grep's findings and must explain
+each rather than being asked to open-endedly "look for problems."
+
+**Step 6a — automated pre-check (run by the dispatching thread, not a
+subagent):**
+
+```bash
+# Flag specific-value branches in production files that were touched:
+git diff --name-only <phase-5-commit>^ <phase-5-commit> -- 'engine/**/*.gd' 'nodes/**/*.gd' \
+  | xargs grep -nE 'if [a-z_]+ == [-0-9]+' \
+  | grep -v '== 0' \
+  | grep -v 'Constants\.INVALID'
+```
+
+Anything this surfaces is a candidate hard-code. The output — even if
+empty — goes into the brief for Step 6b.
+
+Additional patterns worth grepping: `return Vector2i\(\d+, \d+\)`,
+magic constants that match values in the description list, branches on
+specific `StringName` values that correspond to test inputs. Tune the
+regex set for your project.
+
+**Step 6b — adversarial QA subagent:**
+
+Dispatch a **fresh** subagent with the grep output + the Phase 5
+commit. Brief it adversarially:
+
+> Your job is to find at least one concern with the implementation, or
+> to explain with citations why each concern I've listed is safe. A
+> response of "looks fine" without citations is a failed QA. You will
+> not be penalized for finding problems; you will be penalized for
+> missing them.
+
+The subagent must answer each question with a cited file:line location
+or an explicit "no match in file":
+
+- For each grep hit: is this a legitimate branch or a hard-code to a
+  test input value? Cite the matching test if it's a hard-code.
+- Does the implementation reimplement the test's assertion as
+  production logic (e.g. test asserts `rect.size == Vector2i(23, 8)`
+  and the production code hard-returns that)?
 - Is there plausible behavior for inputs outside the test set, or does
   the code visibly fall apart on any untested input?
 - Would an experienced reviewer call this "actually implementing the
@@ -177,14 +255,17 @@ each other." Do not treat it as a formality.
 | Shallow descriptions ("handles edge cases") | Phase 3 QA, with specific questions that hand-waving can't answer. |
 | Tests that fail for the wrong reason | Phase 4 requires assertion-failure output in the commit body. |
 | Agent optimizing across phases (shallow descriptions to make later implementation easier) | Fresh subagents per phase. Each only knows its own task. |
+| Hard-coding production code to specific test input values | Phase 5 information-hiding — the implementation subagent never sees the test bodies, so it cannot know the specific values to branch on. |
+| QA subagent reflexively rubber-stamping the implementation | Phase 6a automated grep (not an agent, can't be sycophantic) feeds concrete flags into Phase 6b, where the subagent is briefed adversarially and must cite each flag rather than waving. |
 
 ## What this does NOT block
 
 | Cheat | Mitigation |
 |---|---|
-| Hard-coded production code to test inputs | Phase 6 explicitly looks for it; Phase 8 (human) is the real backstop. |
 | Puzzle-mutations at stamp time | Phase 7 records them; Phase 8 reviewer reads the audit. |
-| All subagents rubber-stamping each other | Phase 8. There is no agent-only solution. |
+| Implementation subagent ignores the "don't read test bodies" instruction | Honor-system within the subagent briefing; detectable if its output contains test input values verbatim. If this is a recurring issue, construct the subagent brief as a *file package* (spec + signatures file) and run it with a read scope that excludes `tests/`. |
+| Grep pre-check misses a novel hard-coding pattern | Phase 8 (human). Tune the regex set in Phase 6a as new patterns appear. |
+| All subagents colluding on the same rubber-stamp | Phase 8. There is no agent-only solution. The adversarial brief in Phase 6b raises the floor but doesn't make it uncheatable. |
 | Feature spec is wrong | Not this skill's problem. Run `/design-review` or `/dev-team-spec-review` before starting. |
 | Description list is shallow AND QA rubber-stamps it | Human reads the committed list before Phase 4. If this feels like too much human labor, the feature may not warrant this skill. |
 
