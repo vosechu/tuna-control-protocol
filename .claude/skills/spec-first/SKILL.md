@@ -1,6 +1,6 @@
 ---
 name: spec-first
-description: "Use when starting a new feature. Locks test descriptions into the plan before tests or code exist, then runs each implementation phase in a fresh subagent. Removes the 'which tests exist' degree of freedom that agents rationalize under pressure. Complements /verify-test (stamping) and /finishing-a-plan (closeout audit)."
+description: "Use when starting a new feature. Locks test descriptions and bug hypotheses into the plan before tests or code exist, then runs each implementation phase in a fresh subagent. Removes the 'which tests exist' and 'which mutations count' degrees of freedom that agents rationalize under pressure. Complements /verify-test (stamping) and /finishing-a-plan (closeout audit)."
 argument-hint: "[path-to-feature-spec]"
 user-invokable: true
 ---
@@ -87,11 +87,12 @@ The bug hypothesis has two jobs:
 1. **Discipline the description.** You can't name a real bug class for
    "handles edge cases." If you can't say what would break the test,
    the test is vague and the description needs rework.
-2. **Replace puzzle-mutations.** If the project uses `/verify-test`,
-   the bug hypothesis tells the stamp-time mutation author what
-   mutation to write. No more target-painted `if cost == 50: cost = 49`
-   contrivances — the hypothesis is the intended mutation, written by
-   a human up front instead of by an agent under pressure.
+2. **Replace puzzle-mutations.** The bug hypothesis IS the intended
+   mutation, written by a human up front. Phase 4's test-writer
+   implements an assertion that the described bug would break; Phase 8
+   human review cross-checks the test body against the claimed bug
+   class. No agent is under pressure to invent a mutation, so no
+   target-painted `if cost == 50: cost = 49` contrivances.
 
 Format:
 
@@ -130,7 +131,7 @@ Template:
 - [ ] Phase 4: Write failing tests (assertion-failure output in commit body)
 - [ ] Phase 5: Implement via information-hidden subagent brief
 - [ ] Phase 6: QA implementation (grep pre-check + adversarial subagent)
-- [ ] Phase 7: Stamp via /verify-test (skip if not using tdd_verify)
+- [ ] Phase 7: Hash-seal via `tdd_verify stamp`
 - [ ] Phase 8: Human spot check
 
 ### Descriptions
@@ -296,22 +297,25 @@ or an explicit "no match in file":
 If any answer surfaces a problem, reopen Phase 5 with the specific
 findings. Do not accept "looks fine" without cited locations.
 
-### Phase 7 — Stamp the tests
+### Phase 7 — Hash-seal the tests
 
-Run `/verify-test` on the test file. This runs the per-test mutation
-cycle and writes `.stamp` + `.audit.yaml` sidecars. This phase is the
-tamper-evidence mechanism; it does not re-verify correctness (Phases 3
-and 6 did that).
+Run `script/tdd_verify stamp <test_file>`. This runs the tests once
+more, confirms green, and writes a `.stamp` sidecar with hashes of
+the setup block and each test body. That's the tamper-evidence guarantee
+— future silent edits to the test bodies will fail `verify_tests` in
+CI until re-stamped.
 
-If any mutation in the audit reads like a puzzle (`if x == 27: ...`),
-flag it in the final report. Real mutations have names like "off-by-one
-in capacity clamp," not "what value makes only this test fail."
+Phase 7 does NOT re-verify test quality. Phases 3 and 6 did that, and
+the bug hypotheses written in Phase 1 document which bugs each test is
+meant to catch. No mutation cycle runs here — mutation design happened
+up front in Phase 1, not at stamp time.
 
 ### Phase 8 — Human spot check
 
 **The final checkpoint belongs to a human, not an agent.** Read the
-final diff. Look for the same patterns Phase 6 asked about. Spot-check
-one of the mutations from the audit.
+final diff. Look for the same patterns Phase 6 asked about. Cross-check
+the bug hypotheses from Phase 1 against the test bodies — does each
+test actually pin the bug class it claims?
 
 This is the only phase that catches "all the subagents rubber-stamped
 each other." Do not treat it as a formality.
@@ -331,7 +335,6 @@ each other." Do not treat it as a formality.
 
 | Cheat | Mitigation |
 |---|---|
-| Puzzle-mutations at stamp time | Phase 7 records them; Phase 8 reviewer reads the audit. |
 | Implementation subagent ignores the "don't read test bodies" instruction | Honor-system within the subagent briefing; detectable if its output contains test input values verbatim. If this is a recurring issue, construct the subagent brief as a *file package* (spec + signatures file) and run it with a read scope that excludes `tests/`. |
 | Grep pre-check misses a novel hard-coding pattern | Phase 8 (human). Tune the regex set in Phase 6a as new patterns appear. |
 | All subagents colluding on the same rubber-stamp | Phase 8. There is no agent-only solution. The adversarial brief in Phase 6b raises the floor but doesn't make it uncheatable. |
@@ -340,7 +343,7 @@ each other." Do not treat it as a formality.
 
 ## Related
 
-- `/verify-test` — per-test mutation-cycle stamping. Used in Phase 7.
+- `/verify-test` — hash-stamping a test file via `tdd_verify stamp`. Used in Phase 7.
 - `/finishing-a-plan` — Step 2 testing audit catches residual gaming at plan close. Pairs well with this skill's Phase 8.
 - `.claude/rules/testing.md` — suite structure, exemplars.
 - `.claude/rules/test-philosophy.md` — Sandi Metz matrix, integration-as-spot-check (not safety net).
