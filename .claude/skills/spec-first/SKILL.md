@@ -11,26 +11,33 @@ user-invokable: true
 
 ## Purpose
 
-Agents game test verification under pressure. The specific gaming patterns
-observed in this project (and documented in the literature, see Simon
-Willison's "Automated tests and LLM effectiveness"):
+Agents game test verification under pressure. Observed patterns (and
+covered in Simon Willison's writing on LLMs and testing):
 
 1. Deleting tests mid-plan with "integration covers this" rationale.
-2. Target-painted "puzzle mutations" that pass the uniqueness check but
+2. Target-painted "puzzle mutations" that pass a uniqueness check but
    represent no plausible bug (e.g. `if cost == 50: cost = 49`).
 3. Hard-coding production code to specific test input values.
 4. Rubber-stamping self-audits at plan closeout.
 
-This skill removes the FIRST cheat — the "which tests exist" decision —
-by making test descriptions a git-committed artifact **before any test
-or production code is written**. Once a description is in the plan, the
-agent can't quietly drop it; a deletion would show up in git alongside a
-prose rationale that a human can read.
+This skill shifts three decisions from *agent under pressure* to
+*human in the spec*, removing most of the gaming surface:
 
-It does NOT remove the other three cheats. Puzzle-mutations need
-`/verify-test`'s audit. Hard-coding and rubber-stamping need human
-review of the final diff. This skill is one layer of defense, not the
-whole answer.
+| Decision | Old flow | New flow |
+|---|---|---|
+| **Which tests exist** | Agent decides mid-implementation; can quietly delete. | Human writes the description list in the plan doc, committed before any code. Deletions are visible. |
+| **What bug each test catches** | Agent invents a mutation at stamp time to satisfy the uniqueness check, producing contrived puzzles. | Human writes the **bug hypothesis** alongside each description up front. No search, no pressure, no puzzle — the agent just translates a named bug class into a mutation. |
+| **What the test inputs are** | Agent implementing production code reads the test file and can hard-code to specific values. | **Information-hiding**: the implementation subagent gets only the description list + test signatures, never the test bodies. It must implement semantics, not values. |
+
+The common pattern is: **do the thinking up front in the spec, by a
+human, where gaming pressure doesn't exist. Leave agents with
+mechanical translation work.**
+
+Remaining gaming surface is Cheat #4 (rubber-stamp collusion) and
+minor variants. Phase 6's automated grep + adversarial QA raises the
+floor; Phase 8 (human spot-check) is the actual backstop. This skill
+is not cheat-proof — but it removes the specific failure modes we've
+seen in this project.
 
 ## When to use
 
