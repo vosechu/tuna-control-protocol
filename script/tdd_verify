@@ -96,9 +96,22 @@ def parse_failing_tests(gut_output)
 
     # Format emitted by script/checks/gut_tests failure_summary:
     #   "  tests/path.gd:LINE  test_name"
-    failing << Regexp.last_match(1) if line =~ /^\s+\S+\.gd:\d+\s+(test_\w+)/
+    if line =~ %r{^\s+(tests/\S+\.gd):\d+\s+(test_\w+)}
+      failing << { 'path' => Regexp.last_match(1), 'name' => Regexp.last_match(2) }
+    end
   end
   failing.uniq
+end
+
+# Returns the suite name for a tests/<suite>/... path, or nil if not
+# under a known suite directory. Used to scope the "exactly one failing
+# test per mutation" constraint to the suite containing the test under
+# verification — cross-suite cascades (a unit test + its related
+# integration test both failing) are acceptable per the verify-test
+# skill; we only block when multiple tests in the SAME suite fail.
+def suite_of(path)
+  m = path.match(%r{^tests/([^/]+)/})
+  m && m[1]
 end
 
 # Combined hash of production source (non-test, non-generated). Used as the
@@ -200,9 +213,21 @@ def cmd_mutation(test_name)
   die 'mutation did not break any tests — pick a more targeted mutation' if result[:exit].zero?
 
   failing = parse_failing_tests(result[:output])
-  unless failing == [test_name]
+  test_suite = suite_of(state['test_file'])
+  in_suite = failing.select { |f| suite_of(f['path']) == test_suite }
+  cross_suite = failing.reject { |f| suite_of(f['path']) == test_suite }
+  in_suite_names = in_suite.map { |f| f['name'] }.uniq
+
+  unless in_suite_names == [test_name]
     warn result[:output]
-    die "expected exactly [#{test_name}] to fail, got: #{failing.inspect}\nuse a more surgical mutation"
+    die "expected exactly [#{test_name}] to fail in #{test_suite}, got: #{in_suite_names.inspect}\n" \
+        'use a more surgical mutation (within-suite cascades are blocking; ' \
+        'cross-suite cascades are acceptable)'
+  end
+
+  if cross_suite.any?
+    puts 'tdd_verify: cross-suite cascades (informational, not blocking):'
+    cross_suite.each { |f| puts "  #{f['path']}::#{f['name']}" }
   end
 
   output_hash = sha8(result[:output])
