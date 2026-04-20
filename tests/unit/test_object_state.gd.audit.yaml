@@ -61,3 +61,7 @@ tests:
     mutation_tree_hash: 2aa5ffea
     mutation_output_hash: f1fd4176
     restored_at: '2026-04-19T23:58:50Z'
+restamps:
+- at: '2026-04-20T02:45:58Z'
+  reason: Restore action_duration=50 assertion as TODO comment — merge dropped it;
+    flagged for future full-cycle restore.

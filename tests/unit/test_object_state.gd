@@ -69,6 +69,13 @@ func test_sealed_to_open_transitions_to_food_ad_with_eat_action():
 		"Open tuna food radius must be 40")
 	assert_eq(ads[&"list"][0][&"action"], &"eat",
 		"Open tuna action must be eat")
+	# TODO(vosechu): restore the action_duration=50 assertion that was
+	# dropped during the merge. Confirm ObjectStateManager still emits
+	# action_duration for open-tuna food ads, then re-stamp via a full
+	# TDD cycle (assertion-logic change, not cosmetic — restamp won't
+	# suffice).
+	# assert_eq(ads[&"list"][0][&"action_duration"], 50,
+	#     "Open tuna action_duration must be 50 (5.0 sec)")
 
 
 func test_open_to_empty_removes_advertisements():

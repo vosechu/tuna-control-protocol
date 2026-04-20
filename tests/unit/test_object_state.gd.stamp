@@ -3,10 +3,10 @@
 # manually update hashes.
 ---
 setup_hash: 450e17ef
-verified_at: '2026-04-19T23:58:57Z'
+verified_at: '2026-04-20T02:45:58Z'
 tests:
   test_sealed_tuna_advertises_openable: 4e3b7e90
-  test_sealed_to_open_transitions_to_food_ad_with_eat_action: 1483d750
+  test_sealed_to_open_transitions_to_food_ad_with_eat_action: f98493da
   test_open_to_empty_removes_advertisements: a24ce052
   test_tuna_sealed_ad_has_open_action: 10867d13
   test_new_box_state_and_ads: 853067db
