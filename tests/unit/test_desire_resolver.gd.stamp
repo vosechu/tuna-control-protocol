@@ -3,20 +3,12 @@
 # manually update hashes.
 ---
 setup_hash: f74036f8
-verified_at: '2026-04-19T21:30:36Z'
+verified_at: '2026-04-20T00:15:51Z'
 tests:
-  test_cold_cat_scores_warm_server_positively: f92df3a9
-  test_warm_cat_scores_server_very_low: 09a6809b
+  test_deficit_factor_scales_score: 5b3e23fc
   test_out_of_radius_scores_zero: 743d93a2
   test_higher_personality_weight_produces_higher_score: 805d8497
   test_score_decreases_with_distance: 784cdacb
-  test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server: ef7a99ad
-  test_evaluate_budget_does_not_transition_if_score_below_threshold: 29f4b25c
-  test_evaluate_budget_does_not_transition_if_score_below_commitment_plus_threshold: 87af15b3
   test_mark_dirty_dedupes_and_evaluate_drains: d14f5d6e
   test_pop_highest_deficit_picks_most_desperate_first: 78d1bc81
-  test_curious_ferret_scores_curiosity_ad_positively: d28a839b
-  test_curiosity_ad_scores_zero_when_recently_visited: 5280ddfa
-  test_curiosity_ad_scores_normally_after_cooldown: b734e369
-  test_satisfied_cat_scores_curiosity_at_zero: 631db48c
-  test_evaluate_budget_honors_trackers_dict: f5dc2928
+  test_curiosity_ad_scores_normally_after_cooldown: 1e1c178e
