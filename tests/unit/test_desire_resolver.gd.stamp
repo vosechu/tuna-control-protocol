@@ -3,12 +3,17 @@
 # manually update hashes.
 ---
 setup_hash: f74036f8
-verified_at: '2026-04-20T00:15:51Z'
+verified_at: '2026-04-20T02:30:35Z'
 tests:
   test_deficit_factor_scales_score: 5b3e23fc
   test_out_of_radius_scores_zero: 743d93a2
   test_higher_personality_weight_produces_higher_score: 805d8497
   test_score_decreases_with_distance: 784cdacb
+  test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server: dd96f2cf
+  test_evaluate_budget_does_not_transition_if_score_below_threshold: 262e6533
+  test_evaluate_budget_does_not_transition_if_score_below_commitment_plus_threshold: 28fc252a
   test_mark_dirty_dedupes_and_evaluate_drains: d14f5d6e
   test_pop_highest_deficit_picks_most_desperate_first: 78d1bc81
-  test_curiosity_ad_scores_normally_after_cooldown: 1e1c178e
+  test_curiosity_ad_scores_zero_when_recently_visited: 0ad09a16
+  test_curiosity_ad_scores_normally_after_cooldown: a966c4be
+  test_evaluate_budget_honors_trackers_dict: 48a28a92

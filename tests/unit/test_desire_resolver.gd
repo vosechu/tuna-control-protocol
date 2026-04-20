@@ -180,20 +180,63 @@ func test_score_decreases_with_distance():
 
 # ── evaluate_budget: state transitions ───────────────────────────────────────
 
-# AI-DEV: test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server
-# was deleted — this SEEKING-transition happy path is covered by at least
-# six integration + scenario tests (test_cold_cat_near_server_transitions_to_seeking
-# in test_desire_scatter.gd, test_hungry_cat_targets_open_can in test_performing.gd,
-# scenario/test_ferret_curiosity.gd's seeks_curiosity_source, and more). Any
-# mutation that breaks the unit test cascades into all of them, blocking
-# surgical mutation.
+func test_evaluate_budget_transitions_cold_cat_to_seeking_toward_server():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# Unit-level SEEKING-transition proof. Surgical mutation: change the
+	# assignment `&"state": &"SEEKING"` to `&"state": &"IDLE"` in the
+	# transition block — no other unit test asserts state==SEEKING.
+	var cat_id: int = _make_cat(0, 0, 100)
+	var server_id: int = _make_warm_server(0, 0)
+	_resolver.mark_dirty(cat_id)
+	_resolver.evaluate_budget()
+	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
+	var target: Dictionary = _db.get_component(cat_id, &"target")
+	assert_eq(ai_state[&"meta_state"], &"GOAL_DIRECTED",
+		"Cold cat near warm server must transition to GOAL_DIRECTED, got %s"
+			% ai_state[&"meta_state"])
+	assert_eq(ai_state[&"state"], &"SEEKING",
+		"Cold cat near warm server must transition to SEEKING, got %s"
+			% ai_state[&"state"])
+	assert_eq(target[&"entity_id"], server_id,
+		"Target entity_id must be the server id (%d), got %d"
+			% [server_id, target[&"entity_id"]])
 
 
-# AI-DEV: The two non-transition tests (below-threshold + below-commitment-plus-threshold)
-# were deleted. Both hit the same branch gate in _evaluate_one, and both are
-# already covered by tests/integration/test_performing.gd::test_fed_cat_ignores_open_can
-# and tests/integration/test_tick_loop.gd::test_commitment_prevents_premature_transition.
-# Surgical mutations on the transition gate cascade into those integration tests.
+func test_evaluate_budget_does_not_transition_if_score_below_threshold():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# SWITCH_THRESHOLD gate unit proof. Surgical mutation: lower the effective
+	# threshold only when commitment==0 (e.g. `if commitment == 0: threshold = 0`).
+	# The cold-cat-SEEKING test is unaffected (strong score passes both
+	# thresholds); the commitment test is unaffected (commitment > 0 path).
+	var cat_id: int = _make_cat(0, 0, 950)  # satisfied — weak deficit
+	_make_warm_server(0, 0, 100, 3)  # weak strength server
+	_resolver.mark_dirty(cat_id)
+	_resolver.evaluate_budget()
+	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
+	assert_eq(ai_state[&"meta_state"], &"AMBIENT",
+		"Satisfied cat must remain AMBIENT (score below SWITCH_THRESHOLD), got %s"
+			% ai_state[&"meta_state"])
+
+
+func test_evaluate_budget_does_not_transition_if_score_below_commitment_plus_threshold():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# Commitment-gated transition unit proof. Surgical mutation: drop the
+	# `commitment +` offset from the threshold comparison. Only this test has a
+	# pre-set high commitment_score; other transition tests use commitment=0
+	# and their assertions still hold when the offset is removed.
+	var cat_id: int = _make_cat(0, 0, 200)
+	_make_warm_server(0, 0, 400, 3)
+	_db.set_component(cat_id, &"ai_state", {
+		&"state": &"SEEKING",
+		&"meta_state": &"GOAL_DIRECTED",
+		&"commitment_score": 900,
+	})
+	_resolver.mark_dirty(cat_id)
+	_resolver.evaluate_budget()
+	var ai_state: Dictionary = _db.get_component(cat_id, &"ai_state")
+	assert_eq(ai_state[&"commitment_score"], 900,
+		"Commitment score must remain 900 when no better option found, got %d"
+			% ai_state[&"commitment_score"])
 
 
 # ── dirty set management ──────────────────────────────────────────────────────
@@ -246,12 +289,23 @@ func test_pop_highest_deficit_picks_most_desperate_first():
 # case for curiosity specifically).
 
 
-# AI-DEV: test_curiosity_ad_scores_zero_when_recently_visited was deleted —
-# the "recently visited → score 0" invariant is also covered by
-# tests/scenario/test_ferret_soak.gd::test_ferret_visits_multiple_racks_over_time
-# and by tests/integration/test_performing.gd (fed-cat equivalent). Surgical
-# mutations on the short-circuit cascade into those. The cooldown-expiry
-# edge case below still provides unique coverage.
+func test_curiosity_ad_scores_zero_when_recently_visited():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# CuriosityTracker short-circuit unit proof. Surgical mutation: delete the
+	# `if tracker != null and desire_type == &"curiosity"` short-circuit block
+	# in score_ad. The cooldown-expiry test below still passes (scores remain
+	# positive either way when cooldown elapsed).
+	var ferret_id: int = _make_ferret(0, 0, 200)
+	var rack_id: int = _make_curiosity_source(0, 0, 300, 8, 30, 100)
+	var tracker: CuriosityTracker = CuriosityTracker.new()
+	tracker.visit(rack_id, 0)
+	var ad: Dictionary = {
+		&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
+		&"novelty_duration": 30, &"novelty_cooldown": 100,
+	}
+	var score: int = _resolver.score_ad(ferret_id, rack_id, ad, tracker, 50)
+	assert_eq(score, 0,
+		"Recently visited curiosity ad must score 0 during cooldown, got %d" % score)
 
 
 func test_curiosity_ad_scores_normally_after_cooldown():
@@ -274,11 +328,23 @@ func test_curiosity_ad_scores_normally_after_cooldown():
 # score_ad's deficit calculation.
 
 
-# AI-DEV: test_evaluate_budget_honors_trackers_dict was deleted — the
-# tracker-threading invariant is covered by
-# tests/scenario/test_ferret_soak.gd::test_ferret_visits_multiple_racks_over_time,
-# which exercises the same evaluate_budget(trackers) plumbing in a multi-tick
-# flow. Surgical mutations on the dict pass-through cascade into the scenario
-# test.
+func test_evaluate_budget_honors_trackers_dict():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# Threads the trackers dict through to score_ad. Surgical mutation: replace
+	# `var tracker: CuriosityTracker = trackers.get(entity_id, null)` with
+	# `var tracker: CuriosityTracker = null` inside `_evaluate_one` — the
+	# ferret now scores the recently-visited rack positively and transitions
+	# to SEEKING. Other evaluate_budget tests don't pass trackers and are
+	# unaffected.
+	var ferret_id: int = _make_ferret(0, 0, 200)
+	var rack_id: int = _make_curiosity_source(0, 0, 300, 8, 30, 100)
+	var tracker: CuriosityTracker = CuriosityTracker.new()
+	tracker.visit(rack_id, 0)
+	var trackers: Dictionary = {ferret_id: tracker}
+	_resolver.mark_dirty(ferret_id)
+	_resolver.evaluate_budget(trackers)
+	var ai_state: Dictionary = _db.get_component(ferret_id, &"ai_state")
+	assert_ne(ai_state[&"state"], &"SEEKING",
+		"Ferret must not transition to SEEKING — recently-visited rack scored 0 by tracker")
 
 
