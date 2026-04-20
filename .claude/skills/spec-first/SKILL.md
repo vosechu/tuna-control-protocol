@@ -5,6 +5,10 @@ argument-hint: "[path-to-feature-spec]"
 user-invokable: true
 ---
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` to dispatch each phase's subagent with a fresh context. Phase-to-phase insulation is this skill's primary defense against cross-phase optimization (e.g. writing shallow descriptions now to make later implementation easier). If you run phases in the main thread, or let a subagent span phases, you've defeated the skill.
+>
+> The main thread owns the plan doc. In Phase 2 it inserts the workflow checklist (template below), and ticks each checkbox as that phase completes. Progress is visible and the session is resumable.
+
 ## Purpose
 
 Agents game test verification under pressure. The specific gaming patterns
@@ -63,35 +67,86 @@ Use prose descriptions (the main flow below) only when the behavior
 can't be expressed as input→output: state transitions, signal
 emissions, ordering invariants, side effects on a shared store.
 
-### Phase 1 — Draft test descriptions
+### Phase 1 — Draft test descriptions (with bug hypotheses)
 
 Dispatch a subagent with: the feature spec, `.claude/rules/testing.md`,
 `.claude/rules/test-philosophy.md`. Task: produce a numbered list of
 rspec-style test descriptions covering every public method and every
-branch called out in the spec.
+branch called out in the spec. **Each description is paired with a
+bug hypothesis** — the plausible mistake this test would catch.
 
-Each description names a specific observable behavior:
+The bug hypothesis has two jobs:
+
+1. **Discipline the description.** You can't name a real bug class for
+   "handles edge cases." If you can't say what would break the test,
+   the test is vague and the description needs rework.
+2. **Replace puzzle-mutations.** If the project uses `/verify-test`,
+   the bug hypothesis tells the stamp-time mutation author what
+   mutation to write. No more target-painted `if cost == 50: cost = 49`
+   contrivances — the hypothesis is the intended mutation, written by
+   a human up front instead of by an agent under pressure.
+
+Format:
 
 ```
-Good: "slot_origin_world returns a world-Y that descends as slot index rises"
-Good: "bay_local_to_slot tags zone `&other` in the horizontal gap between racks"
-Bad:  "handles edge cases"
-Bad:  "slot_origin_world works correctly"
+Good: "slot_origin_world Y descends as slot index rises
+       | bug: forgot the `SLOTS_PER_RACK - 1 -` inversion in the formula"
+Good: "bay_local_to_slot tags &\"other\" in horizontal gap between racks
+       | bug: over-eager rack match that claims the gap X as a rack column"
+Bad:  "handles edge cases | bug: unclear"
+Bad:  "works correctly | bug: the code is wrong"
 ```
 
 If a description could describe two different tests, split it. If two
-descriptions pin the same invariant in different words, merge them.
+descriptions pin the same invariant in different words, merge them. If
+two bug hypotheses describe the same class of bug, the descriptions
+are probably redundant.
 
-### Phase 2 — Commit the descriptions
+### Phase 2 — Commit the descriptions and workflow checklist
 
-Add the list to the plan doc under a `## Test plan` heading. Commit:
+Add the list to the plan doc under a `## Test plan` heading, together
+with the phase checklist. Main thread edits the plan doc directly — the
+checklist is the main thread's progress tracker, not a subagent's
+output.
+
+Template:
+
+```markdown
+## Test plan
+
+> Phase tracker for /spec-first. Tick as each phase completes.
+> Use `superpowers:subagent-driven-development` for Phase 1, 3, 4, 5, 6 dispatches.
+
+- [x] Phase 1: Draft test descriptions + bug hypotheses
+- [ ] Phase 2: Commit descriptions + checklist
+- [ ] Phase 3: QA descriptions
+- [ ] Phase 4: Write failing tests (assertion-failure output in commit body)
+- [ ] Phase 5: Implement via information-hidden subagent brief
+- [ ] Phase 6: QA implementation (grep pre-check + adversarial subagent)
+- [ ] Phase 7: Stamp via /verify-test (skip if not using tdd_verify)
+- [ ] Phase 8: Human spot check
+
+### Descriptions
+
+1. <description> | bug: <hypothesis>
+2. <description> | bug: <hypothesis>
+...
+```
+
+Commit:
 
 ```
-plan(<feature>): test descriptions
+plan(<feature>): test descriptions + workflow checklist
 ```
 
-This commit is the contract. From here on, any deletion from the list is
-a visible act that requires a prose rationale.
+This commit is the contract. From here on, any deletion from the
+descriptions list is a visible act that requires a prose rationale,
+and the ticked checklist shows at a glance where the session is.
+
+As each subsequent phase completes, the main thread returns to this
+section and flips `- [ ]` to `- [x]`. Amend the relevant phase's
+commit if that phase wasn't the one touching the plan doc, or include
+the checkbox flip in the phase's own commit if it was.
 
 ### Phase 3 — QA the descriptions
 
@@ -106,6 +161,13 @@ citing specific descriptions, not hand-waving.
 - Does any description cite "integration covers this"? If so, REOPEN —
   that's the anti-pattern, the description needs to be an invariant in
   its own right.
+- **Is each bug hypothesis a plausible human bug class** (off-by-one,
+  wrong comparator, forgotten null check, swapped args, dropped guard),
+  or is it a puzzle ("if input equals X return Y")? Puzzle hypotheses
+  mean the description is vague enough that no real bug maps to it —
+  tighten the description or drop it.
+- Do any two bug hypotheses describe the same bug? If so, the
+  descriptions are probably redundant.
 
 If the QA finds gaps, loop back to Phase 1 with the gaps as input. Do
 not proceed to Phase 4 with open concerns.
