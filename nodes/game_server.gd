@@ -692,7 +692,10 @@ func _spawn_starter_entities() -> void:
 	# second _ready (e.g. test re-use) won't double-spawn.
 	if not _starter_applied:
 		world_init.apply(settings.starter_scenario_id)
-		_seed_demo_box_stacks()
+		# Deferred so GameClient has wired its Events.object_placed listener
+		# before our seed objects fire the signal. Without the defer, sprites
+		# for the seed stacks never spawn (signal fires too early).
+		call_deferred(&"_seed_demo_box_stacks")
 		_starter_applied = true
 		# TODO Phase 2: emit a robot_log signal once Events grows one.
 

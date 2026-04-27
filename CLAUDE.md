@@ -332,6 +332,7 @@ script/validate
 
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
 - **LightingSystem (CanvasModulate) disabled:** Washes out colors at 224×128 viewport. Needs redesign.
+- **Animals occasionally render high inside racks:** With real-Y rendering wired (cat-jumps-into-box, Task 4), animals whose movement state walks them through high nav nodes — or whose target position was set to a rack-mounted entity — can end up rendered at slot-7+ heights even when their species' `max_height_ru` shouldn't allow it. The `can_reach` gate covers SEEKING and HUNGRY transitions; other transition paths still need the same gate. Pre-existing bug masked by the old `FLOOR_Y - 1` hardcode.
 
 ## GameStateDB Gotchas
 
