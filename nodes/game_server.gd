@@ -70,6 +70,7 @@ func _ready() -> void:
 	nav_builder = NavGraphBuilder.new()
 	_register_species_nav()
 	nav_builder.build()
+	desire_resolver.set_nav_builder(nav_builder)
 	_spawn_starter_entities()
 	_build_nav_for_objects()
 
@@ -816,7 +817,7 @@ func _find_dispenser_in_rack(
 
 
 func _find_nearest_dispenser(entity_id: int) -> int:
-	return CatFoodStates.find_nearest_dispenser(db, entity_id)
+	return CatFoodStates.find_nearest_dispenser(db, entity_id, nav_builder)
 
 
 func _find_nearby_food(entity_id: int) -> int:

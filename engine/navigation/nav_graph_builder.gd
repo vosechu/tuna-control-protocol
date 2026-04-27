@@ -234,34 +234,51 @@ func next_waypoint_or_stay(
 		species_id: StringName, from_px: Vector2i, to_px: Vector2i,
 ) -> Vector2i:
 	var fallback: Vector2i = from_px
-	if from_px == to_px:
-		return fallback
 	var astar: AStar2D = _astars.get(species_id, null)
-	if astar == null:
+	if from_px == to_px or astar == null:
 		return fallback
 	var to_pos := Vector2(float(to_px.x), float(to_px.y))
 	var to_id: int = astar.get_closest_point(to_pos)
+	if to_id == -1:
+		return fallback
+	var node_pos: Vector2 = astar.get_point_position(to_id)
+	# Off-graph: if the target sits more than a slot-height from any nav
+	# node, the entity can only ever reach the nearest-but-far node and
+	# never the actual target. Treat that as unreachable so the AI re-picks.
+	var off_graph: bool = (node_pos - to_pos).length() > float(Constants.SLOT_HEIGHT_PX)
+	if off_graph:
+		return fallback
 	var path: PackedVector2Array = get_path_points(
 		species_id, Vector2(float(from_px.x), float(from_px.y)), to_pos,
 	)
-	# Empty / single-point path = unreachable; same for "got the closest
-	# node, not the target." The latter happens when the destination is an
-	# orphan in this species' graph (e.g. a slot above its max jump).
-	var has_path: bool = path.size() > 1 and to_id != -1 \
-		and path[path.size() - 1].is_equal_approx(astar.get_point_position(to_id))
-	if not has_path:
+	var path_terminates_at_target: bool = (
+		path.size() > 0
+		and path[path.size() - 1].is_equal_approx(node_pos)
+	)
+	if not path_terminates_at_target:
 		return fallback
-	for i: int in range(path.size()):
-		var pt: Vector2 = path[i]
-		var wp := Vector2i(roundi(pt.x), roundi(pt.y))
-		if wp != from_px:
-			return wp
-	return to_px
+	# path.size() == 1 → from and to map to the SAME nav node; entity is
+	# inside that node's domain but offset from it, so walk straight to
+	# the node and let arrival fire on the move loop's next pass.
+	# path.size() >= 2 → path[0] is the anchor (closest nav node to
+	# from_px); when from_px is offset from it the anchor sits *behind*
+	# the entity, so returning it walks backward and the next-tick's
+	# closest-point flip walks forward — the 2-px ping-pong. Skip the
+	# anchor and return path[1] (the first real step).
+	var step: Vector2 = node_pos if path.size() == 1 else path[1]
+	return Vector2i(roundi(step.x), roundi(step.y))
 
 
 func can_reach(species_id: StringName, from_pos: Vector2, to_pos: Vector2) -> bool:
 	# Returns true if a valid path exists for this species between the two positions.
 	# Per-species AStar instances have only traversable edges, so empty path = unreachable.
+	# Stricter than "any path exists": the destination must lie on (or
+	# essentially at) a registered nav node — `astar.get_closest_point` will
+	# happily return a far-off floor node when the real target sits in
+	# unregistered air (e.g. slot 8 with no `add_rack_slot`), and treating
+	# that as reachable lets the AI commit to targets the entity can never
+	# actually walk to. The threshold is one slot height; tighter would
+	# reject placement-jitter that's tolerated everywhere else.
 	var astar: AStar2D = _astars.get(species_id, null)
 	if astar == null:
 		return false
@@ -269,6 +286,9 @@ func can_reach(species_id: StringName, from_pos: Vector2, to_pos: Vector2) -> bo
 	if to_id == -1:
 		return false
 	var target_node_pos: Vector2 = astar.get_point_position(to_id)
+	var off_graph_threshold: float = float(Constants.SLOT_HEIGHT_PX)
+	if (target_node_pos - to_pos).length() > off_graph_threshold:
+		return false
 	var path: PackedVector2Array = get_path_points(species_id, from_pos, to_pos)
 	if path.size() == 0:
 		return false

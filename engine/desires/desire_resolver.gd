@@ -5,10 +5,18 @@ const WANDER_THRESHOLD: int = 800
 var _db: GameStateDB
 # Set semantics: entity_id -> true. Prevents duplicate entries.
 var _dirty: Dictionary = {}
+# Optional. When wired, candidate ads on entities the animal cannot reach
+# are skipped in `_evaluate_one`. Tests that don't care about reachability
+# leave this null (legacy behavior).
+var _nav: NavGraphBuilder = null
 
 
 func _init(db: GameStateDB) -> void:
 	_db = db
+
+
+func set_nav_builder(nav: NavGraphBuilder) -> void:
+	_nav = nav
 
 
 # Mark an entity as needing AI re-evaluation. Deduplicates automatically.
@@ -118,6 +126,8 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 			continue
 		if not _db.has_component(candidate_id, &"position"):
 			continue
+		if not _is_reachable(entity_id, candidate_id):
+			continue
 		var ads_component: Dictionary = _db.get_component(candidate_id, &"advertisements")
 		var ad_list: Array = ads_component[&"list"]
 		for ad: Dictionary in ad_list:
@@ -163,6 +173,23 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 				&"y": wander_pos[&"y"],
 				&"entity_id": Constants.INVALID_ID,
 			})
+
+
+func _is_reachable(animal_id: int, target_id: int) -> bool:
+	# When no navgraph is wired, every candidate is treated as reachable —
+	# matches the pre-filter behavior so isolated unit tests don't need to
+	# build a graph. With a graph, only species we've registered participate;
+	# unregistered species (test fixtures) also pass through unfiltered.
+	if _nav == null:
+		return true
+	if not _db.has_component(animal_id, &"species"):
+		return true
+	var species_id: StringName = _db.get_component(animal_id, &"species")[&"id"]
+	var animal_pos: Dictionary = _db.get_component(animal_id, &"position")
+	var target_pos: Dictionary = _db.get_component(target_id, &"position")
+	var from_v := Vector2(float(animal_pos[&"x"]), float(animal_pos[&"y"]))
+	var to_v := Vector2(float(target_pos[&"x"]), float(target_pos[&"y"]))
+	return _nav.can_reach(species_id, from_v, to_v)
 
 
 # Returns and removes the dirty entity with the highest desire deficit.
