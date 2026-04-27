@@ -146,6 +146,7 @@ Don't test outgoing queries. Don't test private methods.
 | `verify_tests` fails on my test file | Someone edited the test body without re-stamping. Run `tdd_verify stamp`. |
 | Test passes on first run without any production changes | You're not testing new behavior. Re-read the test, confirm it asserts something the production code doesn't already handle. |
 | Test fails with parse error instead of assertion failure | The test references a symbol that doesn't exist yet. Stub the symbol so the test can parse, then fail on the assertion. |
+| Stub exists in a new file but Godot still says "Identifier X not declared" | `class_name X` registrations need a project import to land. Run `/Applications/Godot.app/Contents/MacOS/godot --headless --import` once after creating the file, then re-run the test. |
 | Multiple tests in the file fail after my change | Your production change had a broader effect than intended, or you edited shared setup. Check `before_each` and helpers. |
 
 ---

@@ -43,6 +43,24 @@ func test_exit_removes_settled_in_component() -> void:
 	)
 
 
+func test_re_enter_overwrites_host_id() -> void:
+	# A cat moving from box A directly to box B (without an exit() in between)
+	# must end up settled at B, not A. set_component overwrites by design;
+	# this test pins that semantic so a future "ignore enter() if already
+	# settled" guard would fail loudly here.
+	var db := GameStateDB.new()
+	var lifecycle := SettledLifecycle.new(db)
+	var box_a: int = db.create_entity()
+	var box_b: int = db.create_entity()
+	var cat_id: int = db.create_entity()
+	lifecycle.enter(cat_id, box_a)
+	lifecycle.enter(cat_id, box_b)
+	assert_eq(
+		db.get_field(cat_id, &"settled_in", &"host_id"), box_b,
+		"second enter must update host_id to the new host",
+	)
+
+
 func test_is_settled_reports_membership() -> void:
 	var db := GameStateDB.new()
 	var lifecycle := SettledLifecycle.new(db)

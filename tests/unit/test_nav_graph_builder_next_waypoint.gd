@@ -69,3 +69,34 @@ func test_already_at_target_returns_target() -> void:
 	var same := Vector2i(int(floor_pos.x), int(floor_pos.y))
 	var step: Vector2i = b.next_waypoint_or_stay(&"any", same, same)
 	assert_eq(step, same, "from == to -> same point, no movement")
+
+
+func test_multi_hop_path_returns_next_intermediate_not_target() -> void:
+	# Pins the "step toward, don't teleport" contract — a regression that
+	# returned path[size-1] would silently let animals snap to a multi-hop
+	# target on tick 1.
+	#
+	# Setup: max_height_ru: 2 (16 px) gates the direct floor->slot 1 edge
+	# (slot 1 sits 24 px above floor) while still permitting floor->slot 0
+	# (slot 0 sits 16 px above floor). The only path is then
+	# floor -> slot 0 -> slot 1, and stepping from floor must return slot 0.
+	var b := NavGraphBuilder.new()
+	b.register_species(
+		&"low_jumper",
+		{&"walks": {}, &"jumps": {&"max_height_ru": 2}},
+		{&"size_ru": 1},
+	)
+	b.build()
+	b.add_rack_slot(0, 0)
+	b.add_rack_slot(0, 1)
+	var floor_pos: Vector2 = b.get_nearest_floor_node(0)
+	var from_px := Vector2i(int(floor_pos.x), int(floor_pos.y))
+	var slot0_px: Vector2i = _slot_world_center(0, 0)
+	var slot1_px: Vector2i = _slot_world_center(0, 1)
+	var step: Vector2i = b.next_waypoint_or_stay(
+		&"low_jumper", from_px, slot1_px,
+	)
+	assert_eq(
+		step, slot0_px,
+		"multi-hop path must step to slot 0 first, not jump straight to slot 1",
+	)

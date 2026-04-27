@@ -731,6 +731,7 @@ func _seed_starter_box_stacks() -> void:
 	# slot 1, bottom edge meeting the server's top edge cleanly). Box at slot 1
 	# would overlap the server vertically because the rack-mounted box texture
 	# is anchored at slot.top and renders downward.
+	var rack1_box_id: int = Constants.INVALID_ID
 	for rack: int in [1, 3]:
 		var server_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 0)
 		var server_x: int = (
@@ -743,15 +744,45 @@ func _seed_starter_box_stacks() -> void:
 		var box_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 2)
 		var box_x: int = box_slot_rect.position.x + box_slot_rect.size.x / 2
 		var box_y: int = box_slot_rect.position.y + box_slot_rect.size.y / 2
-		place_object(&"cardboard_box", box_x, box_y)
+		var box_id: int = place_object(&"cardboard_box", box_x, box_y)
+		if rack == 1:
+			rack1_box_id = box_id
 	for hum_id: int in db.get_entities_with(&"hum"):
 		var capacity: int = db.get_field(hum_id, &"hum", &"capacity")
 		db.set_field(hum_id, &"hum", &"reserve", capacity / 20)
+	# Pick the first purr-capable entity, force-content it, and tuck it into
+	# the rack-1 box. Two effects: bridge writes non-zero intensity from
+	# tick 0 (HUM has something to charge against) and the demo literally
+	# shows "a cat in a box."
 	var purrers: Array[int] = db.get_entities_with(&"purr_config")
-	if not purrers.is_empty():
+	if not purrers.is_empty() and rack1_box_id != Constants.INVALID_ID:
+		var demo_cat: int = purrers[0]
 		db.set_component(
-			purrers[0], &"debug_force_satisfied", {&"active": 1},
+			demo_cat, &"debug_force_satisfied", {&"active": 1},
 		)
+		var box_pos: Dictionary = db.get_component(rack1_box_id, &"position")
+		# Position cat at slot 1 (one slot below box anchor) — the box's
+		# visual body covers slot 1 + slot 2, so the cat sits within the
+		# box's lower half. Ears poke up into slot 2.
+		var slot1_rect: Rect2i = Constants.slot_rect_world(0, 1, 1)
+		var cat_x: int = slot1_rect.position.x + slot1_rect.size.x / 2
+		var cat_y: int = slot1_rect.position.y + slot1_rect.size.y / 2
+		db.set_component(demo_cat, &"position", {&"x": cat_x, &"y": cat_y})
+		db.update_spatial(demo_cat, cat_x, cat_y)
+		var settled := SettledLifecycle.new(db)
+		settled.enter(demo_cat, rack1_box_id)
+		# Park the cat in IDLE so the move loop doesn't try to walk it
+		# anywhere — settled_in is a "stay put" marker for now.
+		db.set_component(demo_cat, &"ai_state", {
+			&"state": &"SLEEPING",
+			&"meta_state": &"AMBIENT",
+			&"commitment_score": 0,
+		})
+		db.set_component(demo_cat, &"target", {
+			&"x": Constants.INVALID_ID,
+			&"y": Constants.INVALID_ID,
+			&"entity_id": Constants.INVALID_ID,
+		})
 
 
 func _find_dispenser_in_rack(

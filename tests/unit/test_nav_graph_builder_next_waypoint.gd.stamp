@@ -3,8 +3,9 @@
 # manually update hashes.
 ---
 setup_hash: 56703eb7
-verified_at: '2026-04-27T01:33:30Z'
+verified_at: '2026-04-27T02:17:52Z'
 tests:
   test_no_path_returns_from_unchanged: b4d6e377
   test_reachable_target_returns_next_nav_node: 9d0d6737
   test_already_at_target_returns_target: 397277d9
+  test_multi_hop_path_returns_next_intermediate_not_target: 86dafe0b
