@@ -29,10 +29,7 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	_db = db
 	entity_id = eid
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
-	_target_pos = Vector2(
-		float(pos[&"x"]),
-		float(Constants.FLOOR_Y - 1)
-	)
+	_target_pos = Vector2(float(pos[&"x"]), float(pos[&"y"]))
 	_prev_pos = _target_pos
 	global_position = _target_pos
 	_setup_sprite()
@@ -132,13 +129,8 @@ func _physics_process(_delta: float) -> void:
 	if _db == null or not _db.has_entity(entity_id):
 		return
 	_prev_pos = _target_pos
-	var pos: Dictionary = _db.get_component(
-		entity_id, &"position"
-	)
-	_target_pos = Vector2(
-		float(pos[&"x"]),
-		float(Constants.FLOOR_Y - 1)
-	)
+	var pos: Dictionary = _db.get_component(entity_id, &"position")
+	_target_pos = Vector2(float(pos[&"x"]), float(pos[&"y"]))
 
 	# Update animation based on AI state
 	if _db.has_component(entity_id, &"ai_state"):
