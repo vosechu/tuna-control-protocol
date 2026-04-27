@@ -18,6 +18,7 @@ var _target_pos: Vector2
 var _footstep_player: AudioStreamPlayer2D
 var _color_index: int = 0
 var _state_animations: Dictionary = {}
+var _edge_animations: Dictionary = {}
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _name_label: Label = $NameLabel
@@ -41,6 +42,7 @@ func initialize(db: GameStateDB, eid: int) -> void:
 func _cache_state_animations() -> void:
 	var config: Dictionary = _db.get_component(entity_id, &"sprite_config")
 	_state_animations = config.get("animations", {})
+	_edge_animations = config.get("edge_animations", {})
 
 
 func _setup_sprite() -> void:
@@ -136,7 +138,7 @@ func _physics_process(_delta: float) -> void:
 	if _db.has_component(entity_id, &"ai_state"):
 		var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
-		var anim: StringName = _state_to_animation(state)
+		var anim: StringName = _resolve_animation(state)
 		if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(anim):
 			if _sprite.animation != anim:
 				_sprite.play(anim)
@@ -176,7 +178,37 @@ func _state_to_animation(state: StringName) -> StringName:
 	return StringName(entry.get("animation", "idle"))
 
 
+# During movement states, the per-step delta_y picks an edge animation
+# (jump / fall / walk). Falls back to the state-based animation if the
+# species recipe has no edge_animations block or the step is purely
+# horizontal.
+func _resolve_animation(state: StringName) -> StringName:
+	var is_moving: bool = (
+		state == &"MOVING_TO"
+		or state == &"SEEKING"
+		or state == &"WANDERING"
+	)
+	if is_moving and not _edge_animations.is_empty():
+		var dy: float = _target_pos.y - _prev_pos.y
+		var jump_threshold: float = float(Constants.SLOT_HEIGHT_PX) / 2.0
+		var edge_key: String = "WALK"
+		if dy < -jump_threshold:
+			edge_key = "JUMP_UP"
+		elif dy > jump_threshold:
+			edge_key = "JUMP_DOWN"
+		var entry: Dictionary = _edge_animations.get(edge_key, {})
+		if entry.has("animation"):
+			return StringName(entry["animation"])
+	return _state_to_animation(state)
+
+
 func _process(_delta: float) -> void:
 	var t: float = Engine.get_physics_interpolation_fraction()
 	global_position = _prev_pos.lerp(_target_pos, t)
-	z_index = 200 + int(global_position.y / 2.0)
+	# Settled-in entities sit one z-layer behind their host so the box's
+	# lip occludes the cat's lower body and only ears poke out.
+	var z_offset: int = 0
+	if _db != null and _db.has_entity(entity_id):
+		if _db.has_component(entity_id, &"settled_in"):
+			z_offset = -1
+	z_index = 200 + int(global_position.y / 2.0) + z_offset

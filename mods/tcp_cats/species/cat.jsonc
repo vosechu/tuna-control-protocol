@@ -68,13 +68,26 @@
       "SLEEPING":   { "animation": "sleep" },
       "STARTLED":   { "animation": "fright" }
     },
+    // Per-segment animations during MOVING_TO / SEEKING / WANDERING. The
+    // animal_node classifies the current step's delta_y (current vs. previous
+    // position) and picks an entry here; missing edges fall back to "walk".
+    "edge_animations": {
+      "WALK":      { "animation": "walk" },
+      "JUMP_UP":   { "animation": "jump" },
+      "JUMP_DOWN": { "animation": "fall" },
+      "ENTER":     { "animation": "ledgeclimb" }
+    },
     "animation_frames": {
-      "idle":   { "sprite": "_idle_strip8.png",   "frames": 8, "fps": 6.0 },
-      "walk":   { "sprite": "_walk_strip8.png",   "frames": 8, "fps": 8.0 },
-      "sit":    { "sprite": "_sit_strip8.png",    "frames": 8, "fps": 4.0 },
-      "sleep":  { "sprite": "_sleep_strip8.png",  "frames": 8, "fps": 2.0 },
-      "crouch": { "sprite": "_crouch_strip8.png", "frames": 8, "fps": 6.0 },
-      "fright": { "sprite": "_fright_strip8.png", "frames": 8, "fps": 8.0 }
+      "idle":       { "sprite": "_idle_strip8.png",        "frames": 8,  "fps": 6.0 },
+      "walk":       { "sprite": "_walk_strip8.png",        "frames": 8,  "fps": 8.0 },
+      "sit":        { "sprite": "_sit_strip8.png",         "frames": 8,  "fps": 4.0 },
+      "sleep":      { "sprite": "_sleep_strip8.png",       "frames": 8,  "fps": 2.0 },
+      "crouch":     { "sprite": "_crouch_strip8.png",      "frames": 8,  "fps": 6.0 },
+      "fright":     { "sprite": "_fright_strip8.png",      "frames": 8,  "fps": 8.0 },
+      "jump":       { "sprite": "_jump_strip4.png",        "frames": 4,  "fps": 8.0 },
+      "fall":       { "sprite": "_fall_strip3.png",        "frames": 3,  "fps": 6.0 },
+      "ledgeclimb": { "sprite": "_ledgeclimb_strip11.png", "frames": 11, "fps": 8.0 },
+      "land":       { "sprite": "_land_strip2.png",        "frames": 2,  "fps": 6.0 }
     }
   },
   "states": {
