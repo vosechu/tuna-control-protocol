@@ -203,6 +203,28 @@ func _move_animals() -> void:
 		if state != &"WANDERING" and target[&"entity_id"] == Constants.INVALID_ID:
 			continue
 
+		# Universal nav gate: any state walking toward an entity target must
+		# have a reachable path. Catches MOVING_TO/HUNGRY/RETURNING in addition
+		# to SEEKING, so a stale target (object moved into an unreachable slot,
+		# or assigned without a can_reach check elsewhere) doesn't strand the
+		# animal walking up an unreachable rack.
+		if state != &"WANDERING" and db.has_component(entity_id, &"species"):
+			var sp_check: Dictionary = db.get_component(entity_id, &"species")
+			var from_check := Vector2(float(pos[&"x"]), float(pos[&"y"]))
+			var to_check := Vector2(float(target[&"x"]), float(target[&"y"]))
+			if not nav_builder.can_reach(sp_check[&"id"], from_check, to_check):
+				db.set_component(entity_id, &"ai_state", {
+					&"state": &"IDLE",
+					&"meta_state": &"AMBIENT",
+					&"commitment_score": 0,
+				})
+				db.set_component(entity_id, &"target", {
+					&"x": Constants.INVALID_ID,
+					&"y": Constants.INVALID_ID,
+					&"entity_id": Constants.INVALID_ID,
+				})
+				continue
+
 		# Transition SEEKING -> MOVING_TO on first movement tick, with nav graph check
 		if state == &"SEEKING":
 			var species: Dictionary = db.get_component(entity_id, &"species")
