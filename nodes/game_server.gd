@@ -437,14 +437,34 @@ func _update_ambient_states() -> void:
 					var tpos: Dictionary = db.get_component(
 						target_id, &"position",
 					)
+					# Same can_reach gate that SEEKING uses. Without it, a
+					# floor-bound species (no jumps) targets a rack-mounted
+					# dispenser and walks straight up the rack — visible since
+					# real Y was wired in nodes/animal_node.gd.
+					var hpos: Dictionary = db.get_component(
+						entity_id, &"position",
+					)
+					var hspecies: Dictionary = db.get_component(
+						entity_id, &"species",
+					)
+					var hfrom := Vector2(float(hpos[&"x"]), float(hpos[&"y"]))
+					var hto := Vector2(float(tpos[&"x"]), float(tpos[&"y"]))
+					if not nav_builder.can_reach(
+							hspecies[&"id"], hfrom, hto,
+					):
+						target_id = Constants.INVALID_ID
+				if target_id != Constants.INVALID_ID:
+					var tpos2: Dictionary = db.get_component(
+						target_id, &"position",
+					)
 					db.set_component(entity_id, &"ai_state", {
 						&"state": &"HUNGRY",
 						&"meta_state": &"GOAL_DIRECTED",
 						&"commitment_score": 200,
 					})
 					db.set_component(entity_id, &"target", {
-						&"x": tpos[&"x"],
-						&"y": tpos[&"y"],
+						&"x": tpos2[&"x"],
+						&"y": tpos2[&"y"],
 						&"entity_id": target_id,
 					})
 					_state_timers[entity_id] = 0.0
@@ -672,6 +692,7 @@ func _spawn_starter_entities() -> void:
 	# second _ready (e.g. test re-use) won't double-spawn.
 	if not _starter_applied:
 		world_init.apply(settings.starter_scenario_id)
+		_seed_demo_box_stacks()
 		_starter_applied = true
 		# TODO Phase 2: emit a robot_log signal once Events grows one.
 
@@ -735,6 +756,41 @@ func _create_curiosity_trackers() -> void:
 		var desires: Dictionary = db.get_component(entity_id, &"desires")
 		if desires.has(&"curiosity"):
 			_curiosity_trackers[entity_id] = CuriosityTracker.new()
+
+
+# Smoke-test scaffold for the cat-jumps-into-box demo. Places a server +
+# cardboard_box stack in two adjacent racks and seeds one debug-content cat
+# so the HUM has something to charge against, then drains the HUM reserve
+# so the climb is visible. Long-term: this work moves into the scenario
+# loader (Tasks 10/11).
+func _seed_demo_box_stacks() -> void:
+	for rack: int in [1, 3]:
+		var server_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 0)
+		var server_x: int = (
+			server_slot_rect.position.x + server_slot_rect.size.x / 2
+		)
+		var server_y: int = (
+			server_slot_rect.position.y + server_slot_rect.size.y / 2
+		)
+		place_object(&"server_1u", server_x, server_y)
+		var box_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 1)
+		var box_x: int = box_slot_rect.position.x + box_slot_rect.size.x / 2
+		var box_y: int = box_slot_rect.position.y + box_slot_rect.size.y / 2
+		place_object(&"cardboard_box", box_x, box_y)
+
+	# Drain every HUM to ~5% so the demo's "purr->charge" climb is obvious.
+	for hum_id: int in db.get_entities_with(&"hum"):
+		var capacity: int = db.get_field(hum_id, &"hum", &"capacity")
+		db.set_field(hum_id, &"hum", &"reserve", capacity / 20)
+
+	# Force one purr-capable entity to count as content immediately, so the
+	# bridge produces non-zero purr.intensity before scatter has warmed the
+	# cell. Without this, the very first ticks see drain-only.
+	var purrers: Array[int] = db.get_entities_with(&"purr_config")
+	if not purrers.is_empty():
+		db.set_component(
+			purrers[0], &"debug_force_satisfied", {&"active": 1},
+		)
 
 
 func _find_dispenser_in_rack(

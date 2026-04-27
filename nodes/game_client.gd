@@ -264,6 +264,21 @@ func _build_rack_decor() -> void:
 	Events.plant_spawned.connect(
 		_on_plant_spawned_ramp_decor
 	)
+	Events.object_placed.connect(_on_object_placed_render)
+
+
+func _on_object_placed_render(
+		object_id: int, _rack: int, _slot: int, object_type: StringName,
+) -> void:
+	# Render server-spawned objects (e.g. scenario seed) by mirroring the
+	# placement-UI sprite path. Objects already wired by the UI are
+	# idempotent — we never overwrite an existing sprite entry.
+	if _object_sprites.has(object_id):
+		return
+	if not game_server.db.has_component(object_id, &"position"):
+		return
+	var pos: Dictionary = game_server.db.get_component(object_id, &"position")
+	_create_object_sprite(object_id, object_type, int(pos[&"x"]), int(pos[&"y"]))
 
 
 func _on_plant_spawned_ramp_decor(
@@ -534,6 +549,9 @@ func _create_object_sprite(
 	px_x: int,
 	px_y: int,
 ) -> void:
+	# Idempotent: signal-driven and UI-driven calls both arrive here.
+	if _object_sprites.has(entity_id):
+		return
 	var sprite := Sprite2D.new()
 	var is_on_floor: bool = px_y >= Constants.FLOOR_Y
 	match object_type:
