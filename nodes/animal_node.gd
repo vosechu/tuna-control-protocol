@@ -37,6 +37,7 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	_cache_state_animations()
 	_setup_name_label(_db.get_component(entity_id, &"species"))
 	_setup_footstep_audio()
+	_setup_purr_ring()
 
 
 func _cache_state_animations() -> void:
@@ -103,6 +104,15 @@ func _setup_footstep_audio() -> void:
 	_footstep_player.volume_db = -15.0
 	_footstep_player.max_distance = 500.0
 	add_child(_footstep_player)
+
+
+func _setup_purr_ring() -> void:
+	var scene: PackedScene = load("res://nodes/effects/purr_ring.tscn")
+	if scene == null:
+		return
+	var ring: Node2D = scene.instantiate()
+	add_child(ring)
+	ring.bind(_db, entity_id)
 
 
 func _add_strip_animation(
