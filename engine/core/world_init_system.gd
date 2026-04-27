@@ -36,10 +36,11 @@ func apply(scenario_id: StringName) -> void:
 				"world_init aborted: required type missing: %s" % type_id
 			)
 			return
-	# Second pass: spawn, record ref_name → entity_id and defer cable_to links
-	# until every ref has resolved.
+	# Second pass: spawn, record ref_name → entity_id and defer cable_to /
+	# settled_in_ref links until every ref has resolved.
 	var refs: Dictionary = {}
 	var pending_cables: Array = []
+	var pending_settled: Array = []
 	for entry: Dictionary in entities:
 		var type_id: StringName = StringName(entry["type"])
 		if not _entity_defs.has_entity(type_id):
@@ -55,6 +56,19 @@ func apply(scenario_id: StringName) -> void:
 					&"actuator_id": entity_id,
 					&"ref_name": StringName(cable["ref_name"]),
 				})
+		if entry.has("ai_state"):
+			# Seed the AI state component before scoring runs, so a
+			# pre-settled cat doesn't immediately reroute somewhere.
+			_db.set_component(entity_id, &"ai_state", {
+				&"state": StringName(entry["ai_state"]),
+				&"meta_state": &"AMBIENT",
+				&"commitment_score": 0,
+			})
+		if entry.has("settled_in_ref"):
+			pending_settled.append({
+				&"joiner_id": entity_id,
+				&"ref_name": StringName(entry["settled_in_ref"]),
+			})
 	# Third pass: resolve cable_to links now that every ref is registered.
 	for cable: Dictionary in pending_cables:
 		var actuator_id: int = cable[&"actuator_id"]
@@ -66,6 +80,27 @@ func apply(scenario_id: StringName) -> void:
 			continue
 		var hum_id: int = refs[ref_name]
 		_db.set_component(actuator_id, &"hum_cable", {&"hum_id": hum_id})
+	# Fourth pass: resolve settled_in_ref. Position the joiner at the host's
+	# anchor and write the settled_in marker, so the rendering tuck-in and
+	# the move-loop's stranded-animal heuristic both see a deliberate rest.
+	if pending_settled.is_empty():
+		return
+	var lifecycle := SettledLifecycle.new(_db)
+	for s: Dictionary in pending_settled:
+		var joiner_id: int = s[&"joiner_id"]
+		var s_ref: StringName = s[&"ref_name"]
+		if not refs.has(s_ref):
+			push_error(
+				"world_init: settled_in_ref not found: %s" % s_ref
+			)
+			continue
+		var host_id: int = refs[s_ref]
+		var host_pos: Dictionary = _db.get_component(host_id, &"position")
+		var hx: int = host_pos[&"x"]
+		var hy: int = host_pos[&"y"]
+		_db.set_component(joiner_id, &"position", {&"x": hx, &"y": hy})
+		_db.update_spatial(joiner_id, hx, hy)
+		lifecycle.enter(joiner_id, host_id)
 
 
 func _overrides_for(entry: Dictionary) -> Dictionary:
