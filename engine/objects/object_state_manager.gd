@@ -30,6 +30,15 @@ const OBJECT_CONFIG: Dictionary = {
 					{&"desire_type": &"curiosity", &"strength": 500,
 						&"radius_px": 40, &"action": &"shred"},
 				],
+				&"join": {
+					&"type": &"contained",
+					&"direction": &"any",
+					&"capacity": 5,
+					&"entry_origin_offset": Vector2i(0, -16),
+					&"interior_origin_offset": Vector2i(0, -8),
+					&"entry_threshold_ru": 1,
+					&"inner_size_ru": 2,
+				},
 			},
 			&"worn": {
 				&"ads": [
@@ -37,6 +46,15 @@ const OBJECT_CONFIG: Dictionary = {
 					{&"desire_type": &"curiosity", &"strength": 300,
 						&"radius_px": 32, &"action": &"shred"},
 				],
+				&"join": {
+					&"type": &"contained",
+					&"direction": &"any",
+					&"capacity": 5,
+					&"entry_origin_offset": Vector2i(0, -16),
+					&"interior_origin_offset": Vector2i(0, -8),
+					&"entry_threshold_ru": 1,
+					&"inner_size_ru": 2,
+				},
 			},
 			&"scraps": {
 				&"ads": [
