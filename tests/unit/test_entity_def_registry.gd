@@ -36,19 +36,20 @@ func test_get_all_entities():
 	assert_has(all, &"tcp_tuna:tuna_can")
 
 
-func test_has_traversal_true_for_species():
+func test_has_body_capabilities_true_for_species():
 	_registry.register(&"tcp_cats:cat", {
-		"id": "cat", "traversal": ["WALK", "JUMP_UP"],
+		"id": "cat",
+		"body_capabilities": {"walks": {}, "jumps": {"max_height_ru": 3}},
 	})
-	assert_true(_registry.has_traversal(&"tcp_cats:cat"))
+	assert_true(_registry.has_body_capabilities(&"tcp_cats:cat"))
 
 
-func test_has_traversal_false_for_object():
+func test_has_body_capabilities_false_for_object():
 	_registry.register(
 		&"tcp_tuna:tuna_can",
 		{"id": "tuna_can", "states": {}},
 	)
-	assert_false(_registry.has_traversal(&"tcp_tuna:tuna_can"))
+	assert_false(_registry.has_body_capabilities(&"tcp_tuna:tuna_can"))
 
 
 func test_has_desires_true_for_species():
@@ -66,16 +67,28 @@ func test_has_desires_false_for_object():
 	assert_false(_registry.has_desires(&"tcp_tuna:tuna_can"))
 
 
-func test_get_traversal():
+func test_get_body_capabilities_returns_recipe_dict():
 	_registry.register(&"tcp_cats:cat", {
 		"id": "cat",
-		"traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
+		"body_capabilities": {
+			"walks": {},
+			"jumps": {"max_height_ru": 3},
+			"drops": {"max_height_ru": 5},
+		},
 	})
-	var traversal: Array = _registry.get_traversal(
-		&"tcp_cats:cat",
-	)
-	assert_eq(traversal.size(), 3)
-	assert_has(traversal, "WALK")
+	var caps: Dictionary = _registry.get_body_capabilities(&"tcp_cats:cat")
+	assert_eq(caps.size(), 3)
+	assert_true(caps.has("walks"))
+	assert_eq(caps["jumps"]["max_height_ru"], 3)
+
+
+func test_get_body_geometry_returns_recipe_dict():
+	_registry.register(&"tcp_cats:cat", {
+		"id": "cat",
+		"body_geometry": {"size_ru": 2},
+	})
+	var geom: Dictionary = _registry.get_body_geometry(&"tcp_cats:cat")
+	assert_eq(geom["size_ru"], 2)
 
 
 func test_get_desires():
@@ -208,7 +221,12 @@ func _make_cat_def() -> Dictionary:
 		},
 		"physical": {"mass": 4000, "size_ru": 2},
 		"strength": 3000,
-		"traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
+		"body_capabilities": {
+			"walks": {},
+			"jumps": {"max_height_ru": 3},
+			"drops": {"max_height_ru": 5},
+		},
+		"body_geometry": {"size_ru": 2},
 		"variants": [
 			"cat01", "cat02", "cat03", "cat04", "cat05",
 		],

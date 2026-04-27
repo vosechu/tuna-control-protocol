@@ -30,11 +30,14 @@ func get_all_entities() -> Array[StringName]:
 	return result
 
 
-func has_traversal(entity_id: StringName) -> bool:
+func has_body_capabilities(entity_id: StringName) -> bool:
 	if not _definitions.has(entity_id):
 		return false
 	var def: Dictionary = _definitions[entity_id]
-	return def.has("traversal") and not def["traversal"].is_empty()
+	return (
+		def.has("body_capabilities")
+		and not (def["body_capabilities"] as Dictionary).is_empty()
+	)
 
 
 func has_desires(entity_id: StringName) -> bool:
@@ -44,9 +47,14 @@ func has_desires(entity_id: StringName) -> bool:
 	return def.has("desires") and not def["desires"].is_empty()
 
 
-func get_traversal(entity_id: StringName) -> Array:
+func get_body_capabilities(entity_id: StringName) -> Dictionary:
 	var def: Dictionary = get_definition(entity_id)
-	return def.get("traversal", [])
+	return def.get("body_capabilities", {})
+
+
+func get_body_geometry(entity_id: StringName) -> Dictionary:
+	var def: Dictionary = get_definition(entity_id)
+	return def.get("body_geometry", {})
 
 
 func get_desires(entity_id: StringName) -> Dictionary:
@@ -126,8 +134,8 @@ func spawn(
 		db.set_component(id, &"desires", initial_desires)
 		db.set_component(id, &"personality", personality)
 
-	# AI state (species only — entities with traversal)
-	if has_traversal(entity_id):
+	# AI state (species only — entities with body_capabilities)
+	if has_body_capabilities(entity_id):
 		var initial: StringName = get_initial_state(entity_id)
 		db.set_component(id, &"ai_state", {
 			&"state": initial,
@@ -140,8 +148,8 @@ func spawn(
 			&"entity_id": Constants.INVALID_ID,
 		})
 
-	# Object state (entities without traversal that have states)
-	if not has_traversal(entity_id) and def.has("states"):
+	# Object state (entities without body_capabilities that have states)
+	if not has_body_capabilities(entity_id) and def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)
 		db.set_component(
 			id, &"object_state", {&"state": initial},
@@ -156,6 +164,13 @@ func spawn(
 			&"mass": int(def["physical"].get("mass", 0)),
 			&"size_ru": int(def["physical"].get("size_ru", 1)),
 		})
+
+	# Body schema: capabilities (verbs the body knows) + geometry (physical
+	# extents the navgraph and fit-checks read).
+	if def.has("body_capabilities"):
+		db.set_component(id, &"body_capabilities", def["body_capabilities"])
+	if def.has("body_geometry"):
+		db.set_component(id, &"body_geometry", def["body_geometry"])
 
 	# Capability tags: any recipe-level boolean field we want to project
 	# onto the entity as a zero-data component.

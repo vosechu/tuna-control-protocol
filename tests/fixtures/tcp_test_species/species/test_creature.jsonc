@@ -3,7 +3,8 @@
   "id": "tcp_test_species:test_creature",
   "name": "TestCreature",
   "desires": { "warmth": 500, "comfort": 500 },
-  "traversal": ["WALK"],
+  "body_capabilities": { "walks": {} },
+  "body_geometry": { "size_ru": 1 },
   "variants": ["cat01"],
   "hud_color": [0.5, 0.5, 0.5],
   "sprite_config": {

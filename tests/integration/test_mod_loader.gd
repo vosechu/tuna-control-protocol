@@ -36,13 +36,13 @@ func test_load_all_returns_manifests():
 	assert_has(ids, &"tcp_tuna")
 
 
-func test_species_has_traversal():
+func test_species_has_body_capabilities():
 	var loader := ModLoader.new()
 	var result: Dictionary = loader.load_all("res://mods/")
 	var defs: EntityDefRegistry = result["entity_defs"]
-	assert_true(defs.has_traversal(&"tcp_cats:cat"))
-	assert_true(defs.has_traversal(&"tcp_ferrets:ferret"))
-	assert_false(defs.has_traversal(&"tcp_tuna:tuna_can"))
+	assert_true(defs.has_body_capabilities(&"tcp_cats:cat"))
+	assert_true(defs.has_body_capabilities(&"tcp_ferrets:ferret"))
+	assert_false(defs.has_body_capabilities(&"tcp_tuna:tuna_can"))
 
 
 func test_object_has_states():

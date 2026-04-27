@@ -30,8 +30,15 @@
   },
   "physical": { "mass": 4000, "size_ru": 2 },
   "strength": 3000,
-  "traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
-  "max_jump_height_ru": 3,
+  "body_capabilities": {
+    "walks":  {},
+    "jumps":  { "max_height_ru": 3 },
+    "drops":  { "max_height_ru": 5 },
+    "settles_in_containers": { "max_body_size_ru": 2 }
+  },
+  "body_geometry": {
+    "size_ru": 2
+  },
   "variants": ["cat01", "cat02", "cat03", "cat04", "cat05"],
   "ambient_states": {
     "warm": [

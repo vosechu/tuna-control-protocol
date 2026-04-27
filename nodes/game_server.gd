@@ -75,12 +75,22 @@ func _ready() -> void:
 
 
 func _register_species_nav() -> void:
+	# AI-DEV: NavGraphBuilder.register_species still expects the legacy edge-tag
+	# Array (WALK / JUMP_UP / JUMP_DOWN). Task 7 of the cat-jumps-into-box plan
+	# replaces this with the parametric body_capabilities dict directly. Until
+	# then, translate the new schema down to the old shape inline.
 	for entity_id: StringName in entity_defs.get_all_entities():
-		if entity_defs.has_traversal(entity_id):
-			nav_builder.register_species(
-				entity_id,
-				entity_defs.get_traversal(entity_id),
-			)
+		if not entity_defs.has_body_capabilities(entity_id):
+			continue
+		var caps: Dictionary = entity_defs.get_body_capabilities(entity_id)
+		var legacy: Array = []
+		if caps.has("walks"):
+			legacy.append(&"WALK")
+		if caps.has("jumps"):
+			legacy.append(&"JUMP_UP")
+		if caps.has("drops"):
+			legacy.append(&"JUMP_DOWN")
+		nav_builder.register_species(entity_id, legacy)
 
 
 func _build_nav_for_objects() -> void:
