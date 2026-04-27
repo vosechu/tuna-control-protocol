@@ -9,7 +9,14 @@ var _floor_node_positions: Dictionary = {}  # rack_index -> Vector2
 var _slot_nodes: Dictionary = {}   # "rack:slot" -> nav_id
 
 
-var _capabilities: Dictionary = {}  # species_id -> Array
+# Species body schema, indexed at register-time. Each species has:
+#   body_capabilities: { verb -> {param_name: int, ...} }
+#       e.g. {&"walks": {}, &"jumps": {&"max_height_ru": 3}, ...}
+#   body_geometry: { &"size_ru": int }
+# Edge scanners (add_rack_slot, add_box_enterable, ...) read these to decide
+# whether to emit an edge for a given species.
+var _body_capabilities: Dictionary = {}  # species_id -> Dictionary
+var _body_geometry: Dictionary = {}      # species_id -> Dictionary
 
 
 func _init() -> void:
@@ -18,11 +25,32 @@ func _init() -> void:
 
 func register_species(
 		species_id: StringName,
-		capabilities: Array,
+		body_capabilities: Dictionary,
+		body_geometry: Dictionary,
 ) -> void:
-	_capabilities[species_id] = capabilities
+	_body_capabilities[species_id] = body_capabilities
+	_body_geometry[species_id] = body_geometry
 	if not _astars.has(species_id):
 		_astars[species_id] = AStar2D.new()
+
+
+func has_capability(species_id: StringName, verb: StringName) -> bool:
+	var caps: Dictionary = _body_capabilities.get(species_id, {})
+	return caps.has(verb)
+
+
+func get_capability_param(
+		species_id: StringName, verb: StringName, param: StringName,
+		default_value: int = 0,
+) -> int:
+	var caps: Dictionary = _body_capabilities.get(species_id, {})
+	var verb_data: Dictionary = caps.get(verb, {})
+	return verb_data.get(param, default_value)
+
+
+func get_body_size_ru(species_id: StringName) -> int:
+	var geom: Dictionary = _body_geometry.get(species_id, {})
+	return geom.get(&"size_ru", 0)
 
 
 func build() -> void:
@@ -74,12 +102,18 @@ func add_rack_slot(rack: int, slot: int) -> void:
 	for species_id: StringName in _astars:
 		var astar: AStar2D = _astars[species_id]
 		astar.add_point(nav_id, Vector2(x, y))
-		var caps: Array = _capabilities.get(species_id, [])
-		# Connect to floor node — only if species can JUMP_UP
-		if _floor_nodes.has(rack) and SpeciesAStar.JUMP_UP in caps:
-			astar.connect_points(_floor_nodes[rack], nav_id)
+		# Connect to floor node only if species jumps and the slot is within
+		# its max_height_ru. Species without `jumps` get no edge.
+		if _floor_nodes.has(rack) and has_capability(species_id, &"jumps"):
+			var max_height_ru: int = get_capability_param(
+				species_id, &"jumps", &"max_height_ru",
+			)
+			var max_height_px: int = max_height_ru * Constants.SLOT_HEIGHT_PX
+			var floor_pos: Vector2 = _floor_node_positions[rack]
+			if int(floor_pos.y) - int(y) <= max_height_px:
+				astar.connect_points(_floor_nodes[rack], nav_id)
 		# Connect to adjacent occupied slots via WALK
-		if SpeciesAStar.WALK in caps:
+		if has_capability(species_id, &"walks"):
 			for ds: int in [-1, 1]:
 				var adj_key: String = "%d:%d" % [rack, slot + ds]
 				if _slot_nodes.has(adj_key):

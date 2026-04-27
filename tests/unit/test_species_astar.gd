@@ -5,12 +5,23 @@ var builder: NavGraphBuilder
 
 func before_each() -> void:
 	# AI-DEV: Changing this function invalidates ALL test stamps in this file.
+	# Body capabilities mirror the canonical species recipes (cat jumps 3 RU,
+	# ferret has no `jumps` capability at all). The reach tests below use
+	# slots that are within the cat's jump range to match real recipe behavior.
 	builder = NavGraphBuilder.new()
 	builder.register_species(
-		&"tcp_cats:cat", ["WALK", "JUMP_UP", "JUMP_DOWN"],
+		&"tcp_cats:cat",
+		{
+			&"walks": {},
+			&"jumps": {&"max_height_ru": 3},
+			&"drops": {&"max_height_ru": 5},
+		},
+		{&"size_ru": 2},
 	)
 	builder.register_species(
-		&"tcp_ferrets:ferret", ["WALK", "JUMP_DOWN"],
+		&"tcp_ferrets:ferret",
+		{&"walks": {}, &"drops": {&"max_height_ru": 5}},
+		{&"size_ru": 1},
 	)
 	builder.build()
 
@@ -43,8 +54,9 @@ func test_floor_nodes_connected() -> void:
 
 
 func test_cat_can_jump_to_rack_slot() -> void:
-	builder.add_rack_slot(2, 8)
-	var slot_pos: Vector2 = _slot_world_center(2, 8)
+	# Slot 1 sits one slot above the floor — within the cat's max_height_ru: 3.
+	builder.add_rack_slot(2, 1)
+	var slot_pos: Vector2 = _slot_world_center(2, 1)
 	var floor_pos: Vector2 = builder.get_nearest_floor_node(2)
 	var path: PackedVector2Array = builder.get_path_points(
 		&"tcp_cats:cat", floor_pos, slot_pos,
@@ -56,15 +68,15 @@ func test_cat_can_jump_to_rack_slot() -> void:
 
 
 func test_ferret_cannot_jump_to_rack_slot() -> void:
-	builder.add_rack_slot(2, 8)
-	var slot_pos: Vector2 = _slot_world_center(2, 8)
+	builder.add_rack_slot(2, 1)
+	var slot_pos: Vector2 = _slot_world_center(2, 1)
 	var floor_pos: Vector2 = builder.get_nearest_floor_node(2)
 	var reachable: bool = builder.can_reach(
 		&"tcp_ferrets:ferret", floor_pos, slot_pos,
 	)
 	assert_false(
 		reachable,
-		"Ferret should not reach rack slot — no JUMP_UP",
+		"Ferret should not reach rack slot — no `jumps` capability",
 	)
 
 
