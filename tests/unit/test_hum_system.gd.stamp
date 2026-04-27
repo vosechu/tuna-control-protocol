@@ -2,8 +2,8 @@
 # If a stamp is invalid, re-run `script/tdd_verify stamp <file>` — do not
 # manually update hashes.
 ---
-setup_hash: 1a3737f9
-verified_at: '2026-04-20T13:39:25Z'
+setup_hash: '032585ea'
+verified_at: '2026-04-27T00:32:55Z'
 tests:
   test_new_hum_system_does_not_autocreate_entity: 110515e1
   test_charge_clamps_at_capacity: 46daf3df
@@ -13,8 +13,8 @@ tests:
   test_drain_action_floors_at_zero: f4849cb6
   test_has_reserve_for_action: 232e2013
   test_get_reserve_ratio: 68930a4d
-  test_tick_charges_from_purring_emitter_near_receiver: 160932bf
-  test_tick_does_not_charge_from_emitter_outside_radius: 3c2f986c
-  test_zero_intensity_emitter_does_not_charge: 83371cc4
+  test_tick_charges_from_purring_emitter_near_receiver: 58080e59
+  test_tick_does_not_charge_from_emitter_outside_radius: 908f6ebf
+  test_zero_intensity_emitter_does_not_charge: ba64ff23
   test_charge_emits_hum_reserve_changed: 70986d65
   test_brownout_entered_and_recovered_signals: b1a48d50

@@ -8,7 +8,7 @@
   "name": "Cat",
   "tends_servers": true,
   "purr": {
-    "rate_when_satisfied": 10,
+    "rate_when_satisfied": 1000,
     "base_radius_ru": 6
   },
   "desires": {

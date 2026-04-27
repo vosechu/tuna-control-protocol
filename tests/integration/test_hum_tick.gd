@@ -46,14 +46,16 @@ func _make_cat(x: int, y: int, desires: Dictionary) -> int:
 		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
-	# Purr components so ContentmentPurrBridge can set intensity
-	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
+	# Purr components so ContentmentPurrBridge can set intensity + radius_px
+	_db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
+	_db.set_component(id, &"purr_config", {
+		&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6,
+	})
 	_db.update_spatial(id, x, y)
 	return id
 
 
-func _make_server_with_receiver(rack: int, slot: int, receiver_radius_slots: int) -> int:
+func _make_server_with_receiver(rack: int, slot: int, size_ru: int) -> int:
 	var id: int = _db.create_entity()
 	var x: int = rack * Constants.RACK_WIDTH_PX
 	var y: int = slot * Constants.SLOT_HEIGHT_PX
@@ -61,14 +63,13 @@ func _make_server_with_receiver(rack: int, slot: int, receiver_radius_slots: int
 	_db.set_component(id, &"heat_source", {
 		&"value": 1000, &"radius_px": 5 * Constants.SLOT_HEIGHT_PX,
 	})
-	_db.set_component(id, &"hum_receiver", {
-		&"radius_px": receiver_radius_slots * Constants.SLOT_HEIGHT_PX,
-	})
+	_db.set_component(id, &"hum_receiver", {})
+	_db.set_component(id, &"physical", {&"mass": 20000, &"size_ru": size_ru})
 	_db.update_spatial(id, x, y)
 	return id
 
 
-func _make_hum_device(rack: int, slot: int, radius_slots: int) -> int:
+func _make_hum_device(rack: int, slot: int, size_ru: int) -> int:
 	var id: int = _db.create_entity()
 	var x: int = rack * Constants.RACK_WIDTH_PX
 	var y: int = slot * Constants.SLOT_HEIGHT_PX
@@ -77,9 +78,8 @@ func _make_hum_device(rack: int, slot: int, radius_slots: int) -> int:
 		&"reserve": HumSystem.DEFAULT_CAPACITY,
 		&"capacity": HumSystem.DEFAULT_CAPACITY,
 	})
-	_db.set_component(id, &"hum_receiver", {
-		&"radius_px": radius_slots * Constants.SLOT_HEIGHT_PX,
-	})
+	_db.set_component(id, &"hum_receiver", {})
+	_db.set_component(id, &"physical", {&"mass": 20000, &"size_ru": size_ru})
 	_db.update_spatial(id, x, y)
 	return id
 

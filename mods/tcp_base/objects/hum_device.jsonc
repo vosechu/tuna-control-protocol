@@ -9,9 +9,7 @@
   "hum": {
     "capacity": 10000
   },
-  "hum_receiver": {
-    "radius_px": 32
-  },
+  "hum_receiver": {},
   "physical": { "mass": 20000, "size_ru": 6 },
   "advertisements": []
 }

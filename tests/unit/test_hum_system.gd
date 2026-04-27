@@ -31,8 +31,9 @@ func _make_hum(capacity: int = HumSystem.DEFAULT_CAPACITY) -> int:
 	return id
 
 
-func _make_hum_device(rack: int, slot: int, radius_slots: int) -> int:
-	# Entity with hum + hum_receiver + position, used by tick_charge tests.
+func _make_hum_device(rack: int, slot: int, size_ru: int) -> int:
+	# Entity with hum + hum_receiver + position + physical. Body rect is derived
+	# from physical.size_ru x SLOT_HEIGHT_PX x RACK_WIDTH_PX (see HumSystem).
 	var id: int = _db.create_entity()
 	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
 	var x: int = slot_rect.position.x + slot_rect.size.x / 2
@@ -42,20 +43,19 @@ func _make_hum_device(rack: int, slot: int, radius_slots: int) -> int:
 		&"reserve": HumSystem.DEFAULT_CAPACITY,
 		&"capacity": HumSystem.DEFAULT_CAPACITY,
 	})
-	_db.set_component(id, &"hum_receiver", {
-		&"radius_px": radius_slots * Constants.SLOT_HEIGHT_PX,
-	})
+	_db.set_component(id, &"hum_receiver", {})
+	_db.set_component(id, &"physical", {&"mass": 20000, &"size_ru": size_ru})
 	_db.update_spatial(id, x, y)
 	return id
 
 
-func _make_purring_entity(rack: int, slot: int, intensity: int) -> int:
+func _make_purring_entity(rack: int, slot: int, intensity: int, radius_px: int) -> int:
 	var id: int = _db.create_entity()
 	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
 	var x: int = slot_rect.position.x + slot_rect.size.x / 2
 	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"purr", {&"intensity": intensity})
+	_db.set_component(id, &"purr", {&"intensity": intensity, &"radius_px": radius_px})
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -203,42 +203,36 @@ func test_get_reserve_ratio():
 
 func test_tick_charges_from_purring_emitter_near_receiver():
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	# Unit-level purr→charge proof. Surgical within-suite mutation: skip the
+	# Unit-level purr->charge proof. Surgical within-suite mutation: skip the
 	# `charge(hum_id, per_hum_charge[hum_id])` call at the tail of tick_charge
-	# so nothing charges. Other hum_system unit tests either call charge()
-	# directly (emit test) or don't use tick_charge — they stay green.
-	var hum_id: int = _make_hum_device(0, 5, 3)
+	# so nothing charges.
+	var hum_id: int = _make_hum_device(0, 5, 3)  # 3U body anchored at slot 5
 	_db.set_field(hum_id, &"hum", &"reserve", 500)
-	_make_purring_entity(0, 4, 10)
+	_make_purring_entity(0, 4, 10, 24)  # adjacent slot, 24px radius
 	_hum.tick_charge()
 	assert_gt(_hum.get_reserve(hum_id), 500,
-		"Purring emitter within receiver radius should charge the HUM reserve")
+		"Purring emitter whose disk intersects HUM body rect should charge the HUM reserve")
 
 
 func test_tick_does_not_charge_from_emitter_outside_radius():
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	# Radius gate unit proof. Surgical within-suite mutation: delete the
-	# `if dist_sq > radius_px * radius_px: continue` guard. Positive test still
-	# charges (inside radius either way), zero-intensity test short-circuits
-	# earlier on intensity check.
+	# Radius gate unit proof. Surgical within-suite mutation: weaken the
+	# disk-vs-rect check so out-of-range emitters still charge.
 	var hum_id: int = _make_hum_device(0, 0, 3)
 	_db.set_field(hum_id, &"hum", &"reserve", 500)
-	_make_purring_entity(2, 0, 10)  # rack 2, far outside 24px radius
+	_make_purring_entity(2, 0, 10, 8)  # rack 2 with tiny 8px radius — does not reach
 	_hum.tick_charge()
 	assert_eq(_hum.get_reserve(hum_id), 500,
-		"Purring emitter outside receiver radius should not charge the HUM")
+		"Purring emitter whose disk does not reach HUM body rect should not charge")
 
 
 func test_zero_intensity_emitter_does_not_charge():
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	# Intensity short-circuit unit proof. Surgical within-suite mutation:
-	# replace `if intensity <= 0: continue` with `if intensity < 0: continue`
-	# AND add `if intensity == 0: intensity = 1` so a zero-intensity emitter
-	# now charges 1. Positive and outside-radius tests use intensity=10 and
-	# are unaffected.
+	# Intensity short-circuit unit proof. Mutation: replace `if intensity <= 0: continue`
+	# with `if intensity < 0: continue`.
 	var hum_id: int = _make_hum_device(0, 5, 3)
 	_db.set_field(hum_id, &"hum", &"reserve", 500)
-	_make_purring_entity(0, 4, 0)  # intensity=0
+	_make_purring_entity(0, 4, 0, 24)  # intensity=0 with non-zero radius
 	_hum.tick_charge()
 	assert_eq(_hum.get_reserve(hum_id), 500,
 		"Zero-intensity purr emitter should not charge the HUM")

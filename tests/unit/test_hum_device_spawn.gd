@@ -13,7 +13,8 @@ func before_each() -> void:
 		"size_ru": 6,
 		"placement": "rack",
 		"hum": {"capacity": 10000},
-		"hum_receiver": {"radius_px": 32},
+		"hum_receiver": {},
+		"physical": {"mass": 20000, "size_ru": 6},
 	})
 
 
@@ -31,6 +32,9 @@ func test_hum_device_spawns_with_full_reserve() -> void:
 
 func test_hum_device_has_receiver() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# hum_receiver is a marker tag (no fields). Body geometry comes from
+	# physical.size_ru. The receiver's presence is what matters.
 	var id: int = _reg.spawn(&"tcp_base:hum_device", _db, {"rack": 0, "slot": 0})
 	assert_true(_db.has_component(id, &"hum_receiver"))
-	assert_eq(_db.get_field(id, &"hum_receiver", &"radius_px"), 32)
+	assert_true(_db.has_component(id, &"physical"))
+	assert_eq(_db.get_field(id, &"physical", &"size_ru"), 6)

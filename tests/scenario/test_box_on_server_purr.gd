@@ -73,7 +73,8 @@ func _place_box(x: int, y: int) -> int:
 func _place_hum(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"hum_receiver", {&"radius_px": 40})
+	_db.set_component(id, &"hum_receiver", {})
+	_db.set_component(id, &"physical", {&"mass": 20000, &"size_ru": 6})
 	_db.set_component(id, &"hum", {&"reserve": 0, &"capacity": 10000})
 	_db.update_spatial(id, x, y)
 	return id
@@ -111,8 +112,10 @@ func _spawn_cat(x: int, y: int) -> int:
 		&"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
-	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
+	_db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
+	_db.set_component(id, &"purr_config", {
+		&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6,
+	})
 	_db.update_spatial(id, x, y)
 	return id
 
