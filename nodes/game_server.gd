@@ -717,7 +717,7 @@ func _spawn_starter_entities() -> void:
 		# Deferred so GameClient has wired its Events.object_placed listener
 		# before our seed objects fire the signal. Without the defer, sprites
 		# for the seed stacks never spawn (signal fires too early).
-		call_deferred(&"_seed_demo_box_stacks")
+		call_deferred(&"_seed_starter_box_stacks")
 		_starter_applied = true
 		# TODO Phase 2: emit a robot_log signal once Events grows one.
 
@@ -783,12 +783,19 @@ func _create_curiosity_trackers() -> void:
 			_curiosity_trackers[entity_id] = CuriosityTracker.new()
 
 
-# Smoke-test scaffold for the cat-jumps-into-box demo. Places a server +
-# cardboard_box stack in two adjacent racks and seeds one debug-content cat
-# so the HUM has something to charge against, then drains the HUM reserve
-# so the climb is visible. Long-term: this work moves into the scenario
-# loader (Tasks 10/11).
-func _seed_demo_box_stacks() -> void:
+# Engine-side completion of the starter scenario. The JSONC scenario format
+# can only spawn entries that resolve to a registered EntityDefRegistry
+# recipe; servers and cardboard_boxes are placed via game_server.place_object
+# (no recipe yet). Until that gap closes, this function:
+#   1. places one server + cardboard_box stack in racks 1 and 3 — the
+#      "two server+box stacks" baseline the cat-jumps-into-box spec needs
+#   2. drains every HUM to ~5% so the purr->charge climb is observable on
+#      first boot rather than masked by 100% steady state
+#   3. force-satisfies one purr-capable entity so the bridge produces
+#      non-zero purr.intensity from tick 0 (without it, scatter has to warm
+#      the cell from desires=200 default, which takes a couple of seconds
+#      and obscures the demo)
+func _seed_starter_box_stacks() -> void:
 	for rack: int in [1, 3]:
 		var server_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 0)
 		var server_x: int = (
@@ -802,15 +809,9 @@ func _seed_demo_box_stacks() -> void:
 		var box_x: int = box_slot_rect.position.x + box_slot_rect.size.x / 2
 		var box_y: int = box_slot_rect.position.y + box_slot_rect.size.y / 2
 		place_object(&"cardboard_box", box_x, box_y)
-
-	# Drain every HUM to ~5% so the demo's "purr->charge" climb is obvious.
 	for hum_id: int in db.get_entities_with(&"hum"):
 		var capacity: int = db.get_field(hum_id, &"hum", &"capacity")
 		db.set_field(hum_id, &"hum", &"reserve", capacity / 20)
-
-	# Force one purr-capable entity to count as content immediately, so the
-	# bridge produces non-zero purr.intensity before scatter has warmed the
-	# cell. Without this, the very first ticks see drain-only.
 	var purrers: Array[int] = db.get_entities_with(&"purr_config")
 	if not purrers.is_empty():
 		db.set_component(
