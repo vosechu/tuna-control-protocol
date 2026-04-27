@@ -225,6 +225,40 @@ func get_nearest_floor_node(rack: int) -> Vector2:
 	return _floor_node_positions.get(rack, Vector2.ZERO)
 
 
+# Movement-side query: returns the next nav node to step toward, or the
+# `from` position unchanged when no path exists. Owning this on the
+# navgraph means the move loop never needs a separate can_reach gate —
+# entities with unreachable targets simply stay put, and the AI layer
+# notices on its next evaluation pass.
+func next_waypoint_or_stay(
+		species_id: StringName, from_px: Vector2i, to_px: Vector2i,
+) -> Vector2i:
+	var fallback: Vector2i = from_px
+	if from_px == to_px:
+		return fallback
+	var astar: AStar2D = _astars.get(species_id, null)
+	if astar == null:
+		return fallback
+	var to_pos := Vector2(float(to_px.x), float(to_px.y))
+	var to_id: int = astar.get_closest_point(to_pos)
+	var path: PackedVector2Array = get_path_points(
+		species_id, Vector2(float(from_px.x), float(from_px.y)), to_pos,
+	)
+	# Empty / single-point path = unreachable; same for "got the closest
+	# node, not the target." The latter happens when the destination is an
+	# orphan in this species' graph (e.g. a slot above its max jump).
+	var has_path: bool = path.size() > 1 and to_id != -1 \
+		and path[path.size() - 1].is_equal_approx(astar.get_point_position(to_id))
+	if not has_path:
+		return fallback
+	for i: int in range(path.size()):
+		var pt: Vector2 = path[i]
+		var wp := Vector2i(roundi(pt.x), roundi(pt.y))
+		if wp != from_px:
+			return wp
+	return to_px
+
+
 func can_reach(species_id: StringName, from_pos: Vector2, to_pos: Vector2) -> bool:
 	# Returns true if a valid path exists for this species between the two positions.
 	# Per-species AStar instances have only traversable edges, so empty path = unreachable.

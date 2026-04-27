@@ -105,6 +105,28 @@ Bad:  "handles edge cases | bug: unclear"
 Bad:  "works correctly | bug: the code is wrong"
 ```
 
+**Boundary / assertion-existence / off-by-one tests additionally
+require an `input:` clause** naming the specific non-degenerate value
+that will be tested. A bug can only be caught if the test input forces
+it to trigger; picking the wrong value lets the bug hide.
+
+```
+Good: "slot_rect_world asserts when slot is out of range
+       | bug: lower-bound `slot >= 0` guard missing
+       | input: slot = -1 (not 0, which is in-range; not 10, which would also
+                catch the upper bound and confound the diagnosis)"
+Good: "bay_local_to_slot tags &\"other\" in horizontal gap between racks
+       | bug: over-eager rack match that claims the gap X as a rack column
+       | input: X chosen at the gap midpoint, not at the rack-edge boundary,
+                so an off-by-one X comparison still misclassifies"
+Bad:  "...asserts on invalid slot | bug: missing guard"
+       (no input: clause — can the chosen value actually trigger the guard?)
+```
+
+The `input:` clause is mandatory only when the test is input-sensitive
+(boundary, edge, assertion-existence, off-by-one). A pure semantic
+invariant like "slot 9 Y < slot 0 Y" does not need it.
+
 If a description could describe two different tests, split it. If two
 descriptions pin the same invariant in different words, merge them. If
 two bug hypotheses describe the same class of bug, the descriptions
@@ -160,25 +182,92 @@ the checkbox flip in the phase's own commit if it was.
 
 Dispatch a **fresh** subagent (new context, doesn't know Phase 1's
 contents beyond what's in git). Task: answer each question in prose
-citing specific descriptions, not hand-waving.
+citing specific descriptions, not hand-waving. The QA is adversarial —
+"looks fine" without citations is a failed audit.
+
+**Coverage** (every missing item is a blocker):
 
 - Does every public method in the spec have at least one description?
+  Cite test numbers per function.
 - Does every branch in the spec's prose have a description?
+- Does any description cite "integration covers this"? That's the
+  anti-pattern — the description must be an invariant in its own right.
+
+**Numeric trace** (every `[INFERRED]` is a blocker):
+
+- For every numeric value appearing in a description (e.g. "12px",
+  "slot 10", "31px", "96px from bay top"), cite the spec passage that
+  **binds the value to the specific API under test** — not just one
+  that names the constant. "Spec defines `_RACK_CELL_WIDTH_PX = 24`"
+  is NOT sufficient for "slot_rect_world returns width 24": the spec
+  must explicitly say the slot rect has that width (or name a clear
+  derivation like "slot rects span the full rack cell"). A citation
+  that only proves "this constant exists somewhere in the spec"
+  without binding it to the API's return contract is `[INFERRED]`.
+- Composition claims receive the same treatment. "bay_rect_world
+  height = frame + interior + baseboard + floor" requires a spec
+  passage that **names the composition**, not merely that the parts
+  exist as constants. "Full bay sprite area" without a composition
+  clause is `[INFERRED]` — the drafter guessed which pieces are
+  included.
+- If a value is inferred rather than bound — e.g. spec gives stride
+  but not column width, and the description assumes they are equal;
+  or spec gives per-strip heights but not which strips `bay_rect`
+  sums — mark it `[INFERRED]` and open a spec-clarification action
+  item. Inferred values ALWAYS force a spec amendment before Phase 4;
+  never let them ride through on the hope that Phase 1's guess was
+  right. This is the specific defense against "QA endorses the
+  drafter's guess."
+
+**Hypothesis quality** (every vague hypothesis is a blocker):
+
+- For each bug hypothesis, name the specific bug class: off-by-one,
+  wrong comparator, swapped args, missing guard, wrong constant
+  *named*, wrong field *named*, boundary condition *named*. Phrases
+  like "wrong constant" (no name), "calculation wrong" (no
+  calculation), "wrong field or value" (OR-list) are vague — rewrite
+  required before Phase 4.
+- Is the hypothesis a plausible human bug class, or a puzzle ("if
+  input equals X return Y")? Puzzles mean the description is vague
+  enough that no real bug maps to it — tighten or drop.
+- Do any two hypotheses describe the same bug class? If yes, the
+  descriptions are probably redundant — flag for merge. (Not a
+  blocker; let Phase 4 pick one.)
+
+**Bug-catchability sketches** (every un-sketchable test is a blocker):
+
+- For every description, sketch in one sentence HOW the claimed bug
+  would cause the test to fail. Concrete example:
+  > "#26: if the baseboard Y boundary is off-by-one so
+  > `baseboard_position` falls in &'floor' instead, `q.zone !=
+  > &\"baseboard\"` and the assertion fails."
+- Flag any sketch that reduces to "it catches the bug if the bug
+  lands where the assertion looks" — that is tautology, not a sketch.
+  It means the assertion is too loose or the test-input choice lets
+  the bug hide in un-asserted territory. This catches the pattern
+  where a description *looks* covered but the assertion is
+  structurally incapable of triggering on the named bug.
+- **For input-sensitive tests (boundary, off-by-one, assertion-existence),
+  verify the `input:` clause names a non-degenerate value** that forces
+  the bug to trigger. A test at `slot = 0` cannot distinguish a missing
+  lower-bound guard from a working one; a test at `slot = 10` catches
+  the upper-bound case only. An input-sensitive description with no
+  `input:` clause, or with a degenerate value (on-boundary when the bug
+  is boundary-sensitive), is a blocker — send back to Phase 1 to pick
+  a value that actually forces the failure.
+
+**Cosmetic** (flag for improvement, not blockers):
+
 - Are any descriptions restatements of each other in different words?
 - Do any description titles mislead about what they pin?
-- Does any description cite "integration covers this"? If so, REOPEN —
-  that's the anti-pattern, the description needs to be an invariant in
-  its own right.
-- **Is each bug hypothesis a plausible human bug class** (off-by-one,
-  wrong comparator, forgotten null check, swapped args, dropped guard),
-  or is it a puzzle ("if input equals X return Y")? Puzzle hypotheses
-  mean the description is vague enough that no real bug maps to it —
-  tighten the description or drop it.
-- Do any two bug hypotheses describe the same bug? If so, the
-  descriptions are probably redundant.
 
-If the QA finds gaps, loop back to Phase 1 with the gaps as input. Do
-not proceed to Phase 4 with open concerns.
+**Verdict rubric:**
+
+- Any blocker fires → loop back to Phase 1 with the specific gap as
+  input. Do not proceed to Phase 4.
+- Cosmetic flags only → proceed, but note them in the Phase 4 brief so
+  the test-writer can merge or rename as they go.
+- Clean → proceed to Phase 4.
 
 ### Phase 4 — Write failing tests
 
@@ -326,6 +415,9 @@ each other." Do not treat it as a formality.
 |---|---|
 | "Integration covers this, delete the unit test" | Phase 2 commits descriptions. Deletion requires removing a line from the plan doc — visible in git. |
 | Shallow descriptions ("handles edge cases") | Phase 3 QA, with specific questions that hand-waving can't answer. |
+| Phase 1 value guesses riding through QA as approved | Phase 3 numeric-trace rule — every value must cite a spec passage **binding it to the API under test** (not just a constant's existence), or be flagged `[INFERRED]`. Composition claims ("bay_rect height = frame + interior + floor") require a spec clause naming the composition, not just the parts. Inferred values always block Phase 4 until the spec is amended. |
+| Descriptions whose assertion can't actually catch the claimed bug | Phase 3 bug-catchability sketch — every description must include a one-sentence sketch of how the bug triggers the assertion failure. Input-sensitive tests (boundary, off-by-one, assertion-existence) additionally require an `input:` clause in Phase 1 naming a non-degenerate value that forces the bug to trigger. Un-sketchable sketch, tautological sketch, or missing/degenerate `input:` clause = blocker. |
+| Vague bug hypotheses ("wrong constant", "calculation wrong") riding through | Phase 3 hypothesis-quality rule — hypotheses must name the specific constant, field, or calculation; OR-lists must be split. |
 | Tests that fail for the wrong reason | Phase 4 requires assertion-failure output in the commit body. |
 | Agent optimizing across phases (shallow descriptions to make later implementation easier) | Fresh subagents per phase. Each only knows its own task. |
 | Hard-coding production code to specific test input values | Phase 5 information-hiding — the implementation subagent never sees the test bodies, so it cannot know the specific values to branch on. |

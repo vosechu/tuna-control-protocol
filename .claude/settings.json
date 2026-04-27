@@ -121,17 +121,6 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/script/hooks/post-edit-validate",
-            "timeout": 30,
-            "statusMessage": "Running script/validate..."
-          }
-        ]
-      },
-      {
         "matcher": ".*",
         "hooks": [
           { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/log-result" }

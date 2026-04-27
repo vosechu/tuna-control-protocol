@@ -203,62 +203,29 @@ func _move_animals() -> void:
 		if state != &"WANDERING" and target[&"entity_id"] == Constants.INVALID_ID:
 			continue
 
-		# Universal nav gate: any state walking toward an entity target must
-		# have a reachable path. Catches MOVING_TO/HUNGRY/RETURNING in addition
-		# to SEEKING, so a stale target (object moved into an unreachable slot,
-		# or assigned without a can_reach check elsewhere) doesn't strand the
-		# animal walking up an unreachable rack.
-		if state != &"WANDERING" and db.has_component(entity_id, &"species"):
-			var sp_check: Dictionary = db.get_component(entity_id, &"species")
-			var from_check := Vector2(float(pos[&"x"]), float(pos[&"y"]))
-			var to_check := Vector2(float(target[&"x"]), float(target[&"y"]))
-			if not nav_builder.can_reach(sp_check[&"id"], from_check, to_check):
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"IDLE",
-					&"meta_state": &"AMBIENT",
-					&"commitment_score": 0,
-				})
-				db.set_component(entity_id, &"target", {
-					&"x": Constants.INVALID_ID,
-					&"y": Constants.INVALID_ID,
-					&"entity_id": Constants.INVALID_ID,
-				})
-				continue
-
-		# Transition SEEKING -> MOVING_TO on first movement tick, with nav graph check
+		# Transition SEEKING -> MOVING_TO unconditionally. The nav layer
+		# (next_waypoint_or_stay) decides whether movement happens; an
+		# unreachable target produces zero forward progress this tick and
+		# the AI layer notices via the desire resolver's next pass.
 		if state == &"SEEKING":
-			var species: Dictionary = db.get_component(entity_id, &"species")
-			var from_pos: Vector2 = Vector2(float(pos[&"x"]), float(pos[&"y"]))
-			var to_pos: Vector2 = Vector2(float(target[&"x"]), float(target[&"y"]))
-			if not nav_builder.can_reach(species[&"id"], from_pos, to_pos):
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"IDLE",
-					&"meta_state": &"AMBIENT",
-					&"commitment_score": 0,
-				})
-				db.set_component(entity_id, &"target", {
-					&"x": Constants.INVALID_ID,
-					&"y": Constants.INVALID_ID,
-					&"entity_id": Constants.INVALID_ID,
-				})
-				continue
 			db.set_component(entity_id, &"ai_state", {
 				&"state": &"MOVING_TO",
 				&"meta_state": &"GOAL_DIRECTED",
 				&"commitment_score": ai[&"commitment_score"],
 			})
-		# WANDERING skips nav check — random floor positions are always reachable
 
-		# Pick next waypoint. Nav-guided states step through nav-graph nodes
-		# so floor→slot edges are traversed where the path requires them.
-		# WANDERING moves directly on the floor plane (random floor targets
-		# are always reachable without a graph query).
+		# Pick next waypoint. The navgraph owns reachability: if from->target
+		# has no path, next_waypoint_or_stay returns from_px and the entity
+		# stays put. WANDERING uses target_px directly because random floor
+		# positions are always reachable without a graph query.
 		var from_px: Vector2i = Vector2i(pos[&"x"], pos[&"y"])
 		var target_px: Vector2i = Vector2i(target[&"x"], target[&"y"])
 		var waypoint: Vector2i = target_px
 		if state != &"WANDERING" and db.has_component(entity_id, &"species"):
 			var species_comp: Dictionary = db.get_component(entity_id, &"species")
-			waypoint = _next_path_waypoint(species_comp[&"id"], from_px, target_px)
+			waypoint = nav_builder.next_waypoint_or_stay(
+				species_comp[&"id"], from_px, target_px,
+			)
 
 		var step_result: Dictionary = NavPathStepper.step(
 			from_px, waypoint, ANIMAL_SPEED_PX,
@@ -334,27 +301,6 @@ func _move_animals() -> void:
 		if arrival_duration > 0.0:
 			_state_timers[entity_id] = 0.0
 			_min_durations_override[entity_id] = arrival_duration
-
-
-func _next_path_waypoint(
-	species_id: StringName, from_px: Vector2i, target_px: Vector2i,
-) -> Vector2i:
-	# Returns the next intermediate nav-graph point to step toward, or the
-	# final target if the path is empty/trivial. Per-tick recomputation is
-	# cheap at current nav-graph size (~5-15 nodes) and avoids state.
-	var path: PackedVector2Array = nav_builder.get_path_points(
-		species_id,
-		Vector2(float(from_px.x), float(from_px.y)),
-		Vector2(float(target_px.x), float(target_px.y)),
-	)
-	if path.size() <= 1:
-		return target_px
-	for i: int in range(path.size()):
-		var pt: Vector2 = path[i]
-		var wp: Vector2i = Vector2i(roundi(pt.x), roundi(pt.y))
-		if wp != from_px:
-			return wp
-	return target_px
 
 
 func _update_ambient_states() -> void:
@@ -459,34 +405,19 @@ func _update_ambient_states() -> void:
 					var tpos: Dictionary = db.get_component(
 						target_id, &"position",
 					)
-					# Same can_reach gate that SEEKING uses. Without it, a
-					# floor-bound species (no jumps) targets a rack-mounted
-					# dispenser and walks straight up the rack — visible since
-					# real Y was wired in nodes/animal_node.gd.
-					var hpos: Dictionary = db.get_component(
-						entity_id, &"position",
-					)
-					var hspecies: Dictionary = db.get_component(
-						entity_id, &"species",
-					)
-					var hfrom := Vector2(float(hpos[&"x"]), float(hpos[&"y"]))
-					var hto := Vector2(float(tpos[&"x"]), float(tpos[&"y"]))
-					if not nav_builder.can_reach(
-							hspecies[&"id"], hfrom, hto,
-					):
-						target_id = Constants.INVALID_ID
-				if target_id != Constants.INVALID_ID:
-					var tpos2: Dictionary = db.get_component(
-						target_id, &"position",
-					)
+					# Reachability is enforced at movement time by
+					# nav_builder.next_waypoint_or_stay; an unreachable
+					# dispenser target just means the cat won't move toward
+					# it. PACING below remains the fallback when no dispenser
+					# exists at all.
 					db.set_component(entity_id, &"ai_state", {
 						&"state": &"HUNGRY",
 						&"meta_state": &"GOAL_DIRECTED",
 						&"commitment_score": 200,
 					})
 					db.set_component(entity_id, &"target", {
-						&"x": tpos2[&"x"],
-						&"y": tpos2[&"y"],
+						&"x": tpos[&"x"],
+						&"y": tpos[&"y"],
 						&"entity_id": target_id,
 					})
 					_state_timers[entity_id] = 0.0
@@ -796,6 +727,10 @@ func _create_curiosity_trackers() -> void:
 #      the cell from desires=200 default, which takes a couple of seconds
 #      and obscures the demo)
 func _seed_starter_box_stacks() -> void:
+	# Server at slot 0 (1U), box at slot 2 (2U-tall sprite extends down through
+	# slot 1, bottom edge meeting the server's top edge cleanly). Box at slot 1
+	# would overlap the server vertically because the rack-mounted box texture
+	# is anchored at slot.top and renders downward.
 	for rack: int in [1, 3]:
 		var server_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 0)
 		var server_x: int = (
@@ -805,7 +740,7 @@ func _seed_starter_box_stacks() -> void:
 			server_slot_rect.position.y + server_slot_rect.size.y / 2
 		)
 		place_object(&"server_1u", server_x, server_y)
-		var box_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 1)
+		var box_slot_rect: Rect2i = Constants.slot_rect_world(0, rack, 2)
 		var box_x: int = box_slot_rect.position.x + box_slot_rect.size.x / 2
 		var box_y: int = box_slot_rect.position.y + box_slot_rect.size.y / 2
 		place_object(&"cardboard_box", box_x, box_y)

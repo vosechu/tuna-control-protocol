@@ -134,11 +134,9 @@ if errors > 0
   warn ''
   warn "#{errors} verification issue(s) found."
   warn ''
-  warn 'These tests are no longer in a verified state. To restore verification'
-  warn 'run the full TDD cycle:'
-  warn '  script/tdd_verify start <test_file>'
-  warn '  # then mutation / restore for each test'
-  warn '  script/tdd_verify finish'
+  warn 'These tests are no longer in a verified state. Re-stamp after'
+  warn 'confirming the tests pass:'
+  warn '  script/tdd_verify stamp <test_file>'
   warn ''
   warn 'Cosmetic-only changes (lint-forced whitespace, comment edits) can use:'
   warn "  script/tdd_verify restamp <test_file> '<one-sentence reason>'"

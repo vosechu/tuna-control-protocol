@@ -52,39 +52,87 @@ Rack sprite top-anchors at `RACK_TOP_Y = 16`. The sprite has 8px transparent pad
 
 ## 2. Color Palette
 
-Six colors define the cold datacenter. Six define the warm, thriving state. The room interpolates between them as aggregate animal happiness rises.
+**The licensed sprite packs are authoritative.** New TCP-original art paints within the union of the cat-pack palette (21 colors) and the ferret-pack palette (8 colors). The packs don't map to any standard Lospec palette — a brute-force match against 29 popular palettes (AAP-64, Endesga 32/64, Resurrect 64, Apollo, Pear 36, Vinik 24, DB-32, Nyx-8, etc.) found **zero exact matches**. Closest stylistic cousin is **AAP-64** (17/21 cat colors within perceptual distance, 0 exact); use it only as a vibe reference when briefing external artists.
 
-### Cold Datacenter (starting state)
+### Cat + Kitten pack — 21 colors
 
-| Name | Hex | Role |
-|---|---|---|
-| **Slate Void** | `#1A1E2E` | Deepest shadows, empty rack interiors, the abyss behind servers |
-| **Cable Gray** | `#3B4157` | Primary surface color: rack frames, floor tiles, structural metal |
-| **Dust Blue** | `#5B6B8A` | Secondary surfaces: server faces, pipe casings, ambient fill |
-| **Indicator Teal** | `#4A9B9B` | Active electronics: LEDs, status lights, the robot arm's scanning beam |
-| **Warning Amber** | `#C4A24E` | Hazard paint, the robot arm's caution stripe, sparse warm accent |
-| **Breath White** | `#D4DAE8` | Condensation, text, highlights on metal edges, kitten fur |
+`mods/tcp_cats/sprites/` (five cat variants + five kittens, ~200 strip files). Listed by pixel-share within the pack:
 
-### Warm Datacenter (thriving state)
+| Hex | Role |
+|---|---|
+| `#000000` | Outline — pure black, used on nearly every edge |
+| `#494C54` | Cool mid-gray — structural shadow on fur/server bodies |
+| `#161616` | Near-black shadow — deepest self-shadow on dark fur |
+| `#967D67` | Warm mid-brown — dominant fur base for tabby coats |
+| `#8F9BA9` | Cool light-gray — rim light on cool-tinted subjects |
+| `#B27338` | Saturated tan — accent fur, warm highlight on brown coats |
+| `#757F8B` | Cool gray — mid-value cool surface |
+| `#0B0B0B` | Near-black — second-tier outline |
+| `#6D4B39` | Warm dark-brown — shadow on warm coats |
+| `#1F1F24` | Dark cool-black — shadow with a blue tint |
+| `#674423` | Warm brown — mid-shadow for brown fur |
+| `#3C291A` | Warm darker-brown — core fur shadow |
+| `#F4CCA1` | Cream — highlights on light fur, cream bellies |
+| `#131318` | Near-black (shared with ferret) — cross-pack outline glue |
+| `#57253B` | Wine red (shared with ferret) — eye/mouth interior |
+| `#FFD34F` | Saturated gold — eye iris highlight, rare accent |
+| `#2C2C2C` | Dark cool-gray — secondary shadow |
+| `#A90000` | Crimson (shared with ferret) — tongue, blood, alarm accent |
+| `#CBDBFC` | Pale blue — eye highlight specular, cold-light catch |
+| `#BD8879` | Pink-beige — nose, paw pads, inner-ear pink |
+| `#545D67` | Cool gray — secondary cool mid-value |
 
-| Name | Hex | Role |
-|---|---|---|
-| **Den Brown** | `#2E2018` | Deepest shadows shift warm — no more blue in the darkness |
-| **Worn Wood** | `#6B5240` | Surfaces pick up warmth from fur, cardboard scraps, nesting materials |
-| **Sunpatch Gold** | `#C49548` | The dominant mid-tone: warm light pooling where animals gather |
-| **Purr Orange** | `#D4763A` | Accent for peak happiness areas, glowing status indicators, heat halos |
-| **Moss Green** | `#5B8B4A` | Plants growing in cracks, nature reclaiming, life spreading |
-| **Cream** | `#F0E6D0` | Highlights shift from cold white to warm cream, fur tones, soft glow |
+### Ferret (lilotter) pack — 8 colors
 
-### Interpolation model
+`mods/tcp_ferrets/sprites/` (one variant, 20 strip files). Far tighter palette than the cat pack — a minimalist warm set:
 
-Per-slot palette interpolation (6-color cold → warm palette shift, driven by a warmth float per slot) is **deferred**. At the 8px-per-slot scale it requires a shader pass, not per-cell palette swapping. Current build renders the cold palette globally. A follow-up spec restores per-slot tint via a shader.
+| Hex | Role |
+|---|---|
+| `#000000` | Outline |
+| `#634545` | Warm body brown — dominant fur tone |
+| `#BEAFA7` | Light pink-beige — belly, highlight |
+| `#2F1E20` | Deep shadow |
+| `#131318` | Near-black (shared) — secondary outline |
+| `#947A75` | Mid pink-brown — neutral fur mid-tone |
+| `#A90000` | Crimson (shared) — tongue, wound |
+| `#57253B` | Wine red (shared) — eye, mouth interior |
+
+### Shared "glue" colors (4)
+
+`#000000`, `#131318`, `#A90000`, `#57253B` — these are the cross-pack common ground. Any new art that has to sit next to **both** cats and ferrets in the same frame (HUD icons, particles, UI glyphs) should lean on these four plus neutral cream `#F4CCA1` for the minimum-friction palette.
+
+### Environment / infrastructure layer
+
+`mods/tcp_base/sprites/` currently contains **~640 unique colors** — a mix of the original 12-color "cold/warm datacenter" spec (some of which still lives in tile art: `#3B4157`, `#5B6B8A`, `#4A9B9B`, `#C4A24E`, `#1A1E2E`) and drift from imported/tweaked environment assets. This is too broad to be a palette; treat it as the drift zone. When painting or editing environment art:
+
+1. **Prefer the cat/ferret palette first.** If a cat-pack color fits the role (outline, warm brown, cool gray, cream), use it.
+2. **Cool structural colors** (rack metal, cable, pipe) that don't have a cat-pack equivalent: keep the `#3B4157` / `#5B6B8A` / `#4A9B9B` family from the old spec — they're already in use and don't fight the packs.
+3. **Flag any new color outside the union** of (cat-pack ∪ ferret-pack ∪ structural five) as temporary. A future consolidation pass will fold them into the authoritative palette.
+
+### Warmth / thriving state
+
+The original "cold → warm" palette-shift (per-slot interpolation as happiness rises) is **still deferred** and requires a shader. When it returns, the shift must be defined as a transform over the pack palette above, not a swap to an external palette. Plants (reclamation growth — see `growth-system.md`) already ship with their own moss green drawn to fit alongside `#967D67` / `#6D4B39`; do not add more greens without checking in.
 
 **Rack decor overlay** (`rack_5set_decor_strip1.png`) is a single transparent vine layer drawn over the rack sprite. Alpha starts at 0 and ramps to 0.7 the first time a reclamation plant spawns in bay 0 — preserving the "I grew these" feeling. Target alpha lives in `config/balance/rendering.jsonc` (`rack_decor_final_alpha`, `rack_decor_ramp_duration_ticks`).
 
-Plants (Moss Green, via the reclamation growth system — see `growth-system.md`) appear on servers where cats have tended long enough. Rendered as 8×8 cropped sprites from the environment tileset, offset onto the top edge of the host server.
+The robot arm renders in cool structural colors (`#3B4157` / `#5B6B8A` / `#F4CCA1`). It is metal and electricity — that contrast makes the organic warmth around it more visible.
 
-The robot arm always renders in the cold palette. It is metal and electricity — that contrast makes the organic warmth around it more visible.
+### Old-spec name mapping (for older sections of this doc)
+
+Sections §5 (Lighting), §6 (Status Bar), §8 (Robot Arm) below still refer to the pre-replacement color names. Translate them as follows when picking actual pixels:
+
+| Old name | Old hex | Use today |
+|---|---|---|
+| Slate Void | `#1A1E2E` | `#131318` (shared outline-dark) |
+| Cable Gray | `#3B4157` | `#3B4157` — kept for structural metal |
+| Dust Blue | `#5B6B8A` | `#5B6B8A` — kept for server faces / pipes |
+| Indicator Teal | `#4A9B9B` | `#4A9B9B` — kept (no pack equivalent; electronics only) |
+| Warning Amber | `#C4A24E` | `#FFD34F` (pack gold, warmer) for accents; `#C4A24E` for hazard stripes |
+| Breath White | `#D4DAE8` | `#F4CCA1` cream (pack) for fur/condensation; `#CBDBFC` pale blue for cold highlights |
+| Sunpatch Gold | `#C49548` | `#B27338` (pack tan) |
+| Purr Orange | `#D4763A` | `#B27338` / warmth halos — no pack exact; custom-draw if needed |
+| Moss Green | `#5B8B4A` | Plant system ships its own — see `growth-system.md` |
+| Cream | `#F0E6D0` | `#F4CCA1` (pack cream) |
 
 ---
 
