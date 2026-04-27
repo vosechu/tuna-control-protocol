@@ -20,9 +20,13 @@ All at 32x32. Strip format: `cat{NN}_{action}_strip{N}.png`
 | fright | 8 | Done | Startled reaction |
 | run | 4 | Done | |
 | sneak | 8 | Done | |
-| jump | 4 | Done | |
-| land | 2 | Done | |
-| fall | 3 | Done | |
+| jump | 4 | Done | Wired via cat.jsonc edge_animations (cat-into-box, 2026-04-26) |
+| land | 2 | Done | Strip imported, not yet picked by edge_animations resolver |
+| fall | 3 | Done | Wired via cat.jsonc edge_animations (cat-into-box, 2026-04-26) |
+| ledgeclimb | 11 | Done | Wired via cat.jsonc edge_animations as ENTER edge (cat-into-box, 2026-04-26) |
+| ledgeclimb_struggle | 12 | Done | Strip imported, not wired (variant for struggling climb) |
+| ledgegrab | 5 | Done | Strip imported, not wired |
+| ledgeidle | 8 | Done | Strip imported, not wired |
 | wallclimb | 8 | Done | |
 | wallgrab | 8 | Done | |
 | dash | 9 | Done | |
