@@ -14,7 +14,7 @@ func test_satisfied_entity_writes_recipe_rate() -> void:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"contentment", {&"is_satisfied": 1})
 	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10})
+	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
 	_b.tick()
 	assert_eq(_db.get_field(id, &"purr", &"intensity"), 10)
 
@@ -24,7 +24,7 @@ func test_unsatisfied_entity_writes_zero() -> void:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"contentment", {&"is_satisfied": 0})
 	_db.set_component(id, &"purr", {&"intensity": 50})  # prior value
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10})
+	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
 	_b.tick()
 	assert_eq(_db.get_field(id, &"purr", &"intensity"), 0,
 		"Unsatisfied entity has intensity reset to 0")
@@ -34,7 +34,7 @@ func test_entity_without_contentment_is_untouched() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the code.
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"purr", {&"intensity": 99})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10})
+	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
 	_b.tick()
 	assert_eq(_db.get_field(id, &"purr", &"intensity"), 99,
 		"Non-contentment-bearing purr emitter keeps its intensity")
@@ -53,6 +53,6 @@ func test_bridge_does_not_read_species() -> void:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"contentment", {&"is_satisfied": 1})
 	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 7})
+	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 7, &"base_radius_ru": 0})
 	_b.tick()
 	assert_eq(_db.get_field(id, &"purr", &"intensity"), 7)

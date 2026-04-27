@@ -112,7 +112,7 @@ func _spawn_cat(x: int, y: int) -> int:
 		&"entity_id": Constants.INVALID_ID,
 	})
 	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10})
+	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
 	_db.update_spatial(id, x, y)
 	return id
 

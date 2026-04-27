@@ -48,7 +48,7 @@ func _make_cat(x: int, y: int, desires: Dictionary) -> int:
 	})
 	# Purr components so ContentmentPurrBridge can set intensity
 	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10})
+	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10, &"base_radius_ru": 0})
 	_db.update_spatial(id, x, y)
 	return id
 

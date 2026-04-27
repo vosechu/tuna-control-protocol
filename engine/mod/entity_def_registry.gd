@@ -184,12 +184,17 @@ func spawn(
 
 	# Purr emitter: split recipe dict into two DB components.
 	# purr.intensity is the per-tick broadcast value (hot path, read by HumSystem).
-	# purr_config.rate_when_satisfied is the cold recipe snapshot (read by bridge).
+	# purr.radius_px is also per-tick, written by ContentmentPurrBridge.
+	# purr_config holds cold recipe snapshots (rate_when_satisfied, base_radius_ru).
 	if def.has("purr"):
 		var purr_cfg: Dictionary = def["purr"]
 		var rate: int = int(purr_cfg.get("rate_when_satisfied", 0))
-		db.set_component(id, &"purr", {&"intensity": 0})
-		db.set_component(id, &"purr_config", {&"rate_when_satisfied": rate})
+		var base_radius_ru: int = int(purr_cfg.get("base_radius_ru", 0))
+		db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
+		db.set_component(
+			id, &"purr_config",
+			{&"rate_when_satisfied": rate, &"base_radius_ru": base_radius_ru},
+		)
 
 	# HUM battery: recipe declares capacity; entity starts at full reserve.
 	# Falls back to HumSystem.DEFAULT_CAPACITY when recipe omits the field.
