@@ -607,6 +607,18 @@ func place_object(
 			rack = q.get_rack()
 			slot = q.get_slot()
 			nav_builder.add_rack_slot(rack, slot)
+			# Enterable hosts (currently cardboard_box) publish a `join` block
+			# in their per-state ad config. Wire entry/interior anchors and
+			# species-gated ENTER edges into the navgraph at placement time.
+			var initial_state: StringName = &"new"
+			if db.has_component(entity, &"object_state"):
+				var st: Dictionary = db.get_component(entity, &"object_state")
+				initial_state = st.get(&"state", &"new")
+			var join: Dictionary = object_state_manager.get_join_for_state(
+				object_type, initial_state,
+			)
+			if not join.is_empty():
+				nav_builder.add_box_enterable(rack, slot, join)
 		elif q.zone != &"other":
 			rack = q.rack
 	Events.object_placed.emit(

@@ -7,6 +7,9 @@ var _next_nav_id: int = 0
 var _floor_nodes: Dictionary = {}  # rack_index -> nav_id
 var _floor_node_positions: Dictionary = {}  # rack_index -> Vector2
 var _slot_nodes: Dictionary = {}   # "rack:slot" -> nav_id
+# Box-style entry/interior anchors. Keys: "box_entry:rack:slot" and
+# "box_interior:rack:slot". One pair per enterable host.
+var _enterable_nodes: Dictionary = {}  # String -> nav_id
 
 
 # Species body schema, indexed at register-time. Each species has:
@@ -119,6 +122,80 @@ func add_rack_slot(rack: int, slot: int) -> void:
 				if _slot_nodes.has(adj_key):
 					var adj_id: int = _slot_nodes[adj_key]
 					astar.connect_points(nav_id, adj_id)
+
+
+# Box-style enterable host. `join` is the contained-type join dict from
+# OBJECT_CONFIG[type].state_ads[state].join. Adds two nav points:
+#   - entry: the spot above the box where an animal lands before stepping in
+#   - interior: where the animal sits while settled
+# Wires per-species edges:
+#   floor -> entry  via JUMP_UP (species.jumps.max_height_ru >= delta to entry)
+#   entry -> interior via ENTER (species has settles_in_containers AND
+#                                body.size_ru <= join.inner_size_ru)
+func add_box_enterable(rack: int, slot: int, join: Dictionary) -> void:
+	if join.get(&"type", &"") != &"contained":
+		return
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var box_x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var box_y: int = slot_rect.position.y + slot_rect.size.y / 2
+	var entry_off: Vector2i = join.get(&"entry_origin_offset", Vector2i.ZERO)
+	var inter_off: Vector2i = join.get(&"interior_origin_offset", Vector2i.ZERO)
+	var entry_pos := Vector2(
+		float(box_x + entry_off.x), float(box_y + entry_off.y),
+	)
+	var inter_pos := Vector2(
+		float(box_x + inter_off.x), float(box_y + inter_off.y),
+	)
+	var entry_id: int = _next_nav_id
+	_next_nav_id += 1
+	var inter_id: int = _next_nav_id
+	_next_nav_id += 1
+	var entry_key: String = "box_entry:%d:%d" % [rack, slot]
+	var inter_key: String = "box_interior:%d:%d" % [rack, slot]
+	_enterable_nodes[entry_key] = entry_id
+	_enterable_nodes[inter_key] = inter_id
+
+	var inner_size_ru: int = join.get(&"inner_size_ru", 0)
+	var entry_threshold_ru: int = join.get(&"entry_threshold_ru", 0)
+
+	for species_id: StringName in _astars:
+		var astar: AStar2D = _astars[species_id]
+		astar.add_point(entry_id, entry_pos)
+		astar.add_point(inter_id, inter_pos)
+		if not has_capability(species_id, &"jumps"):
+			continue
+		var max_jump_ru: int = get_capability_param(
+			species_id, &"jumps", &"max_height_ru",
+		)
+		if entry_threshold_ru > max_jump_ru:
+			continue
+		if not _floor_nodes.has(rack):
+			continue
+		var floor_pos: Vector2 = _floor_node_positions[rack]
+		var delta_y: int = int(floor_pos.y) - int(entry_pos.y)
+		if delta_y > max_jump_ru * Constants.SLOT_HEIGHT_PX:
+			continue
+		astar.connect_points(_floor_nodes[rack], entry_id)
+		if not has_capability(species_id, &"settles_in_containers"):
+			continue
+		var body_size: int = get_body_size_ru(species_id)
+		if body_size > inner_size_ru:
+			continue
+		astar.connect_points(entry_id, inter_id)
+
+
+func remove_box_enterable(rack: int, slot: int) -> void:
+	var entry_key: String = "box_entry:%d:%d" % [rack, slot]
+	var inter_key: String = "box_interior:%d:%d" % [rack, slot]
+	for k: String in [entry_key, inter_key]:
+		if not _enterable_nodes.has(k):
+			continue
+		var nav_id: int = _enterable_nodes[k]
+		for species_id: StringName in _astars:
+			var astar: AStar2D = _astars[species_id]
+			if astar.has_point(nav_id):
+				astar.remove_point(nav_id)
+		_enterable_nodes.erase(k)
 
 
 func remove_rack_slot(rack: int, slot: int) -> void:
