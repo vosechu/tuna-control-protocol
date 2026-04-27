@@ -7,32 +7,42 @@ class_name ObjectStateManager extends RefCounted
 const OBJECT_CONFIG: Dictionary = {
 	&"tuna_can": {
 		&"state_ads": {
-			&"sealed": [{
-				&"desire_type": &"openable", &"strength": 800,
-				&"radius_px": 24, &"action": &"open",
-			}],
-			&"open": [{
-				&"desire_type": &"food", &"strength": 800,
-				&"radius_px": 40, &"action": &"eat",
-			}],
-			&"empty": [],
+			&"sealed": {
+				&"ads": [{
+					&"desire_type": &"openable", &"strength": 800,
+					&"radius_px": 24, &"action": &"open",
+				}],
+			},
+			&"open": {
+				&"ads": [{
+					&"desire_type": &"food", &"strength": 800,
+					&"radius_px": 40, &"action": &"eat",
+				}],
+			},
+			&"empty": {&"ads": []},
 		},
 	},
 	&"cardboard_box": {
 		&"state_ads": {
-			&"new": [
-				{&"desire_type": &"comfort", &"strength": 700, &"radius_px": 32},
-				{&"desire_type": &"curiosity", &"strength": 500,
-					&"radius_px": 40, &"action": &"shred"},
-			],
-			&"worn": [
-				{&"desire_type": &"comfort", &"strength": 400, &"radius_px": 24},
-				{&"desire_type": &"curiosity", &"strength": 300,
-					&"radius_px": 32, &"action": &"shred"},
-			],
-			&"scraps": [
-				{&"desire_type": &"comfort", &"strength": 600, &"radius_px": 24},
-			],
+			&"new": {
+				&"ads": [
+					{&"desire_type": &"comfort", &"strength": 700, &"radius_px": 32},
+					{&"desire_type": &"curiosity", &"strength": 500,
+						&"radius_px": 40, &"action": &"shred"},
+				],
+			},
+			&"worn": {
+				&"ads": [
+					{&"desire_type": &"comfort", &"strength": 400, &"radius_px": 24},
+					{&"desire_type": &"curiosity", &"strength": 300,
+						&"radius_px": 32, &"action": &"shred"},
+				],
+			},
+			&"scraps": {
+				&"ads": [
+					{&"desire_type": &"comfort", &"strength": 600, &"radius_px": 24},
+				],
+			},
 		},
 		&"hp_thresholds": [
 			{&"min_hp": 501, &"state": &"new"},
@@ -109,8 +119,9 @@ func get_state_for_hp(object_type: StringName, hp: int) -> StringName:
 	return &""
 
 
-# Generic state→ads lookup.  Returns the ad list for the given state,
-# or an empty array if the object type or state is unknown.
+# Generic state->ads lookup.  Returns the ad list for the given state,
+# or an empty array if the object type or state is unknown. Tolerates the
+# legacy bare-Array shape for state entries during the structural migration.
 func get_ads_for_state(object_type: StringName, state: StringName) -> Array:
 	if not OBJECT_CONFIG.has(object_type):
 		return []
@@ -120,4 +131,25 @@ func get_ads_for_state(object_type: StringName, state: StringName) -> Array:
 	var state_ads: Dictionary = cfg[&"state_ads"]
 	if not state_ads.has(state):
 		return []
-	return state_ads[state]
+	var entry: Variant = state_ads[state]
+	if entry is Array:
+		return entry
+	return (entry as Dictionary).get(&"ads", [])
+
+
+# Returns the join block for the given state (e.g. {type: contained, ...}),
+# or an empty Dictionary when the state has no join contract. Used by the
+# navgraph's ENTER scanner and the contained-position-coupling pass.
+func get_join_for_state(object_type: StringName, state: StringName) -> Dictionary:
+	if not OBJECT_CONFIG.has(object_type):
+		return {}
+	var cfg: Dictionary = OBJECT_CONFIG[object_type]
+	if not cfg.has(&"state_ads"):
+		return {}
+	var state_ads: Dictionary = cfg[&"state_ads"]
+	if not state_ads.has(state):
+		return {}
+	var entry: Variant = state_ads[state]
+	if entry is Array:
+		return {}
+	return (entry as Dictionary).get(&"join", {})
