@@ -54,11 +54,12 @@ const ARM_REACH_PX: int = 24  # 3 slot-heights of vertical reach
 
 # Absolute z_index used by an animal that is settled_in a host (box). The
 # animal flips z_as_relative = false to escape its parent layer's z-band
-# (Animals layer, z=4) and renders in the placed-objects band (z=3) so
-# the host's sprite occludes the lower part of the animal's body. The
-# +200 + y/2 offset used for non-settled animals would always win against
-# a 2D box sprite that doesn't carry its own z. See animal_node.
-const Z_PLACED_OBJECTS_TUCKED: int = 3
+# (Animals layer, z=4) and renders one band BELOW PlacedObjects (z=3) so
+# the host's sprite occludes the lower part of the animal's body. Setting
+# this equal to PlacedObjects' z (3) would tie, and the Animals layer
+# wins on tie via tree order — so the cat would draw on top of the box
+# instead of behind it. See animal_node._process for the runtime flip.
+const Z_PLACED_OBJECTS_TUCKED: int = 2
 
 # AI-DEV: These numbers match the current 5-set rack sprite exactly. If a mod
 # pack ships differently-sized rack art, promote them to art-pack config

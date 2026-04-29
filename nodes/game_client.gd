@@ -62,6 +62,7 @@ func _ready() -> void:
 	# Wait one frame for GameServer._ready() to create entities
 	await get_tree().process_frame
 	_register_starter_sprites()
+	_render_scenario_placed_objects()
 	_spawn_animal_nodes()
 	_setup_heat_overlay()
 	_setup_sound_manager()
@@ -346,6 +347,25 @@ func _register_starter_sprites() -> void:
 		)
 		sprite_idx += 1
 	_starter_sprites.clear()
+
+
+func _render_scenario_placed_objects() -> void:
+	# Scenario-spawned placeable entities (HUM device, etc.) take the
+	# entity_defs.spawn path, which doesn't fire Events.object_placed —
+	# only game_server.place_object does that. Sweep the DB once at boot
+	# and create the missing sprites. Identified by capability components
+	# rather than object_type because entity_def_registry only sets
+	# object_type for entities that declare a `states` block.
+	var db: GameStateDB = game_server.db
+	for entity_id: int in db.get_entities_with(&"hum_receiver"):
+		if _object_sprites.has(entity_id):
+			continue
+		if not db.has_component(entity_id, &"position"):
+			continue
+		var pos: Dictionary = db.get_component(entity_id, &"position")
+		_create_object_sprite(
+			entity_id, &"hum_device", int(pos[&"x"]), int(pos[&"y"])
+		)
 
 
 func _setup_heat_overlay() -> void:
