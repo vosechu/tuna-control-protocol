@@ -106,6 +106,12 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 		return
 	if not _db.has_component(entity_id, &"desires"):
 		return
+	# Settled entities are deliberately resting (e.g. cat tucked in box).
+	# Skipping AI evaluation keeps them put — without this guard the resolver
+	# would re-score nearby ads, transition out of SLEEPING, and the move loop
+	# would pull the cat out of the box on the very next tick.
+	if _db.has_component(entity_id, &"settled_in"):
+		return
 
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	# Perception radius: 8 slot-heights = 64 pixels
