@@ -761,13 +761,17 @@ func _seed_starter_box_stacks() -> void:
 		db.set_component(
 			demo_cat, &"debug_force_satisfied", {&"active": 1},
 		)
-		var box_pos: Dictionary = db.get_component(rack1_box_id, &"position")
-		# Position cat at slot 1 (one slot below box anchor) — the box's
-		# visual body covers slot 1 + slot 2, so the cat sits within the
-		# box's lower half. Ears poke up into slot 2.
-		var slot1_rect: Rect2i = Constants.slot_rect_world(0, 1, 1)
-		var cat_x: int = slot1_rect.position.x + slot1_rect.size.x / 2
-		var cat_y: int = slot1_rect.position.y + slot1_rect.size.y / 2
+		# Position cat at the box's anchor slot (slot 2). The cat sprite is
+		# 40 px tall with offset_y = -12, so its feet land ~8 px below the
+		# anchor. With the cat anchored at slot 2, the feet sit inside the
+		# box's bottom edge (slot_2_top + 16) and the head/ears poke up out
+		# of the box opening. Anchoring at slot 1 (the seed's previous spot)
+		# pushed the feet 4 px below the box bottom — visually "one slot
+		# under the box," which is the bug the screenshot caught on
+		# 2026-04-29.
+		var box_slot_rect: Rect2i = Constants.slot_rect_world(0, 1, 2)
+		var cat_x: int = box_slot_rect.position.x + box_slot_rect.size.x / 2
+		var cat_y: int = box_slot_rect.position.y + box_slot_rect.size.y / 2
 		db.set_component(demo_cat, &"position", {&"x": cat_x, &"y": cat_y})
 		db.update_spatial(demo_cat, cat_x, cat_y)
 		var settled := SettledLifecycle.new(db)

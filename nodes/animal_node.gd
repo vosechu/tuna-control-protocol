@@ -215,10 +215,22 @@ func _resolve_animation(state: StringName) -> StringName:
 func _process(_delta: float) -> void:
 	var t: float = Engine.get_physics_interpolation_fraction()
 	global_position = _prev_pos.lerp(_target_pos, t)
-	# Settled-in entities sit one z-layer behind their host so the box's
-	# lip occludes the cat's lower body and only ears poke out.
-	var z_offset: int = 0
-	if _db != null and _db.has_entity(entity_id):
-		if _db.has_component(entity_id, &"settled_in"):
-			z_offset = -1
-	z_index = 200 + int(global_position.y / 2.0) + z_offset
+	# Animals normally render in $World/Animals (a higher canvas z than
+	# $World/PlacedObjects), so per-sprite z_index inside Animals can't
+	# duck behind a box sprite by one. When settled_in, switch to
+	# absolute z and pin the cat to PlacedObjects' band so the host
+	# (box) occludes the cat's body — the visible cat is whatever pokes
+	# above the box's top edge. True lip-occlusion (cat body inside box
+	# but ears in front of box's lip) needs the box sprite split into
+	# back+lip layers; for now this is the cleanest 2D approximation.
+	var settled: bool = (
+		_db != null
+		and _db.has_entity(entity_id)
+		and _db.has_component(entity_id, &"settled_in")
+	)
+	if settled:
+		z_as_relative = false
+		z_index = Constants.Z_PLACED_OBJECTS_TUCKED
+	else:
+		z_as_relative = true
+		z_index = 200 + int(global_position.y / 2.0)
