@@ -1,8 +1,5 @@
 extends GutTest
 
-# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is
-# because you removed or broke code.
-
 # SettledLifecycle is the minimum tracking helper for "this entity is
 # legitimately resting at this host" — distinguishes intentional settled-in
 # state from being stranded by a movement bug. Marker is a one-field

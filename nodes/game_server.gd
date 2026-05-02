@@ -12,10 +12,9 @@ var hum_system: HumSystem
 var contentment: Contentment
 var contentment_purr_bridge: ContentmentPurrBridge
 var food_system: FoodSystem
-var wiring_locks: WiringLockRegistry
-var wiring_system: WiringSystem
 var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
+var settled_lifecycle: SettledLifecycle
 var entity_defs: EntityDefRegistry
 var scenarios: ScenarioRegistry
 var world_init: WorldInitSystem
@@ -28,6 +27,15 @@ var _starter_applied: bool = false
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
 var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
+# Sticky path waypoints: once an entity commits to a navgraph step, it
+# walks straight to that waypoint before asking for the next one.
+# Without stickiness, an entity midway between two nav nodes ping-pongs
+# because `astar.get_closest_point` flips between the two anchors on
+# each tick and each anchor produces a different next-step. Cleared
+# when the target changes, when the entity reaches the stored waypoint,
+# or when the entity despawns. Shape: entity_id -> Dictionary
+# {&"waypoint": Vector2i, &"target_eid": int, &"target_pos": Vector2i}
+var _movement_waypoints: Dictionary = {}
 var _min_durations: Dictionary = {
 	&"IDLE": 3.0,
 	&"GROOMING": 10.0,
@@ -56,17 +64,12 @@ func _ready() -> void:
 	contentment_purr_bridge = ContentmentPurrBridge.new(db)
 	hum_system = HumSystem.new(db, Events)
 	food_system = FoodSystem.new(db, hum_system, Events)
-	wiring_locks = WiringLockRegistry.new()
-	# AI-DEV: cable_max_length_px is the euclidean cap WiringSystem enforces on
-	# handle_connect. Lift into a ConfigRegistry lookup when one ships.
-	wiring_system = WiringSystem.new(
-		db, wiring_locks, Events, {&"cable_max_length_px": 160},
-	)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
 	object_state_manager = ObjectStateManager.new(db)
 	reclamation_system = ReclamationSystem.new(db)
 	plant_growth_system = PlantGrowthSystem.new(db, heat_grid)
+	settled_lifecycle = SettledLifecycle.new(db)
 	nav_builder = NavGraphBuilder.new()
 	_register_species_nav()
 	nav_builder.build()
@@ -127,9 +130,6 @@ func _physics_process(_delta: float) -> void:
 	reclamation_system.tick()                               # 14
 	plant_growth_system.tick()                              # 15
 	_update_ambient_states()                                # 16
-	# Drop pickup locks whose owners haven't touched them in 20s. Cheap;
-	# runs once per tick so abandoned drags can't wedge the registry.
-	wiring_locks.tick_expire(db.get_tick(), 200)
 	db.flush_notifications()                                # 17
 
 
@@ -224,14 +224,41 @@ func _move_animals() -> void:
 		# has no path, next_waypoint_or_stay returns from_px and the entity
 		# stays put. WANDERING uses target_px directly because random floor
 		# positions are always reachable without a graph query.
+		# Sticky waypoints: once a waypoint is chosen we walk straight to
+		# it before recomputing. This kills the 2-px ping-pong that
+		# happens when from_px is exactly between two nav nodes (e.g.
+		# floor and slot_0) — astar.get_closest_point flips and each
+		# anchor produces a different next-step.
 		var from_px: Vector2i = Vector2i(pos[&"x"], pos[&"y"])
 		var target_px: Vector2i = Vector2i(target[&"x"], target[&"y"])
+		var current_target_eid: int = target[&"entity_id"]
 		var waypoint: Vector2i = target_px
-		if state != &"WANDERING" and db.has_component(entity_id, &"species"):
+		if state == &"WANDERING":
+			# Wander targets aren't navgraph nodes; walk straight, no
+			# stickiness needed.
+			_movement_waypoints.erase(entity_id)
+		elif db.has_component(entity_id, &"species"):
 			var species_comp: Dictionary = db.get_component(entity_id, &"species")
-			waypoint = nav_builder.next_waypoint_or_stay(
-				species_comp[&"id"], from_px, target_px,
-			)
+			var stored: Variant = _movement_waypoints.get(entity_id)
+			var keep_stored: bool = false
+			if stored != null:
+				var stored_dict: Dictionary = stored
+				keep_stored = (
+					stored_dict[&"target_eid"] == current_target_eid
+					and stored_dict[&"target_pos"] == target_px
+					and stored_dict[&"waypoint"] != from_px
+				)
+			if keep_stored:
+				waypoint = (stored as Dictionary)[&"waypoint"]
+			else:
+				waypoint = nav_builder.next_waypoint_or_stay(
+					species_comp[&"id"], from_px, target_px,
+				)
+				_movement_waypoints[entity_id] = {
+					&"waypoint": waypoint,
+					&"target_eid": current_target_eid,
+					&"target_pos": target_px,
+				}
 
 		var step_result: Dictionary = NavPathStepper.step(
 			from_px, waypoint, ANIMAL_SPEED_PX,
@@ -242,9 +269,14 @@ func _move_animals() -> void:
 
 		# Arrival is determined by reaching the FINAL target, not intermediate
 		# waypoints. A step snapping onto an intermediate nav point just ticks
-		# the path forward on the next tick.
+		# the path forward on the next tick — clearing the sticky waypoint
+		# so the next pass requests a fresh one from the navgraph.
+		if new_pos == waypoint and waypoint != target_px:
+			_movement_waypoints.erase(entity_id)
 		if new_pos != target_px:
 			continue
+		# Final-target arrival; clear the sticky waypoint.
+		_movement_waypoints.erase(entity_id)
 
 		# Food state arrivals
 		if state == &"HUNGRY":
@@ -277,7 +309,21 @@ func _move_animals() -> void:
 			_state_timers[entity_id] = 0.0
 			continue
 
-		# Determine arrival state based on what drew the animal here
+		# Determine arrival state based on what drew the animal here.
+		# If the target is an enterable host (box) the cat fits in, route
+		# through SETTLING — the settle handler in _update_ambient_states
+		# writes settled_in so the cat tucks visually. Otherwise fall back
+		# to SNIFFING (curiosity ad) or IDLE.
+		if target[&"entity_id"] != Constants.INVALID_ID \
+				and _can_settle_in(entity_id, target[&"entity_id"]):
+			db.set_component(entity_id, &"ai_state", {
+				&"state": &"SETTLING",
+				&"meta_state": &"GOAL_DIRECTED",
+				&"commitment_score": 50,
+			})
+			_state_timers[entity_id] = 0.0
+			continue
+
 		var arrival_state: StringName = &"IDLE"
 		var arrival_duration: float = -1.0
 		if _curiosity_trackers.has(entity_id) and target[&"entity_id"] != Constants.INVALID_ID:
@@ -393,10 +439,24 @@ func _update_ambient_states() -> void:
 				_state_timers.get(entity_id, 0.0) + tick_delta
 			)
 			if _state_timers[entity_id] >= 2.0:
+				# Tuck into the host (box) the cat walked to. The target
+				# entity_id was preserved through arrival so SETTLING knows
+				# its host. Without settled_in the cat would fall through to
+				# AMBIENT and immediately re-target the same box on the
+				# resolver's next pass.
+				var t: Dictionary = db.get_component(entity_id, &"target")
+				var host_id: int = t[&"entity_id"]
+				if host_id != Constants.INVALID_ID and db.has_entity(host_id):
+					settled_lifecycle.enter(entity_id, host_id)
 				db.set_component(entity_id, &"ai_state", {
-					&"state": &"LOAFING",
+					&"state": &"SLEEPING",
 					&"meta_state": &"AMBIENT",
 					&"commitment_score": 0,
+				})
+				db.set_component(entity_id, &"target", {
+					&"x": Constants.INVALID_ID,
+					&"y": Constants.INVALID_ID,
+					&"entity_id": Constants.INVALID_ID,
 				})
 				_state_timers[entity_id] = 0.0
 			continue
@@ -530,6 +590,15 @@ func place_object(
 						&"strength": 700,
 						&"radius_px": 32,
 						&"max_occupants": 1,
+						# AI-DEV: action-tagged so passive proximity doesn't
+						# satisfy comfort. A cat must actually settle in (see
+						# SettledLifecycle) to consume this ad. Without the
+						# tag, cats sit on adjacent servers, scatter fills
+						# their comfort to ~920, and the box ad's score drops
+						# below SWITCH_THRESHOLD — they're "comforted" without
+						# ever climbing in. DesireScatter bypasses the action
+						# gate when other_id == entity's settled_in.host_id.
+						&"action": &"settle",
 					},
 					{
 						&"desire_type": &"curiosity",
@@ -786,8 +855,7 @@ func _seed_starter_box_stacks() -> void:
 		var cat_y: int = box_slot_rect.position.y + box_slot_rect.size.y / 2
 		db.set_component(demo_cat, &"position", {&"x": cat_x, &"y": cat_y})
 		db.update_spatial(demo_cat, cat_x, cat_y)
-		var settled := SettledLifecycle.new(db)
-		settled.enter(demo_cat, rack1_box_id)
+		settled_lifecycle.enter(demo_cat, rack1_box_id)
 		# Park the cat in IDLE so the move loop doesn't try to walk it
 		# anywhere — settled_in is a "stay put" marker for now.
 		db.set_component(demo_cat, &"ai_state", {
@@ -834,6 +902,34 @@ func _find_dispenser_in_rack(
 
 func _find_nearest_dispenser(entity_id: int) -> int:
 	return CatFoodStates.find_nearest_dispenser(db, entity_id, nav_builder)
+
+
+func _can_settle_in(entity_id: int, host_id: int) -> bool:
+	# A cat can settle in a host if the host's current state publishes a
+	# `contained` join, the cat's species carries the `settles_in_containers`
+	# capability, and the cat's body fits the join's inner_size_ru.
+	if not db.has_entity(host_id):
+		return false
+	if not db.has_component(host_id, &"object_type"):
+		return false
+	if not db.has_component(entity_id, &"species"):
+		return false
+	var otype: Dictionary = db.get_component(host_id, &"object_type")
+	var state: StringName = &"new"
+	if db.has_component(host_id, &"object_state"):
+		var st: Dictionary = db.get_component(host_id, &"object_state")
+		state = st.get(&"state", &"new")
+	var join: Dictionary = object_state_manager.get_join_for_state(
+		otype[&"type"], state,
+	)
+	if join.get(&"type", &"") != &"contained":
+		return false
+	var species_id: StringName = db.get_component(entity_id, &"species")[&"id"]
+	if not nav_builder.has_capability(species_id, &"settles_in_containers"):
+		return false
+	var inner: int = join.get(&"inner_size_ru", 0)
+	var body: int = nav_builder.get_body_size_ru(species_id)
+	return body <= inner
 
 
 func _find_nearby_food(entity_id: int) -> int:

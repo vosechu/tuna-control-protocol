@@ -73,6 +73,14 @@ Ordering inside `hp_thresholds`: highest `min_hp` first. `get_state_for_hp` retu
 
 `DesireScatter.scatter_from_ads` (engine/desires) runs every tick and applies the strongest in-range ad per desire-type to each entity with matching desires. It **skips any ad with an `action` key**. That skip is the mechanism by which "cats must actively eat to be fed" is enforced — an open tuna can is only satisfying via the EATING state loop, never just by standing nearby.
 
+### Bond components (action-ad bypass)
+
+A "bond" is a marker component on an entity declaring an active relationship with a host (today: `&"settled_in"` for "tucked into this box"; future: `&"mounted_on"`, `&"holding"`, `&"inside_tube"`). The bond *is* the active state. While a bond is in place, action-tagged ads from the bonded host bypass the passive-proximity skip, so the bonded entity is satisfied by the host's ads directly.
+
+**Convention:** every bond marker component carries a `&"host_id"` field pointing at the bonded host. New bond types register their component name once at boot via `Bonds.register_bond(&"my_marker")` (see `engine/core/bonds.gd`). The system that manages the bond owns the registration call (e.g. `SettledLifecycle._init` registers `&"settled_in"`).
+
+`DesireScatter` reads bonds with `Bonds.has_any_bond` (cheap fast path for ~all entities, which have no bond) and only allocates the full host list via `Bonds.get_bond_hosts` when needed. Future systems (action-tick loops, contentment, narrator, inspect UI) reuse the same query.
+
 ## Shipped object types
 
 | Type | States | Degradable? |

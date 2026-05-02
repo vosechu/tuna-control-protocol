@@ -26,7 +26,7 @@ Validate at top, early return on failure. Main logic at lowest indent level.
 `assert()` for programmer errors (debug only). `push_error()` + graceful skip for data errors (bad mod JSON). Never silent swallow.
 
 ## Signals
-- Always past tense: `animal_relocated`, `cable_disconnected`
+- Always past tense: `animal_relocated`, `food_dispensed`
 - Include ID of changed entity
 - Include old + new values when delta matters
 - Slot naming: `_on_<emitter>_<signal_name>`

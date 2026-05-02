@@ -1,6 +1,6 @@
 {
   // TUNA — Tamper-sealed Utility Negotiation Asset dispenser
-  // 1U. Drops sealed tuna cans when triggered. Requires HUM.
+  // 1U. Drops sealed tuna cans when triggered. Drains HUM on each press.
   "schema_version": 1,
   "id": "tcp_base:tuna_dispenser",
   "name": "TUNA Dispenser",
@@ -10,7 +10,6 @@
     "hum_cost": 50,
     "can_type": "tcp_tuna:tuna_can"
   },
-  "hum_powered": {},
   "physical": { "mass": 8000, "size_ru": 1 },
   // Dispensers do not advertise hunger — only open tuna cans do. A
   // dispenser is a source *of* food, not food itself. Future work:

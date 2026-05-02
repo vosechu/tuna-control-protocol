@@ -36,10 +36,9 @@ func apply(scenario_id: StringName) -> void:
 				"world_init aborted: required type missing: %s" % type_id
 			)
 			return
-	# Second pass: spawn, record ref_name → entity_id and defer cable_to /
+	# Second pass: spawn, record ref_name → entity_id and defer
 	# settled_in_ref links until every ref has resolved.
 	var refs: Dictionary = {}
-	var pending_cables: Array = []
 	var pending_settled: Array = []
 	for entry: Dictionary in entities:
 		var type_id: StringName = StringName(entry["type"])
@@ -49,13 +48,6 @@ func apply(scenario_id: StringName) -> void:
 		var entity_id: int = _entity_defs.spawn(type_id, _db, overrides)
 		if entry.has("ref_name"):
 			refs[StringName(entry["ref_name"])] = entity_id
-		if entry.has("cable_to"):
-			var cable: Dictionary = entry["cable_to"]
-			if cable.has("ref_name"):
-				pending_cables.append({
-					&"actuator_id": entity_id,
-					&"ref_name": StringName(cable["ref_name"]),
-				})
 		if entry.has("ai_state"):
 			# Seed the AI state component before scoring runs, so a
 			# pre-settled cat doesn't immediately reroute somewhere.
@@ -69,18 +61,7 @@ func apply(scenario_id: StringName) -> void:
 				&"joiner_id": entity_id,
 				&"ref_name": StringName(entry["settled_in_ref"]),
 			})
-	# Third pass: resolve cable_to links now that every ref is registered.
-	for cable: Dictionary in pending_cables:
-		var actuator_id: int = cable[&"actuator_id"]
-		var ref_name: StringName = cable[&"ref_name"]
-		if not refs.has(ref_name):
-			push_error(
-				"world_init: cable_to.ref_name not found: %s" % ref_name
-			)
-			continue
-		var hum_id: int = refs[ref_name]
-		_db.set_component(actuator_id, &"hum_cable", {&"hum_id": hum_id})
-	# Fourth pass: resolve settled_in_ref. Position the joiner at the host's
+	# Third pass: resolve settled_in_ref. Position the joiner at the host's
 	# anchor and write the settled_in marker, so the rendering tuck-in and
 	# the move-loop's stranded-animal heuristic both see a deliberate rest.
 	if pending_settled.is_empty():

@@ -14,8 +14,7 @@
     {
       "type": "tcp_base:tuna_dispenser",
       "rack": 2, "slot": 8,
-      "ref_name": "tuna_a",
-      "cable_to": { "ref_name": "hum_a" }
+      "ref_name": "tuna_a"
     },
     {
       "type": "tcp_base:tuna_button",
@@ -24,8 +23,7 @@
     },
     {
       "type": "tcp_base:arm",
-      "floor_rack": 0, "floor_slot_offset": 0,
-      "cable_to": { "ref_name": "hum_a" }
+      "floor_rack": 0, "floor_slot_offset": 0
     },
 
     // Cat A — listed first so engine seed's "first purrer" pick lands here.

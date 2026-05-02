@@ -19,7 +19,6 @@ const EXPECTED_ORDER: Array[String] = [
 	"reclamation_system.tick",
 	"plant_growth_system.tick",
 	"_update_ambient_states",
-	"wiring_locks.tick_expire",
 	"db.flush_notifications",
 ]
 

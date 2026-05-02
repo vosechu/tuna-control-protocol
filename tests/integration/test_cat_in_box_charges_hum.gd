@@ -1,16 +1,14 @@
 extends GutTest
 
-# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is
-# because you removed or broke code.
-
-# End-to-end proof for the cat-jumps-into-box smoke goal: a satisfied cat
-# settled inside a box (interior_origin position) emits purr each tick, and
-# its emission disk intersects an adjacent-rack HUM's body rect, so the
-# HUM's reserve grows. This spans:
-#   ContentmentPurrBridge (intensity + radius_px)
-#   HumSystem.tick_charge (disk-vs-rect intersection)
-# without going through scatter/AI/movement (which the existing
-# tests/scenario/test_box_on_server_purr.gd already exercises).
+# AI-DEV: End-to-end proof for the cat-jumps-into-box smoke goal: a
+# satisfied cat settled inside a box (interior_origin position) emits
+# purr each tick, and its emission disk intersects an adjacent-rack
+# HUM's body rect, so the HUM's reserve grows. The two components
+# tested in tandem here — ContentmentPurrBridge (intensity + radius_px)
+# and HumSystem.tick_charge (disk-vs-rect intersection) — have unit
+# tests that pass independently while the cross-rack chain still
+# fails; the geometry only emerges when both run together. Don't split
+# this test back into two; the bug it guards lives in the seam.
 
 const EventsScript: GDScript = preload("res://nodes/events.gd")
 

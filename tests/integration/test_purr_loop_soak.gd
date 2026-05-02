@@ -1,15 +1,15 @@
 extends GutTest
 
-# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is
-# because you removed or broke code.
-
-# Run the contentment->purr->charge loop for many ticks and assert no
-# pathological state emerges. Specifically:
-#   * a satisfied cat keeps emitting purr.intensity > 0 (not toggled off
-#     by some accidental side-effect of the bridge or HUM charge)
-#   * HUM reserve climbs monotonically toward capacity (no transient
-#     negatives, no runaway above capacity)
-#   * intensity short-circuit still works once unsatisfied
+# AI-DEV: Soak test — guards three pathologies that 1-shot unit tests
+# can't catch because they only emerge across many ticks:
+#   1. Bridge or HUM charge accidentally toggling a satisfied cat's
+#      intensity off (single-tick checks don't see "off again at tick 50")
+#   2. HUM reserve briefly going negative or overshooting capacity
+#      mid-tick (only visible if you sample every tick)
+#   3. Unsatisfied short-circuit failing after the cat WAS satisfied
+#      (state-transition bug, not initial-state bug)
+# Don't shrink the tick count to "make it faster" — under ~100 ticks
+# none of these can surface.
 
 const EventsScript: GDScript = preload("res://nodes/events.gd")
 

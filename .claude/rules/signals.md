@@ -37,8 +37,6 @@ extends Node
 signal heat_cell_changed(cell_id: int, old_temp: float, new_temp: float)
 signal object_placed(object_id: int, rack: int, slot: int, object_type: StringName)
 signal object_removed(object_id: int, rack: int, slot: int)
-signal cable_connected(hum_id: int, device_id: int, cable_type: StringName)
-signal cable_disconnected(hum_id: int, device_id: int)
 signal hum_reserve_changed(hum_id: int, old_reserve: int, new_reserve: int)
 signal hum_brownout_entered(hum_id: int)
 signal hum_brownout_recovered(hum_id: int)
@@ -221,7 +219,7 @@ func _score_warmth(animal: AnimalAgent) -> float:
 signal state_changed(old_state: StringName, new_state: StringName)
 signal heat_cell_changed(cell_id: int, old_temp: float, new_temp: float)
 signal object_placed(object_id: int, rack: int, slot: int, object_type: StringName)
-signal cable_disconnected(hum_id: int, device_id: int)
+signal food_dispensed(can_id: int)
 signal animal_relocated(animal_id: int, from_pos: Vector2, to_pos: Vector2)
 
 # WRONG — present tense (ambiguous: is it happening? should it happen?)
@@ -247,7 +245,7 @@ func _on_animal_state_changed(animal_id: int, old_state: StringName, new_state: 
 
 ## Emit / listen, not produce / consume
 
-Name a cross-system signal by **what it is** (`purr`, `heat_cell_changed`, `cable_connected`), never by what consumes it (`hum_producer`, `warmth_producer`, `power_source`). The emitter does not know its listeners.
+Name a cross-system signal by **what it is** (`purr`, `heat_cell_changed`, `food_dispensed`), never by what consumes it (`hum_producer`, `warmth_producer`, `power_source`). The emitter does not know its listeners.
 
 Producer/consumer phrasing silently couples the emitter to a single downstream use. "Cats produce HUM" bakes HUM into the cat — removing HUM tomorrow means touching cats. "Cats emit on `purr`; HUM receivers listen on `purr`" lets any number of independent readers (HUM battery, ferret-calm system, sound mixer, narrator) consume the channel without modifying each other or the emitter.
 

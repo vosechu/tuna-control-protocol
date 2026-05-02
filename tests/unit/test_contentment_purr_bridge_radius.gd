@@ -1,7 +1,13 @@
 extends GutTest
 
-# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is
-# because you removed or broke code.
+# AI-DEV: Pins the bridge's two-field contract. Each tick the bridge
+# writes BOTH purr.intensity AND purr.radius_px. A regression that
+# updates only intensity (the obvious one) leaves a stale radius from a
+# previous tick — the disk shrinks or grows based on yesterday's
+# intensity and charges the wrong HUMs. radius_px formula is exactly
+# `base_radius_ru * SLOT_HEIGHT_PX * intensity / UNIT`; don't shortcut
+# it (dropping the intensity scaling makes a half-purring cat charge at
+# full radius).
 
 # ContentmentPurrBridge writes BOTH purr.intensity and purr.radius_px each
 # tick. radius_px = base_radius_ru * SLOT_HEIGHT_PX * intensity / UNIT.

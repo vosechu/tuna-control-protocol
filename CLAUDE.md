@@ -2,6 +2,7 @@
 
 ## Stop forgetting
 
+- **Verify before asserting.** Never claim how code or a system works without reading it first. Hedge ("I think", "probably") if you haven't checked; state facts only after opening the file. Inferring from naming, conventions, or rules docs is speculation, not knowledge — confident wrong claims cost more debug time than the read would have taken.
 - **Capabilities, never species.** Branch on components, never on species labels. See "Species Are Component Recipes" below.
 - **Never a broken commit.** Every commit leaves `script/validate` green and the game bootable. No exceptions.
 - **Never use `--no-verify`** on commit or push, ever. If hooks fail, fix the underlying issue. There is no valid reason to bypass them.
@@ -9,7 +10,7 @@
 - **Use `script/validate` and `script/checks/gut_tests`** — not raw Godot commands.
 - **Explode early.** Integers for game values (ints with scaling, not floats). No `Variant`, no `null`. Guard at system boundaries; trust internally.
 - **Hook/tool warnings aren't wallpaper.** A non-blocking failure that repeats on every tool call is a signal something is wrong with the environment. Investigate at the first occurrence, not the tenth.
-- **Worktree isolation for code-writing work.** New feature from a clean base → spawn the Agent with `isolation: "worktree"` (or, for the main thread, `git worktree add` before touching code). Continuing an existing feature branch, or meta-edits to `.claude/` / `script/` / `CLAUDE.md`, → current branch is fine. The `pre-agent-require-worktree` hook enforces this on Agent spawns; read-only agent types (`Explore`, `claude-code-guide`, players, `statusline-setup`) are allowlisted.
+- **Worktree isolation for code-writing work.** New feature from a clean base → spawn the Agent with `isolation: "worktree"` (or, for the main thread, `git worktree add` before touching code). Continuing an existing feature branch, or meta-edits to `.claude/` / `script/` / `CLAUDE.md`, → current branch is fine. The `pre-agent-require-worktree` hook enforces this on Agent spawns; read-only agent types (`Explore`, `claude-code-guide`, players, `statusline-setup`) are allowlisted. **Dev-team agents are not allowlisted** (`game-programmer`, `game-designer`, `community-modder`, `game-qa`, `sound-designer`, `narrative-designer`, `accessibility-advocate`, `game-artist`, `game-asset-creator`) — pass `isolation: "worktree"` even for review-only invocations; the worktree auto-cleans if the agent makes no changes.
 
 ---
 

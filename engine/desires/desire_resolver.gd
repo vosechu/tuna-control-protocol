@@ -112,6 +112,16 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 	# would pull the cat out of the box on the very next tick.
 	if _db.has_component(entity_id, &"settled_in"):
 		return
+	# SETTLING is the 2s commit between arrival-at-host and settled_in. The
+	# host's ad still scores high (cat is at distance 0, comfort deficit
+	# still 1000 because the bond hasn't been written yet) so without this
+	# guard the resolver re-targets each tick, the move loop converts back
+	# to SEEKING/MOVING_TO, arrival fires again, the SETTLING timer resets
+	# to 0, and the cat never accumulates the 2s needed to complete.
+	if _db.has_component(entity_id, &"ai_state"):
+		var ai_state: Dictionary = _db.get_component(entity_id, &"ai_state")
+		if ai_state.get(&"state", &"") == &"SETTLING":
+			return
 
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
 	# Perception radius: 8 slot-heights = 64 pixels

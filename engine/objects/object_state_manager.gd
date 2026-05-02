@@ -26,7 +26,8 @@ const OBJECT_CONFIG: Dictionary = {
 		&"state_ads": {
 			&"new": {
 				&"ads": [
-					{&"desire_type": &"comfort", &"strength": 700, &"radius_px": 32},
+					{&"desire_type": &"comfort", &"strength": 700,
+						&"radius_px": 32, &"action": &"settle"},
 					{&"desire_type": &"curiosity", &"strength": 500,
 						&"radius_px": 40, &"action": &"shred"},
 				],
@@ -42,7 +43,8 @@ const OBJECT_CONFIG: Dictionary = {
 			},
 			&"worn": {
 				&"ads": [
-					{&"desire_type": &"comfort", &"strength": 400, &"radius_px": 24},
+					{&"desire_type": &"comfort", &"strength": 400,
+						&"radius_px": 24, &"action": &"settle"},
 					{&"desire_type": &"curiosity", &"strength": 300,
 						&"radius_px": 32, &"action": &"shred"},
 				],

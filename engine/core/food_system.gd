@@ -40,7 +40,7 @@ func press_button(button_id: int) -> int:
 	if button_rack != disp_rack or button_rack == Constants.INVALID_ID:
 		return Constants.INVALID_ID
 
-	# HUM cost check — cable-driven lookup.
+	# HUM cost check — drains the first HUM with reserve (cable-free).
 	var disp_data: Dictionary = _db.get_component(
 		dispenser_id, &"tuna_dispenser",
 	)
@@ -120,25 +120,15 @@ func tick_arms() -> void:
 				_events.can_opened.emit(entity_id)
 
 
-func is_powered(device_id: int, cost: int) -> int:
-	# AI-DEV: Query whether a hum_powered device has a live cable to a HUM
-	# with enough reserve to cover `cost`. Returns the source hum_id on
-	# success or Constants.INVALID_ID on any failure. Tombstone-safe: a
-	# cable whose hum_id no longer resolves reports not-powered.
-	if not _db.has_component(device_id, &"hum_powered"):
-		return Constants.INVALID_ID
-	if not _db.has_component(device_id, &"hum_cable"):
-		return Constants.INVALID_ID
-	var hum_id: int = _db.get_field(device_id, &"hum_cable", &"hum_id")
-	var resolved: bool = (
-		hum_id != Constants.INVALID_ID
-		and _db.has_entity(hum_id)
-		and _db.has_component(hum_id, &"hum")
-		and _hum.has_reserve(hum_id, cost)
-	)
-	if not resolved:
-		return Constants.INVALID_ID
-	return hum_id
+func is_powered(_device_id: int, cost: int) -> int:
+	# AI-DEV: Cable-free reduction of the original gate. Returns the first
+	# HUM with enough reserve to cover `cost`, or Constants.INVALID_ID. When
+	# the cable layer comes back (see hum-cable-system.md) restore the
+	# hum_powered / hum_cable / per-device routing here.
+	for hum_id: int in _db.get_entities_with(&"hum"):
+		if _hum.has_reserve(hum_id, cost):
+			return hum_id
+	return Constants.INVALID_ID
 
 
 func tick_cleanup() -> void:

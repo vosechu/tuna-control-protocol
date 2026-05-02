@@ -11,6 +11,11 @@ var _db: GameStateDB
 
 func _init(db: GameStateDB) -> void:
 	_db = db
+	# Register `settled_in` as a bond marker so DesireScatter (and any
+	# future bond-aware system) can lift the action-ad gate for the
+	# host. Idempotent — re-running for a second SettledLifecycle is
+	# safe.
+	Bonds.register_bond(&"settled_in")
 
 
 func enter(joiner_id: int, host_id: int) -> void:

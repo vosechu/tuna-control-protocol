@@ -54,22 +54,18 @@ Scenarios live per-mod under `mods/<mod_id>/scenarios/<id>.jsonc`. On a fresh ga
 
 ```jsonc
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "tcp_base:starter",
   "entities": [
-    { "type": "tcp_base:hum_device", "rack": 0, "slot": 0, "ref_name": "hum_a" },
-    {
-      "type": "tcp_base:tuna_dispenser", "rack": 2, "slot": 1,
-      "cable_to": { "ref_name": "hum_a" }
-    },
-    { "type": "tcp_cats:cat", "rack": 0, "slot": 7, "required": false }
+    { "type": "tcp_base:hum_device", "rack": 0, "slot": 9, "ref_name": "hum_a" },
+    { "type": "tcp_base:tuna_dispenser", "rack": 2, "slot": 8, "ref_name": "tuna_a" },
+    { "type": "tcp_cats:cat", "floor_rack": 1, "floor_slot_offset": 0, "required": false }
   ]
 }
 ```
 
 - **Placement:** `{rack, slot}` for rack entities, `{floor_rack, floor_slot_offset}` for floor entities. Structured objects only — no in-band string DSL.
-- **`ref_name`:** optional symbolic label so later entries can cross-reference this entity within the scenario.
-- **`cable_to: { ref_name }`:** writes a `hum_cable` component on the spawned entity pointing at the named HUM. Links resolve in a deferred pass after every entry has spawned, so forward references work.
+- **`ref_name`:** optional symbolic label so later entries can cross-reference this entity within the scenario (e.g. `settled_in_ref`).
 - **`required`:** defaults to `true`. A missing type on a required entry aborts the whole population with `push_error`. Optional entries are silently skipped when their type isn't registered — this is how third-party species mods contribute starter animals without hard-coding tcp_base's file.
 - **Load ordering:** scenarios are applied *after* every mod has registered its entity types. A scenario referencing `tcp_cats:cat` requires `tcp_cats` to be loaded.
 - **Idempotency:** the save root stores `starter_scenario_applied: true` after population. `WorldInitSystem` checks the flag, not save presence — reloads, desync recoveries, and MP resyncs never double-populate.
@@ -83,13 +79,11 @@ The framework branches on components, not species labels. These are the capabili
 | Tag | Shape | Purpose |
 |---|---|---|
 | `&"tends_servers"` | `{}` | Entity contributes to reclamation when near a server. |
-| `&"hum_powered"` | `{}` | Device needs a `hum_cable` to operate. |
-| `&"hum_cable"` | `{hum_id: int}` | Device is currently cabled to this HUM. `Constants.INVALID_ID` when unplugged. |
 | `&"hum_receiver"` | `{radius_px: int}` | Entity listens on the `&"purr"` channel within its radius. |
 | `&"purr"` | `{intensity: int}` | Entity emits on the purr channel at this per-tick strength. |
 | `&"purr_config"` | `{rate_when_satisfied: int}` | Recipe-level rate used by the contentment→purr bridge. |
 
-Mechanics and invariants live in each subsystem's rule file (see `hum-cable-system.md`, `growth-system.md`). Adding a new capability is a narrow, first-use declaration; promote to a broader name only when a second system needs the same check.
+Mechanics and invariants live in each subsystem's rule file (see `hum-cable-system.md`, `growth-system.md`). Adding a new capability is a narrow, first-use declaration; promote to a broader name only when a second system needs the same check. The cable subsystem (`hum_powered`, `hum_cable`, `cable_to` scenario field) is currently parked — see the banner on `hum-cable-system.md`.
 
 ---
 

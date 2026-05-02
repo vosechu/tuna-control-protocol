@@ -29,6 +29,16 @@ func scatter_from_ads() -> void:
 		var nearby: Array[int] = _db.query_radius(
 			pos[&"x"], pos[&"y"], perception_px,
 		)
+		# Active bonds (settled-in, future: mounted, holding, …) grant the
+		# entity consumption of action-tagged ads on the bonded host. The
+		# bond itself IS the active state, so the same gate that protects
+		# "passive proximity ≠ in the box" lifts here. See engine/core/bonds.gd.
+		# Most entities have no bond — `has_any_bond` is the cheap fast
+		# path; only allocate the host list when the entity actually has
+		# a bond marker.
+		var bond_hosts: Array[int] = []
+		if Bonds.has_any_bond(_db, entity_id):
+			bond_hosts = Bonds.get_bond_hosts(_db, entity_id)
 		# Track best strength per desire type
 		var best: Dictionary = {}  # desire_type -> strength
 		for other_id: int in nearby:
@@ -50,8 +60,10 @@ func scatter_from_ads() -> void:
 				var radius_px: int = ad[&"radius_px"]
 				if dist > radius_px:
 					continue
-				# Skip action ads — their benefit comes from performing
-				if ad.has(&"action"):
+				# Skip action ads — their benefit comes from performing.
+				# Exception: a bonded host (cat is settled in this box,
+				# mounted on this animal, etc.) bypasses the gate.
+				if ad.has(&"action") and not bond_hosts.has(other_id):
 					continue
 				var dtype: StringName = ad[&"desire_type"]
 				var strength: int = ad[&"strength"]

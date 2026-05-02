@@ -3,7 +3,6 @@ paths:
   - "engine/core/hum_*"
   - "engine/core/food_system.gd"
   - "engine/core/contentment*"
-  - "engine/core/wiring_*"
   - "nodes/hud/hum_bar.gd"
   - "nodes/robot_narrator.gd"
 ---

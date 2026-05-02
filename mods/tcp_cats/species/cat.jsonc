@@ -33,7 +33,7 @@
   "strength": 3000,
   "body_capabilities": {
     "walks":  {},
-    "jumps":  { "max_height_ru": 3 },
+    "jumps":  { "max_height_ru": 4 },
     "drops":  { "max_height_ru": 5 },
     "settles_in_containers": { "max_body_size_ru": 2 }
   },

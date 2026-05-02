@@ -17,8 +17,6 @@ signal animal_relocated(animal_id: int, from_x: int, from_y: int, to_x: int, to_
 signal hum_reserve_changed(hum_id: int, old_reserve: int, new_reserve: int)
 signal hum_brownout_entered(hum_id: int)
 signal hum_brownout_recovered(hum_id: int)
-signal cable_connected(hum_id: int, device_id: int, cable_type: StringName)
-signal cable_disconnected(hum_id: int, device_id: int)
 
 # Food loop
 signal creature_started_pacing(animal_id: int)

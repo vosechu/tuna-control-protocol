@@ -1,17 +1,27 @@
 ---
 paths:
   - "engine/core/hum_*"
-  - "engine/core/wiring_*"
   - "engine/core/contentment*"
   - "engine/core/food_system.gd"
-  - "nodes/hud/wiring*"
-  - "nodes/hud/cable*"
   - "nodes/hud/hum_bar.gd"
-  - "nodes/hud/dangling_tip.gd"
-  - "mods/tcp_base/config/hum.jsonc"
 ---
 
 # TCP HUM & Cable System
+
+> **Status — 2026-05-02:** **CABLES NOT IMPLEMENTED.** The cable subsystem
+> (WiringSystem, CableLayer/View, WiringController, DanglingTip, the
+> `hum_powered` / `hum_cable` capability tags, the `cable_connected` /
+> `cable_disconnected` events, and `mods/tcp_base/config/hum.jsonc`) was
+> removed in May 2026 to simplify Ring 0. The HUM battery, the
+> contentment→purr bridge, and the per-device charge loop remain live; the
+> cable layer between HUMs and actuators is the only piece that's gone.
+>
+> Today's `FoodSystem.is_powered(device_id, cost)` returns the first HUM
+> with enough reserve, ignoring `device_id`. When cables come back, restore
+> this spec's gating contract verbatim.
+>
+> Everything below this banner is the **target design**, kept for the day
+> cables ship again. Do not assume any of it is currently wired.
 
 Per-device HUM batteries, emit/listen charging, and player-placed power cables to kinetic actuators. This is the mechanical spine of the purr-power loop described in `core-loop.md`.
 

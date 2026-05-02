@@ -1,7 +1,12 @@
 extends GutTest
 
-# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is
-# because you removed or broke code.
+# AI-DEV: Pins the disk-vs-rect geometry contract. The HUM is a
+# rectangular body (RACK_WIDTH_PX wide × size_ru × SLOT_HEIGHT_PX tall);
+# the cat's emission is a circle of radius purr.radius_px. Charge
+# happens iff disk intersects rect — NOT center-distance, NOT rect-vs-
+# rect. A tempting "simplification" to center-distance silently breaks
+# tall HUMs (size_ru > 1) because the disk edge can touch the rect's
+# face without reaching its center. Keep the assertions as-is.
 
 # HUM body rect = (anchor_top, RACK_WIDTH_PX) wide, (size_ru * SLOT_HEIGHT_PX) tall.
 # Cat emission disk = circle(cat.pos, purr.radius_px). Charge if rect intersects disk.

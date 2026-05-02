@@ -1,15 +1,13 @@
 extends GutTest
 
-# AI-DEV: AI **MUST NOT** touch this test. If the test is failing, it is
-# because you removed or broke code.
-
-# Movement responsibility lives on the navgraph: when a species' from->to
-# pair has no traversable path, next_waypoint_or_stay must return `from`
-# unchanged. The mover then takes a zero-step (stays put) until the AI
-# layer reassigns the target. Without this, the previous fallback returned
-# `target` directly and the mover walked the entity straight at an
-# unreachable rack-mounted object — the cause of the "ferret hovering
-# above the rack" regression after real-Y rendering shipped.
+# AI-DEV: Quiet-failure regression guard. Movement responsibility lives
+# on the navgraph: when a species' from->to pair has no traversable path,
+# next_waypoint_or_stay must return `from` unchanged so the mover stays
+# put until the AI layer reassigns the target. The previous fallback
+# returned `target` directly and the mover walked the entity straight at
+# an unreachable rack-mounted object (the "ferret hovering above the
+# rack" regression after real-Y rendering shipped). Loosening this test
+# to "any non-empty result" would silently let the regression return.
 
 
 func _slot_world_center(rack: int, slot: int) -> Vector2i:
@@ -72,14 +70,14 @@ func test_already_at_target_returns_target() -> void:
 
 
 func test_same_domain_walks_direct_to_target_nav_node() -> void:
-	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	# Pins the "same-domain final-approach" contract: when from and to both
-	# resolve to the SAME nearest nav node (entity is in that node's domain
-	# but a few pixels short of it), `get_id_path` returns a single-element
-	# path and the previous `path.size() > 1` guard treated this as "no
-	# path" — entity stayed put forever at e.g. (67, 110) while its target
-	# nav node sat at (67, 104). The contract: walk straight to the target's
-	# nav node so arrival can fire on the move loop's next pass.
+	# AI-DEV: Pins the "same-domain final-approach" contract: when from and
+	# to both resolve to the SAME nearest nav node (entity is in that node's
+	# domain but a few pixels short of it), `get_id_path` returns a single-
+	# element path and the previous `path.size() > 1` guard treated this as
+	# "no path" — entity stayed put forever at e.g. (67, 110) while its
+	# target nav node sat at (67, 104). Do not weaken to "returns anything
+	# in the right direction" — the assertion is exactly the slot's nav
+	# node coords because that's the only value that lets arrival fire.
 	var b := NavGraphBuilder.new()
 	b.register_species(
 		&"jumper",
@@ -102,16 +100,15 @@ func test_same_domain_walks_direct_to_target_nav_node() -> void:
 
 
 func test_off_anchor_position_advances_not_retreats() -> void:
-	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
-	# Pins the "no 2-px ping-pong" contract: when an entity is in transit
-	# between two floor nodes (not exactly at a nav node), the closest
-	# nav-node lookup still returns the anchor *behind* the entity. The
-	# previous waypoint loop returned that anchor, snapping the animal
+	# AI-DEV: Pins the "no 2-px ping-pong" contract: when an entity is in
+	# transit between two floor nodes (not exactly at a nav node), the
+	# closest-point lookup still returns the anchor *behind* the entity.
+	# The previous waypoint loop returned that anchor, snapping the animal
 	# backward, so the next tick the closest-point flipped and walked it
 	# forward again — visible in-game as animals oscillating between two
-	# pixels on the floor instead of patrolling. The fix: skip the anchor
-	# (path[0]) and step toward path[1], which is always the next nav node
-	# along the route.
+	# pixels on the floor. The assertion checks the entity advances toward
+	# path[1] specifically; relaxing to "any forward step" would let a
+	# regression that returns path[0]+1 (still backward-ish) sneak through.
 	var b := NavGraphBuilder.new()
 	b.register_species(&"walker", {&"walks": {}}, {&"size_ru": 1})
 	b.build()
