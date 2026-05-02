@@ -3,7 +3,7 @@
 # manually update hashes.
 ---
 setup_hash: d4024d0d
-verified_at: '2026-05-02T15:10:45Z'
+verified_at: '2026-05-02T15:57:07Z'
 tests:
   test_press_button_dispenses_can_when_hum_available: '83150862'
   test_press_button_fails_without_hum: 05aae6e9
@@ -18,3 +18,5 @@ tests:
   test_each_arm_opens_its_own_racks_can: f25f3e15
   test_arm_opens_multiple_cans_in_radius_per_tick: 9da272ea
   test_arm_stops_opening_when_hum_runs_out_mid_tick: 8438ac9e
+  test_is_powered_returns_hum_id_not_bool: 3c50ec95
+  test_opened_can_hunger_ad_is_action_tagged: 7ba7e342

@@ -237,6 +237,42 @@ func test_arm_stops_opening_when_hum_runs_out_mid_tick():
 		"One can should remain sealed when HUM runs out mid-tick")
 
 
+func test_is_powered_returns_hum_id_not_bool():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# Pins is_powered's return-type contract — must return the source hum_id (an
+	# int matching a HUM entity), not a bool/sentinel/arbitrary int. Mutation:
+	# change the loop's `return hum_id` to any other int (e.g.
+	# `return Constants.INVALID_ID + 1`). Other tests cascade-break because
+	# drain_action depends on a real hum_id, but this is the only test that
+	# proves the contract by direct assertion rather than indirect crash.
+	var dispenser_id: int = _make_dispenser(1, 5)
+	var result: int = food.is_powered(dispenser_id, 50)
+	assert_eq(result, hum_id,
+		"is_powered should return the source hum_id, not bool/sentinel")
+
+
+func test_opened_can_hunger_ad_is_action_tagged():
+	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
+	# Pins the `action` sentinel on the opened-can hunger ad. DesireScatter skips
+	# ads whose key set contains `action` (presence-only check; see
+	# `.claude/rules/objects.md` — Passive scatter vs. active consumption), which
+	# is how cats are forced through PACING/EATING rather than being passively
+	# satisfied. Surgical within-suite mutation: remove `&"action": &"eat",` from
+	# the hunger ad in tick_arms. test_opened_can_advertises_food and
+	# test_opened_can_hunger_ad_has_correct_shape both stay green (neither checks
+	# the action key); this test is the only proof of the sentinel.
+	_make_arm(1)
+	var can_id: int = _make_sealed_can(1)
+	food.tick_arms()
+	var ads: Dictionary = db.get_component(can_id, &"advertisements")
+	var hunger_ad: Dictionary = {}
+	for ad: Dictionary in ads[&"list"]:
+		if ad[&"desire_type"] == &"hunger":
+			hunger_ad = ad
+	assert_true(hunger_ad.has(&"action"),
+		"Hunger ad must carry `action` sentinel to skip passive scatter")
+
+
 # ── Helpers ──
 
 

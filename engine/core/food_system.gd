@@ -114,6 +114,7 @@ func tick_arms() -> void:
 					&"strength": 900,
 					&"radius_px": 48,
 					&"max_occupants": 1,
+					&"action": &"eat",
 				}]},
 			)
 			if _events and _events.has_signal(&"can_opened"):
