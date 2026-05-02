@@ -112,6 +112,8 @@ func _overrides_for(entry: Dictionary) -> Dictionary:
 	# Floor placement: (floor_rack, floor_slot_offset) → rack X center,
 	# Y midway through the floor strip.
 	var out: Dictionary = {}
+	if entry.has("name"):
+		out[&"name"] = StringName(entry["name"])
 	if entry.has("rack") and entry.has("slot"):
 		var rack: int = int(entry["rack"])
 		var slot: int = int(entry["slot"])

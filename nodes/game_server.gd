@@ -175,7 +175,12 @@ func _scatter_desires() -> void:
 	# Satisfaction decay over time (positive values drop toward 0 = desperate).
 	db.add_all(&"desires", &"comfort", -5)
 	db.add_all(&"desires", &"curiosity", -3)
-	db.add_all(&"desires", &"hunger", -3)
+	# AI-DEV: TEMP — hunger decay disabled while we tune settling/box behavior
+	# without the no-dispenser PACING cascade drowning everything else out.
+	# Restore by changing 0 back to -3. Initial spawn satisfaction (600 in
+	# entity_def_registry.gd) keeps every animal above the 400 contentment
+	# threshold for hunger as long as decay stays at 0.
+	db.add_all(&"desires", &"hunger", 0)
 	db.add_all(&"desires", &"attention", -8)
 	# Satisfaction from nearby object advertisements (warmth, comfort, etc.)
 	desire_scatter.scatter_from_ads()
@@ -309,6 +314,13 @@ func _update_ambient_states() -> void:
 	var animals: Array[int] = db.get_entities_with(&"ai_state")
 	for entity_id: int in animals:
 		if not db.has_component(entity_id, &"species"):
+			continue
+		# Settled entities are deliberately resting at a host. Mirror the
+		# desire_resolver guard from commit 33be244 — without this skip the
+		# hunger-block at the bottom of this loop converts a SLEEPING
+		# settled cat into PACING the moment its hunger crosses 400, even
+		# though `settled_in` should mean "stay put."
+		if db.has_component(entity_id, &"settled_in"):
 			continue
 		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
 

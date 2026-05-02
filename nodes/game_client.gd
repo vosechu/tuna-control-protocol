@@ -43,7 +43,6 @@ var _placement_ui_node: Control
 var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
 # entity_id -> float (seconds elapsed in clearing)
 var _clearing_objects: Dictionary = {}
-var _starter_sprites: Array[Sprite2D] = []
 var _cable_layer: CableLayer
 var _dangling_tip: DanglingTip
 var _wiring_controller: WiringController
@@ -56,12 +55,10 @@ func _ready() -> void:
 	_build_bays()
 	_build_rack_decor()
 	_build_dynamic_plants()
-	_build_starter_objects()
 	$World/PlacedObjects.z_index = _Z_PLACED
 	$World/Animals.z_index = _Z_ANIMALS
 	# Wait one frame for GameServer._ready() to create entities
 	await get_tree().process_frame
-	_register_starter_sprites()
 	_render_scenario_placed_objects()
 	_spawn_animal_nodes()
 	_setup_heat_overlay()
@@ -307,46 +304,6 @@ func _build_dynamic_plants() -> void:
 	dp_node.name = "DynamicPlants"
 	dp_node.set_script(dp_script)
 	$World.add_child(dp_node)
-
-
-func _build_starter_objects() -> void:
-	var server_sprite := Sprite2D.new()
-	server_sprite.texture = _SERVER_TEX
-	server_sprite.centered = false
-	# Server at rack 1, slot 1 (near top; slot 9-8 = 1 under new bottom-first semantics).
-	var server_slot_origin: Vector2i = Constants.slot_origin_world(0, 1, 1)
-	server_sprite.position = Vector2(server_slot_origin)
-	$World/PlacedObjects.add_child(server_sprite)
-	_starter_sprites.append(server_sprite)
-
-	var box_sprite := Sprite2D.new()
-	box_sprite.texture = _BOX_RACK_TEX
-	box_sprite.centered = false
-	# Box at rack 0, slot 1 (2U tall — occupies slots 1+2 under bottom-first semantics).
-	var box_slot_origin: Vector2i = Constants.slot_origin_world(0, 0, 1)
-	box_sprite.position = Vector2(box_slot_origin)
-	$World/PlacedObjects.add_child(box_sprite)
-	_starter_sprites.append(box_sprite)
-
-
-
-func _register_starter_sprites() -> void:
-	# Match starter sprites to DB entities with object_type
-	var db: GameStateDB = game_server.db
-	var objects: Array[int] = db.get_entities_with(
-		&"object_type"
-	)
-	# Starter objects are created in order: server, box, pile
-	# Match by index (same creation order as sprites)
-	var sprite_idx: int = 0
-	for entity_id: int in objects:
-		if sprite_idx >= _starter_sprites.size():
-			break
-		_object_sprites[entity_id] = (
-			_starter_sprites[sprite_idx]
-		)
-		sprite_idx += 1
-	_starter_sprites.clear()
 
 
 func _render_scenario_placed_objects() -> void:

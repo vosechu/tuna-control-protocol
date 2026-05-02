@@ -34,6 +34,7 @@
     // observing pre-seed state still sees a coherent SLEEPING animal.
     {
       "type": "tcp_cats:cat",
+      "name": "Pixel",
       "floor_rack": 1, "floor_slot_offset": 0,
       "ref_name": "cat_a",
       "ai_state": "SLEEPING",
@@ -44,6 +45,7 @@
     // scoring should pull it toward a comfort ad on its own.
     {
       "type": "tcp_cats:cat",
+      "name": "Mittens",
       "floor_rack": 2, "floor_slot_offset": 0,
       "ref_name": "cat_b",
       "ai_state": "IDLE",

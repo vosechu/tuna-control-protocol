@@ -10,6 +10,12 @@ const _NAME_COLORS: Array[Color] = [
 
 static var _next_color: int = 0
 
+# AI-DEV: TEMP — debug outline boxes (yellow=data position, orange=sprite
+# render position) toggle with the C key. Shared static so one keypress flips
+# every animal at once. Remove this flag, `_unhandled_input`, and `_draw()`
+# once the offset_y verification work is done.
+static var _debug_outlines: bool = false
+
 var entity_id: int = Constants.INVALID_ID
 
 var _db: GameStateDB
@@ -17,6 +23,7 @@ var _prev_pos: Vector2
 var _target_pos: Vector2
 var _footstep_player: AudioStreamPlayer2D
 var _color_index: int = 0
+var _base_sprite_offset_y: float = 0.0
 var _state_animations: Dictionary = {}
 var _edge_animations: Dictionary = {}
 
@@ -52,7 +59,8 @@ func _setup_sprite() -> void:
 	var variant: String = String(species.get(&"variant", &""))
 	var base_path: String = String(config.get("base_path", "")).replace("{variant}", variant)
 	_sprite.scale = Vector2(1.0, 1.0)
-	_sprite.offset.y = float(config.get("offset_y", 0))
+	_base_sprite_offset_y = float(config.get("offset_y", 0))
+	_sprite.offset.y = _base_sprite_offset_y
 
 	var frames := SpriteFrames.new()
 	if frames.has_animation(&"default"):
@@ -91,6 +99,7 @@ func _setup_name_label(species: Dictionary) -> void:
 	_color_index = _next_color % _NAME_COLORS.size()
 	_next_color += 1
 	_name_label.add_theme_color_override("font_color", _NAME_COLORS[_color_index])
+	_name_label.add_theme_font_size_override("font_size", 4)
 
 
 func _setup_footstep_audio() -> void:
@@ -231,6 +240,47 @@ func _process(_delta: float) -> void:
 	if settled:
 		z_as_relative = false
 		z_index = Constants.Z_PLACED_OBJECTS_TUCKED
+		# Empirical +8 y / +2 x to lift the 40×40 cat sprite halfway
+		# between "fully above the box" and "centered in the box" so the
+		# ears poke above the box lip while the body sits inside, and
+		# nudge right so the tail doesn't poke out the left wall. Box is
+		# 2 slots / 16px tall, anchored at slot_origin top-left.
+		# TODO: derive this from the host's body_geometry / sprite extent
+		# instead of hardcoding once a second tuck-host (clothes pile, etc.)
+		# arrives — different hosts will need different biases.
+		_sprite.offset.y = _base_sprite_offset_y + 8.0
+		_sprite.offset.x = 2.0
 	else:
 		z_as_relative = true
 		z_index = 200 + int(global_position.y / 2.0)
+		_sprite.offset.y = _base_sprite_offset_y
+		_sprite.offset.x = 0.0
+	queue_redraw()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if key.pressed and not key.echo and key.keycode == KEY_C:
+			_debug_outlines = not _debug_outlines
+			get_viewport().set_input_as_handled()
+
+
+func _draw() -> void:
+	if not _debug_outlines:
+		return
+	# Debug markers: yellow 40x40 outline at the entity's data position
+	# (the AnimalNode origin); orange 40x40 outline at the sprite's
+	# rendered position (origin + sprite_config.offset_y). Both 1px wide.
+	# Surface the gap between data and visuals empirically.
+	var size: float = 40.0
+	draw_rect(
+		Rect2(-size / 2.0, -size / 2.0, size, size),
+		Color.YELLOW, false, 1.0,
+	)
+	if _sprite != null:
+		var off_y: float = _sprite.offset.y
+		draw_rect(
+			Rect2(-size / 2.0, off_y - size / 2.0, size, size),
+			Color.ORANGE, false, 1.0,
+		)

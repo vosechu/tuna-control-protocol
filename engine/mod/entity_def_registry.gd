@@ -1,5 +1,19 @@
 class_name EntityDefRegistry extends RefCounted
 
+# Per-channel default initial satisfaction for entities spawned without
+# an explicit `desires` override. Hunger is seeded above the
+# `CatFoodStates.HUNGER_THRESHOLD` (400) so a freshly-spawned animal
+# doesn't immediately PACE for an unreachable dispenser; everything
+# else stays at the conservative deficit baseline so the desire
+# resolver still has work to do at boot.
+# AI-DEV: tunable balance number. Move to config when the balance
+# pass starts; keep in code for now so spawn can run without
+# ConfigRegistry being threaded through.
+const _DEFAULT_INITIAL_SATISFACTION: int = 200
+const _DEFAULT_INITIAL_SATISFACTION_BY_KEY: Dictionary = {
+	&"hunger": 600,
+}
+
 var _definitions: Dictionary = {}  # StringName -> Dictionary
 
 
@@ -126,11 +140,13 @@ func spawn(
 			else:
 				personality[StringName(key + "_weight")] = \
 					int(base_desires[key])
-			# Deep-merge: override wins if present, else default
+			# Deep-merge: override wins if present, else per-channel default
 			if desire_overrides.has(skey):
 				initial_desires[skey] = int(desire_overrides[skey])
 			else:
-				initial_desires[skey] = 200
+				initial_desires[skey] = _DEFAULT_INITIAL_SATISFACTION_BY_KEY.get(
+					skey, _DEFAULT_INITIAL_SATISFACTION,
+				)
 		db.set_component(id, &"desires", initial_desires)
 		db.set_component(id, &"personality", personality)
 
