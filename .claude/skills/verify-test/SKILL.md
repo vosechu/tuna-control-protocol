@@ -53,18 +53,20 @@ The test name must describe the specific behavior being asserted, not
 the method name. A reader who sees only the test name should correctly
 predict what the test does.
 
-Include the AI-DEV protection marker as the first line inside the
-function body:
-
 ```gdscript
 func test_drain_action_floors_at_zero() -> void:
-    # AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
     var hum_id: int = _make_hum()
     _db.set_field(hum_id, &"hum", &"reserve", 10)
     _hum.drain_action(hum_id, 100)
     assert_eq(_hum.get_reserve(hum_id), 0,
         "Draining 100 from reserve 10 should reach exactly 0 (floor)")
 ```
+
+If a test pins a specific invariant — a regression that bit you, a
+mutation that would silently pass — write an `AI-DEV:` comment that
+names *which* invariant. Generic "AI must not touch" boilerplate is
+noise (see `.claude/rules/ai-dev.md`); the stamp is the tamper-evidence
+mechanism, not a comment.
 
 ### 2. Red — confirm failure
 

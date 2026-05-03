@@ -1,13 +1,13 @@
 # GameServer Extraction Design Spec
 
 **Date:** 2026-04-06
-**Status:** Superseded for MovementSystem extraction and `_move_animals` test-inlining by `2026-05-02-recipe-driven-balance-design.md`. ObjectStateManager, DesireScatter, and `mark_all_dirty` items remain applicable as historical reference.
+**Status:** Superseded for MovementSystem and AiStateSystem extraction. ObjectStateManager, DesireScatter, and `mark_all_dirty` items remain applicable as historical reference.
 **Related spec:** `2026-04-06-test-verification-system-design.md`
 **Related plan:** `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md`
 
-## Successor specs
+## Successor
 
-- `2026-05-02-recipe-driven-balance-design.md` — absorbed the MovementSystem extraction, AiStateSystem extraction (formerly out of scope here), the food-finder migration to `FoodSystem` public API, and the integration-test inlining for `_move_animals` and `_scatter_desires`. Recipe-driven balance also tightened the species schema (v3→v4) so per-recipe walk speed, decay rates, and ambient-state durations no longer need engine-side defaults.
+The MovementSystem extraction, AiStateSystem extraction (formerly out of scope here), the food-finder migration to `FoodSystem` public API, and the species schema tightening (v3→v4 with per-recipe walk speed, decay rates, and ambient-state durations) all shipped under PR #18. The mechanics now live in `.claude/rules/animal-ai.md` (per-species decay, walk speed, recipe-driven `min_duration_ticks`), `.claude/rules/modding.md` (v4 schema), `.claude/rules/tick-architecture.md` (DesireDecaySystem and AiStateSystem in tick order), and `.claude/rules/design-philosophy.md` (`add_field_subset` op).
 
 > **2026-04-07 update:** Triage of the post-stash-chaos state showed that more of this extraction actually made it onto `main` than the original "Implementation Status" section claimed. The "Lessons Learned" section is still useful as a record of what went wrong and how to avoid it next time. The "Implementation Status" at the bottom has been rewritten to reflect ground truth as of `11dce11`.
 
@@ -272,8 +272,8 @@ Commit message: `refactor: extract <ClassName> from GameServer`. Body explains w
 | `ObjectStateManager` (generic, config-driven) | ✅ Landed | `engine/objects/object_state_manager.gd` (committed in `8245d85`) |
 | `DesireScatter` | ✅ Landed | `engine/desires/desire_scatter.gd` (committed in `8245d85`) |
 | `DesireResolver.mark_all_dirty()` | ✅ Landed | `engine/desires/desire_resolver.gd:21`, called from `nodes/game_server.gd:53` |
-| `MovementSystem` extraction | ✅ Superseded — landed via `2026-05-02-recipe-driven-balance-design.md` | `engine/animals/movement_system.gd` (recipe-driven balance branch) |
-| `AiStateSystem` extraction | ✅ Superseded — landed via `2026-05-02-recipe-driven-balance-design.md` (formerly out of scope here) | `engine/animals/ai_state_system.gd` |
+| `MovementSystem` extraction | ✅ Superseded — shipped under PR #18; mechanics in `.claude/rules/animal-ai.md` § Walking speed | `engine/animals/movement_system.gd` |
+| `AiStateSystem` extraction | ✅ Superseded — shipped under PR #18 (formerly out of scope here) | `engine/animals/ai_state_system.gd` |
 | 4 affected test files updated to call new classes | ⚠️ Partially superseded — `test_desire_scatter.gd` and `test_runtime_smoke.gd` (now `test_movement_smoke.gd`) tracked in recipe-driven balance; `test_tick_loop.gd` (still inlines `_decay_commitment`) and `test_object_state.gd` / `test_performing.gd` remain on this spec's TODO. | mixed |
 | Re-stamp updated test files | ⚠️ Partially superseded — recipe-driven-balance commits stamped their tests; remaining ones tied to row above. | |
 
@@ -284,7 +284,7 @@ Commit message: `refactor: extract <ClassName> from GameServer`. Body explains w
 **Remaining work:**
 
 1. **Verify ObjectStateManager + DesireScatter match the spec design.** Read the current files. Confirm generic API. If the API drifted to per-type methods, refactor. Re-stamp affected tests.
-2. ~~**Extract `MovementSystem` from `nodes/game_server.gd`.**~~ **Superseded by `2026-05-02-recipe-driven-balance-design.md`** — landed as part of recipe-driven balance work.
+2. ~~**Extract `MovementSystem` from `nodes/game_server.gd`.**~~ **Shipped under PR #18.** Mechanics documented in `.claude/rules/animal-ai.md`.
 3. **Update the remaining inlining test files** to call the extracted classes. `test_desire_scatter.gd` and what's now `test_movement_smoke.gd` were updated in recipe-driven-balance; `test_tick_loop.gd` (still inlines `_decay_commitment`), `test_object_state.gd`, and `test_performing.gd` are still on this spec.
 4. **Stamp the updated test files** via `script/tdd_verify stamp`.
 5. **Run `script/checks/verify_tests`** and confirm green.

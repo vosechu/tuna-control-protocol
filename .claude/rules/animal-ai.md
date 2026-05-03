@@ -34,27 +34,27 @@ Two layers: **meta-state** (AMBIENT vs. GOAL_DIRECTED) and **specific states**.
 
 ### Hysteresis Integration
 
-```gdscript
-var commitment_score: int = 0
-var min_duration: float = 0.0  # Minimum time in current state (engine seconds)
+State timers are integer ticks (incremented by 1 per simulation tick at 10 Hz). Minimum durations come per-state from the entity's recipe — never from an engine-side default table.
 
-func try_transition(new_state: State, score: int) -> bool:
-    if state_timer < min_duration: return false
-    if meta_state == GOAL_DIRECTED:
+```gdscript
+var commitment_score: int = 0       # decays at 1 per tick
+var state_timer: int = 0            # ticks elapsed in current state
+
+func try_transition(new_state: StringName, score: int) -> bool:
+    if state_timer < min_duration_ticks_for(current_state): return false
+    if meta_state == &"GOAL_DIRECTED":
         if score < commitment_score + SWITCH_THRESHOLD: return false
     _enter_state(new_state, score)
     return true
-
-func tick(delta: float) -> void:  # delta is engine time, stays float
-    state_timer += delta
-    commitment_score = maxi(0, commitment_score - int(10 * delta))  # Decays (10/1000 per sec)
 ```
+
+`AiStateSystem` increments `BehaviorTimers.state_timers[entity_id]` by 1 per tick and reads `min_duration_ticks` from the active ambient pool entry (`warm` or `cold`, picked by the entity's current `desires.warmth`). For special states (currently `STARTLED`), the duration comes from `special_states[STATE_NAME].min_duration_ticks`. The `SpeciesSchemaValidator` enforces both fields' presence at mod load — the runtime fallback is debug-only safety.
 
 **Reset commitment on arrival/completion/cancellation.** When an entity transitions from `GOAL_DIRECTED` back to `AMBIENT`, set `commitment_score = 0`. Leaving a stale commitment value in place traps the entity: typical ad scores are 200–350 and decay at 1/tick, so a post-arrival commitment of 315 demands the next target score > 315 + 150 = 465, which no ad produces. Symptom: entities that sniff one target and never move again. The goal that earned the commitment has been achieved — the value is meaningless after arrival.
 
 ### Ambient State Selection
 
-Weighted random pool filtered by context: warm → grooming/kneading eligible, near other animal → slow blink eligible, high energy → SPEED_BUMP eligible, low energy → SLEEPING. Per-species weights live in the species recipe's `ambient_states` block, not in engine code.
+Weighted random pool filtered by context: warm → grooming/kneading eligible, near other animal → slow blink eligible, high energy → SPEED_BUMP eligible, low energy → SLEEPING. Per-species weights and per-state `min_duration_ticks` both live in the recipe's `ambient_states` block, not in engine code.
 
 ---
 
@@ -197,7 +197,7 @@ The heat grid doesn't know about warm objects, and object ads don't reach the gr
 
 ### Species configuration
 
-Species recipes declare a `senses` block (perception acuity) and a `desires` dict (motivation weights). All weights are positive — effect direction comes from the registry.
+Species recipes declare a `senses` block (perception acuity) and a `desires` dict (motivation weights co-located with passive decay rates). All weights are positive — effect direction comes from the registry.
 
 ```jsonc
 "senses": {
@@ -207,18 +207,35 @@ Species recipes declare a `senses` block (perception acuity) and a `desires` dic
   "touch":    64    // cats sense ambient temperature gradients out to ~64 px
 },
 "desires": {
-  "warmth":    700,
-  "comfort":   700,
-  "safety":    800,
-  "food":      700,
-  "social":    500,
-  "curiosity": 150,
-  "quiet":     600,   // weight on the auditory-rest desire (depleted by noise ads)
-  "peace":     500    // weight on the visual-rest desire (depleted by chaos ads)
+  "warmth":    { "weight": 700, "decay": -2 },
+  "comfort":   { "weight": 700, "decay": -5 },
+  "hunger":    { "weight": 700, "decay":  0 },
+  "safety":    { "weight": 800, "decay":  0 },
+  "social":    { "weight": 500, "decay": -2 },
+  "curiosity": { "weight": 150, "decay": -3 },
+  "quiet":     { "weight": 600, "decay":  0 },   // auditory-rest, depleted by noise ads
+  "peace":     { "weight": 500, "decay":  0 }    // visual-rest, depleted by chaos ads
 }
 ```
 
-The desire dict has at most 8 entries: 6 attractor desires + `quiet` + `peace`. Aversion channels that target attractor desires (`chill → warmth`, `startle → safety`, etc.) use the same weight as the attractor — the `safety: 800` weight applies to both incoming `safety` ads (satisfy) and `startle` ads (deplete). All thresholds, curves, and hysteresis bands stay in `config/balance/desire_thresholds.json`.
+The desire dict has at most 8 entries: 6 attractor desires (`warmth`, `comfort`, `hunger`, `safety`, `social`, `curiosity`) + `quiet` + `peace`. Aversion channels that target attractor desires (`chill → warmth`, `startle → safety`, etc.) use the same weight as the attractor — the `safety` weight applies to both incoming `safety` ads (satisfy) and `startle` ads (deplete). All thresholds, curves, and hysteresis bands stay in `config/balance/desire_thresholds.json`.
+
+### Per-species desire decay
+
+Each `desires.<channel>.decay` is the per-tick passive decay applied to that entity's `desires.<channel>` value. Decay must be `<= 0` (decay-only mechanic — `SpeciesSchemaValidator` rejects positive values). `decay: 0` means no passive decay; the channel only changes via scatter or explicit writes.
+
+`DesireDecaySystem` runs inside the scatter step every tick. It reads each entity's `desire_decay` component (a flat `{channel: int}` dict materialized from the recipe at spawn) and applies the per-channel deltas in one batched `GameStateDB.add_field_subset` call per channel — never branches on species labels.
+
+### Walking speed
+
+Each species recipe declares walk speed in `body_capabilities.walks.speed_px_per_tick` (integer pixels per simulation tick, currently 10 Hz). `MovementSystem.tick()` reads this per-entity for every step — different recipes step at different speeds without code changes.
+
+```jsonc
+"body_capabilities": {
+  "walks": { "speed_px_per_tick": 2 },
+  "jumps": { "max_height_ru": 4 }
+}
+```
 
 ---
 
