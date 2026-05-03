@@ -123,6 +123,29 @@ func clamp_all(component: StringName, field: StringName, min_val: int, max_val: 
 			comps[component][field] = clampi(comps[component][field], min_val, max_val)
 
 
+# Apply a per-entity delta in one batched call. Used by per-species systems
+# that need to add a different value to each entity's <component>.<field>
+# (e.g. desire decay where each entity's decay rate comes from its recipe).
+# Entities missing the component or field are silently skipped — mirrors
+# add_all so callers don't need a pre-filter pass.
+func add_field_subset(
+		component: StringName,
+		field: StringName,
+		deltas_by_entity: Dictionary,
+) -> void:
+	for entity_id: int in deltas_by_entity:
+		if not _entities.has(entity_id):
+			continue
+		var comps: Dictionary = _entities[entity_id]
+		if not comps.has(component):
+			continue
+		var data: Dictionary = comps[component]
+		if not data.has(field):
+			continue
+		data[field] += deltas_by_entity[entity_id]
+		_mark_dirty(entity_id, component)
+
+
 # ── Working set queries ───────────────────────────────────────────────────────
 
 func get_entities_with(component: StringName) -> Array[int]:
