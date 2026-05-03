@@ -7,10 +7,10 @@ class_name DesireScatter extends RefCounted
 # require an active consumer (PACING/EATING state loop, arm tick, etc.)
 # rather than passive proximity. See .claude/rules/objects.md.
 #
-# Audit (2026-05-03): API is channel-agnostic. New channels extend
+# API discipline: channel-agnostic only. New channels extend
 # Constants.CHANNELS; no new methods required. Per-channel names like
-# scatter_warmth and per-channel match arms are forbidden — see
-# 2026-04-06-game-server-extraction-design.md lesson 2.
+# scatter_warmth and per-channel match arms are forbidden — channels
+# dispatch via Constants.CHANNELS lookup, not hardcoded arms.
 
 var _db: GameStateDB
 
