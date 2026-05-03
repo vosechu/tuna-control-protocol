@@ -208,6 +208,25 @@ func test_spawn_object_has_no_desires_component():
 	assert_true(db.has_component(id, &"object_state"))
 
 
+func test_spawn_writes_senses_component():
+	_registry.register(&"tcp_cats:cat", _make_cat_def())
+	var db := GameStateDB.new()
+	var id: int = _registry.spawn(&"tcp_cats:cat", db, {})
+	assert_true(
+		db.has_component(id, &"senses"),
+		"Spawned cat must have `senses` component",
+	)
+	var senses: Dictionary = db.get_component(id, &"senses")
+	assert_eq(
+		senses.get(&"touch", -1), 64,
+		"Touch range must round-trip from recipe to component",
+	)
+	assert_eq(
+		senses.get(&"sight", -1), 186,
+		"Sight range must round-trip from recipe to component",
+	)
+
+
 func _make_cat_def() -> Dictionary:
 	return {
 		"id": "cat", "name": "Cat",
@@ -218,6 +237,9 @@ func _make_cat_def() -> Dictionary:
 			"warmth": [500, 800],
 			"comfort": [600, 900],
 			"curiosity": [100, 200],
+		},
+		"senses": {
+			"sight": 186, "hearing": 186, "smell": 186, "touch": 64,
 		},
 		"physical": {"mass": 4000, "size_ru": 2},
 		"strength": 3000,

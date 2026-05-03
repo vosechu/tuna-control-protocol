@@ -328,6 +328,45 @@ func test_curiosity_ad_scores_normally_after_cooldown():
 # score_ad's deficit calculation.
 
 
+func test_score_ad_passes_when_within_sense_range():
+	# Sense-gated scoring proof. Cat with sight=186 must score a comfort
+	# ad at distance 80, even though the legacy radius_px gate (24) would
+	# have rejected it. Surgical mutation: revert score_ad's gate to
+	# `if dist_px > radius_px` — this test then returns 0.
+	var cat_id: int = _make_cat(0, 0, 200, 800)
+	_db.set_component(cat_id, &"senses", {
+		&"sight": 186, &"hearing": 186, &"smell": 186, &"touch": 64,
+	})
+	var box_id: int = _db.create_entity()
+	_db.set_component(box_id, &"position", {&"x": 80, &"y": 0})
+	_db.set_component(box_id, &"advertisements", {&"list": [
+		{&"desire_type": &"comfort", &"strength": 600, &"radius_px": 24},
+	]})
+	_db.update_spatial(box_id, 80, 0)
+	var ad: Dictionary = _db.get_component(box_id, &"advertisements")[&"list"][0]
+	var score: int = _resolver.score_ad(cat_id, box_id, ad)
+	assert_gt(score, 0,
+		"Cat with sight=186 must score the box at 80px (legacy radius=24 is no longer the gate)")
+
+
+func test_score_ad_zeroes_when_outside_sense_range():
+	# Near-sighted cat (sight=32) cannot see comfort source at 80px.
+	var cat_id: int = _make_cat(0, 0, 200, 800)
+	_db.set_component(cat_id, &"senses", {
+		&"sight": 32, &"hearing": 186, &"smell": 186, &"touch": 64,
+	})
+	var box_id: int = _db.create_entity()
+	_db.set_component(box_id, &"position", {&"x": 80, &"y": 0})
+	_db.set_component(box_id, &"advertisements", {&"list": [
+		{&"desire_type": &"comfort", &"strength": 600, &"radius_px": 24},
+	]})
+	_db.update_spatial(box_id, 80, 0)
+	var ad: Dictionary = _db.get_component(box_id, &"advertisements")[&"list"][0]
+	var score: int = _resolver.score_ad(cat_id, box_id, ad)
+	assert_eq(score, 0,
+		"Near-sighted cat (sight=32) must not score a comfort ad at 80px")
+
+
 func test_evaluate_budget_honors_trackers_dict():
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	# Threads the trackers dict through to score_ad. Surgical mutation: replace

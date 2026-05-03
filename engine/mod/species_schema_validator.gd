@@ -4,12 +4,15 @@ class_name SpeciesSchemaValidator extends RefCounted
 # species-marker field. The legacy `traversal` marker is retained so
 # old recipes are still detected and reported with a migration hint
 # instead of silently passing as non-species.
-const _SPECIES_MARKER_FIELDS: Array[String] = ["desires", "body_capabilities", "traversal"]
+const _SPECIES_MARKER_FIELDS: Array[String] = [
+	"desires", "body_capabilities", "traversal", "senses",
+]
 
 # Fields that must be present on any species recipe. body_capabilities and
 # body_geometry replaced the legacy traversal + max_jump_height_ru pair as
-# of the cat-jumps-into-box plan.
-var _required_fields: Array[String] = ["desires", "body_capabilities", "body_geometry"]
+# of the cat-jumps-into-box plan. `senses` shipped with the
+# perception-channels migration (docs/superpowers/specs/2026-05-02-perception-channels-design.md).
+var _required_fields: Array[String] = ["desires", "body_capabilities", "body_geometry", "senses"]
 
 
 func add_required_field(field_name: String) -> void:

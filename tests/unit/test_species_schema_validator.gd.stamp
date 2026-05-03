@@ -3,12 +3,13 @@
 # manually update hashes.
 ---
 setup_hash: e3b0c442
-verified_at: '2026-04-27T00:05:22Z'
+verified_at: '2026-05-03T02:18:18Z'
 tests:
-  test_valid_species_def_passes: 748510fd
+  test_valid_species_def_passes: 4204510d
   test_missing_desires_rejected: 4e5ae902
   test_missing_body_capabilities_rejected: df71715a
   test_missing_body_geometry_rejected: 06fcca35
   test_legacy_traversal_field_rejected: 12f74838
   test_legacy_max_jump_height_ru_rejected: 02b0af19
   test_non_species_def_passes_through: 254b86aa
+  test_missing_senses_rejected: 94447a5d

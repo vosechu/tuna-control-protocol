@@ -52,6 +52,33 @@ const SWITCH_THRESHOLD: int = 50
 const EVAL_TIME_BUDGET_USEC: int = 1000
 const ARM_REACH_PX: int = 24  # 3 slot-heights of vertical reach
 
+# ── Perception channels ──
+#
+# Channel → desire registry. Each channel declares its carrier sense (used
+# to gate scoring + scatter on the receiver's `senses` block), the target
+# desire on the receiver, and the effect direction (`satisfy` adds to the
+# desire, `deplete` subtracts).
+#
+# Six attractors + six aversions. `peace` and `quiet` are dedicated rest
+# desires; the other four aversions deplete the matching attractor.
+# See docs/superpowers/specs/2026-05-02-perception-channels-design.md.
+const CHANNELS: Dictionary = {
+	# Attractors
+	&"warmth":    {&"sense": &"touch",   &"desire": &"warmth",    &"effect": &"satisfy"},
+	&"comfort":   {&"sense": &"sight",   &"desire": &"comfort",   &"effect": &"satisfy"},
+	&"safety":    {&"sense": &"sight",   &"desire": &"safety",    &"effect": &"satisfy"},
+	&"food":      {&"sense": &"smell",   &"desire": &"food",      &"effect": &"satisfy"},
+	&"social":    {&"sense": &"sight",   &"desire": &"social",    &"effect": &"satisfy"},
+	&"curiosity": {&"sense": &"sight",   &"desire": &"curiosity", &"effect": &"satisfy"},
+	# Aversions
+	&"chill":     {&"sense": &"touch",   &"desire": &"warmth",    &"effect": &"deplete"},
+	&"chaos":     {&"sense": &"sight",   &"desire": &"peace",     &"effect": &"deplete"},
+	&"startle":   {&"sense": &"sight",   &"desire": &"safety",    &"effect": &"deplete"},
+	&"stench":    {&"sense": &"smell",   &"desire": &"food",      &"effect": &"deplete"},
+	&"hostility": {&"sense": &"sight",   &"desire": &"social",    &"effect": &"deplete"},
+	&"noise":     {&"sense": &"hearing", &"desire": &"quiet",     &"effect": &"deplete"},
+}
+
 # Absolute z_index used by an animal that is settled_in a host (box). The
 # animal flips z_as_relative = false to escape its parent layer's z-band
 # (Animals layer, z=4) and renders one band BELOW PlacedObjects (z=3) so

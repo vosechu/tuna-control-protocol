@@ -87,12 +87,31 @@ func score_ad(
 		absi(animal_pos[&"x"] - object_pos[&"x"])
 		+ absi(animal_pos[&"y"] - object_pos[&"y"])
 	)
-	var radius_px: int = ad[&"radius_px"]
 
-	if dist_px > radius_px:
+	# Sense gate: look up the channel's carrier sense in Constants.CHANNELS,
+	# then read the receiver's acuity for that sense. Animals without a
+	# senses component fall back to BAY_WIDTH_PX — bootstrap path only;
+	# SpeciesSchemaValidator enforces the senses block at mod load.
+	# `desire_type` is the legacy ad field name; PR2 renames it to `channel`.
+	var channel_meta: Dictionary = Constants.CHANNELS.get(desire_type, {})
+	var sense_key: StringName = channel_meta.get(&"sense", &"sight")
+	var senses: Dictionary = (
+		_db.get_component(animal_id, &"senses")
+		if _db.has_component(animal_id, &"senses")
+		else {}
+	)
+	var sense_range: int = senses.get(sense_key, Constants.BAY_WIDTH_PX)
+
+	if dist_px > sense_range:
 		return 0
 
-	var dist_factor: int = 1000 - (dist_px * 1000 / radius_px) if radius_px > 0 else 1000
+	# Distance falloff scales over sense range (travel-cost preference) —
+	# NOT over the ad's radius_px. Scoring answers "how far must I walk?";
+	# the ad's effect_radius_px (PR2 rename of radius_px) is a scatter
+	# concern, not a scoring concern.
+	var dist_factor: int = (
+		1000 - (dist_px * 1000 / sense_range) if sense_range > 0 else 1000
+	)
 
 	return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
 
@@ -124,9 +143,12 @@ func _evaluate_one(entity_id: int, trackers: Dictionary = {}) -> void:
 			return
 
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
-	# Perception radius: 8 slot-heights = 64 pixels
-	var perception_px: int = 8 * Constants.SLOT_HEIGHT_PX
-	var nearby: Array[int] = _db.query_radius(pos[&"x"], pos[&"y"], perception_px)
+	# Spatial bound: one bay. Per-sense clipping happens inside score_ad,
+	# so per-channel acuity (touch=64 etc.) still narrows the actual
+	# candidate set after this query returns.
+	var nearby: Array[int] = _db.query_radius(
+		pos[&"x"], pos[&"y"], Constants.BAY_WIDTH_PX,
+	)
 
 	var tracker: CuriosityTracker = trackers.get(entity_id, null)
 	var current_tick: int = _db.get_tick()

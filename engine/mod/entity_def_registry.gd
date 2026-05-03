@@ -150,6 +150,15 @@ func spawn(
 		db.set_component(id, &"desires", initial_desires)
 		db.set_component(id, &"personality", personality)
 
+	# Senses: per-channel perception acuity (sight/hearing/smell/touch).
+	# Required by SpeciesSchemaValidator at mod load — by the time we get
+	# here the block must be present on any species recipe.
+	if def.has("senses"):
+		var senses: Dictionary = {}
+		for skey: String in def["senses"]:
+			senses[StringName(skey)] = int(def["senses"][skey])
+		db.set_component(id, &"senses", senses)
+
 	# AI state (species only — entities with body_capabilities)
 	if has_body_capabilities(entity_id):
 		var initial: StringName = get_initial_state(entity_id)

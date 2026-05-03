@@ -1,0 +1,35 @@
+#!/bin/bash
+# Flags species recipes that omit the `senses` block.
+# Reference: docs/superpowers/specs/2026-05-02-perception-channels-design.md
+#
+# Usage: species_requires_senses              (scan all recipes)
+#        species_requires_senses file1 file2  (scan specific files)
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+if [ $# -gt 0 ]; then
+  FILES=("$@")
+else
+  FILES=()
+  while IFS= read -r line; do
+    FILES+=("$line")
+  done < <(find mods -path '*/species/*.jsonc' 2>/dev/null)
+fi
+
+FAIL=0
+for f in "${FILES[@]}"; do
+  [ -f "$f" ] || continue
+  case "$f" in *.jsonc) ;; *) continue ;; esac
+  if ! grep -q '"senses"' "$f"; then
+    echo "FAIL: $f is missing required \"senses\" block"
+    FAIL=1
+  fi
+done
+
+if [ $FAIL -eq 0 ]; then
+  echo "species_requires_senses: clean"
+fi
+exit $FAIL

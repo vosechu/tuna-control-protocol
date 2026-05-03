@@ -13,6 +13,7 @@ func test_valid_species_def_passes():
 		"desires": {"warmth": 500},
 		"body_capabilities": {"walks": {}},
 		"body_geometry": {"size_ru": 2},
+		"senses": {"sight": 186, "hearing": 186, "smell": 186, "touch": 64},
 	}
 	assert_true(validator.is_valid_species(def))
 
@@ -80,3 +81,15 @@ func test_non_species_def_passes_through():
 	var validator := SpeciesSchemaValidator.new()
 	var def: Dictionary = {"id": "test:box", "object_type_id": "box"}
 	assert_true(validator.is_valid_species(def))
+
+
+func test_missing_senses_rejected():
+	var validator := SpeciesSchemaValidator.new()
+	var def: Dictionary = {
+		"id": "test:no_senses_species",
+		"desires": {"warmth": 500},
+		"body_capabilities": {"walks": {}},
+		"body_geometry": {"size_ru": 2},
+	}
+	assert_false(validator.is_valid_species(def))
+	assert_push_error("missing required field: senses")

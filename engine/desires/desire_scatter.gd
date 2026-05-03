@@ -24,10 +24,10 @@ func scatter_from_ads() -> void:
 		if not _db.has_component(entity_id, &"position"):
 			continue
 		var pos: Dictionary = _db.get_component(entity_id, &"position")
-		# Perception radius: 8 slot-heights = 64 pixels
-		var perception_px: int = 8 * Constants.SLOT_HEIGHT_PX
+		# Spatial bound: one bay. Per-ad `radius_px` (Phase 1) /
+		# `effect_radius_px` (Phase 2) does the narrow-phase clipping.
 		var nearby: Array[int] = _db.query_radius(
-			pos[&"x"], pos[&"y"], perception_px,
+			pos[&"x"], pos[&"y"], Constants.BAY_WIDTH_PX,
 		)
 		# Active bonds (settled-in, future: mounted, holding, …) grant the
 		# entity consumption of action-tagged ads on the bonded host. The

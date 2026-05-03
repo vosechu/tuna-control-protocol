@@ -2,8 +2,8 @@
 # If a stamp is invalid, re-run `script/tdd_verify stamp <file>` — do not
 # manually update hashes.
 ---
-setup_hash: d51d7f1f
-verified_at: '2026-04-27T00:05:21Z'
+setup_hash: a5510482
+verified_at: '2026-05-03T02:18:56Z'
 tests:
   test_register_and_lookup: e1f744f2
   test_has_entity_returns_false_for_unknown: f8cc6c74
@@ -23,3 +23,4 @@ tests:
   test_spawn_sets_position_from_overrides: 510433ef
   test_spawn_picks_random_variant: 84d27b8f
   test_spawn_object_has_no_desires_component: 96923a4b
+  test_spawn_writes_senses_component: 27922d21

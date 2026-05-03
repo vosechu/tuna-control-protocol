@@ -3,6 +3,7 @@
   "id": "tcp_test_species:test_creature",
   "name": "TestCreature",
   "desires": { "warmth": 500, "comfort": 500 },
+  "senses": { "sight": 186, "hearing": 186, "smell": 186, "touch": 32 },
   "body_capabilities": { "walks": {} },
   "body_geometry": { "size_ru": 1 },
   "variants": ["cat01"],

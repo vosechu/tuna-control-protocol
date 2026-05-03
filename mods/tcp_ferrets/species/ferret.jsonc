@@ -5,6 +5,12 @@
   "schema_version": 2,
   "id": "tcp_ferrets:ferret",
   "name": "Ferret",
+  "senses": {
+    "sight":   186,
+    "hearing": 186,
+    "smell":   186,
+    "touch":    32
+  },
   "desires": {
     "warmth": 350,
     "comfort": 700,
