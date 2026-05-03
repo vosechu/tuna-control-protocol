@@ -6,6 +6,7 @@ var db: GameStateDB
 var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
 var desire_scatter: DesireScatter
+var desire_decay_system: DesireDecaySystem
 var object_state_manager: ObjectStateManager
 var nav_builder: NavGraphBuilder
 var hum_system: HumSystem
@@ -66,6 +67,7 @@ func _ready() -> void:
 	food_system = FoodSystem.new(db, hum_system, Events)
 	desire_resolver = DesireResolver.new(db)
 	desire_scatter = DesireScatter.new(db)
+	desire_decay_system = DesireDecaySystem.new(db)
 	object_state_manager = ObjectStateManager.new(db)
 	reclamation_system = ReclamationSystem.new(db)
 	plant_growth_system = PlantGrowthSystem.new(db, heat_grid)
@@ -172,23 +174,21 @@ func _scatter_desires() -> void:
 		# Warmth desire is satisfaction: 0 = cold/desperate, 1000 = warm/satisfied.
 		# Temperature: 0 = cold, 1000 = hot. They match directly.
 		db.set_field(entity_id, &"desires", &"warmth", temp)
-	# Satisfaction decay over time (positive values drop toward 0 = desperate).
-	db.add_all(&"desires", &"comfort", -5)
-	db.add_all(&"desires", &"curiosity", -3)
-	# AI-DEV: TEMP — hunger decay disabled while we tune settling/box behavior
-	# without the no-dispenser PACING cascade drowning everything else out.
-	# Restore by changing 0 back to -3. Initial spawn satisfaction (600 in
-	# entity_def_registry.gd) keeps every animal above the 400 contentment
-	# threshold for hunger as long as decay stays at 0.
-	db.add_all(&"desires", &"hunger", 0)
-	db.add_all(&"desires", &"attention", -8)
+	# Per-species satisfaction decay over time. Each entity reads its own
+	# decay values from the `desire_decay` component (set from recipe by
+	# EntityDefRegistry). Hardcoded global decays were removed in the
+	# recipe-driven balance migration.
+	desire_decay_system.tick()
 	# Satisfaction from nearby object advertisements (warmth, comfort, etc.)
 	desire_scatter.scatter_from_ads()
 	db.clamp_all(&"desires", &"warmth", 0, 1000)
 	db.clamp_all(&"desires", &"comfort", 0, 1000)
 	db.clamp_all(&"desires", &"curiosity", 0, 1000)
 	db.clamp_all(&"desires", &"hunger", 0, 1000)
-	db.clamp_all(&"desires", &"attention", 0, 1000)
+	db.clamp_all(&"desires", &"social", 0, 1000)
+	db.clamp_all(&"desires", &"safety", 0, 1000)
+	db.clamp_all(&"desires", &"quiet", 0, 1000)
+	db.clamp_all(&"desires", &"peace", 0, 1000)
 
 
 
