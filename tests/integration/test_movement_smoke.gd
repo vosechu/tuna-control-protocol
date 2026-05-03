@@ -10,10 +10,31 @@ const GAME_SERVER_SCRIPT: GDScript = preload("res://nodes/game_server.gd")
 # so a softened assertion (e.g. `assert_gt(max_distance, 0)`) would
 # silently pass while the bug returned. The `> 4` threshold is exactly
 # "more than one ping-pong cycle" — it must stay at 4 or higher.
+#
+# AI-DEV: Pixel is force-tucked at boot, so `settled_count >= 1` is
+# trivial — that's why the assertion is `> 1`, not `>= 1`. Loosening to
+# `>= 1` would silently pass with only Pixel settled, hiding any
+# regression in the AI/movement chain. Each of these has been a real
+# bug in the same week:
+#   - max_height_ru gate too tight → cat can't path to box at slot 2
+#   - SETTLING completion never writes settled_in
+#   - Resolver re-targets SETTLING cats and resets the 2s timer
+#   - Sticky waypoints absent → cat ping-pongs and never arrives
+# The 600-tick window (60s simulated) is the loosest deadline that still
+# surfaces all four; longer is fine, shorter risks flakiness.
 
-func test_animals_make_forward_progress_over_30_ticks() -> void:
+func test_starter_animals_move_then_settle_within_60s_simulated() -> void:
+	# Combined smoke: forward-progress over the first 30 ticks AND the
+	# settle-within-600 window. Same boot, same scene instance, two
+	# assertions — drives the simulation directly via _physics_process
+	# instead of waiting on real wall-clock physics frames. Was 60+
+	# real seconds; now milliseconds.
 	var server: Node = GAME_SERVER_SCRIPT.new()
 	get_tree().root.add_child(server)
+	# Let _ready, mod loading, and starter spawning settle. The bulk
+	# work below uses direct _physics_process calls so the full test
+	# runs in milliseconds instead of awaiting 600 real wall-clock
+	# physics frames at 10 Hz (which would be ~60 real seconds).
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -27,8 +48,9 @@ func test_animals_make_forward_progress_over_30_ticks() -> void:
 		var p: Dictionary = server.db.get_component(id, &"position")
 		starts[id] = Vector2i(p[&"x"], p[&"y"])
 
-	for _t: int in range(30):
-		await get_tree().physics_frame
+	# First 30 ticks — at least one animal must move >4 px.
+	for _t: int in 30:
+		server._physics_process(0.1)
 
 	var max_distance: int = 0
 	for id: int in animals:
@@ -37,34 +59,14 @@ func test_animals_make_forward_progress_over_30_ticks() -> void:
 		var d: int = absi(now.x - starts[id].x) + absi(now.y - starts[id].y)
 		if d > max_distance:
 			max_distance = d
-
-	server.queue_free()
-
 	assert_gt(
 		max_distance, 4,
 		"At least one animal must move >4 px in 30 ticks (ping-pong regression: %d)" % max_distance,
 	)
 
-
-# AI-DEV: Pixel is force-tucked at boot, so `settled_count >= 1` is
-# trivial — that's why the assertion is `> 1`, not `>= 1`. Loosening to
-# `>= 1` would silently pass with only Pixel settled, hiding any
-# regression in the AI/movement chain. Each of these has been a real
-# bug in the same week:
-#   - max_height_ru gate too tight → cat can't path to box at slot 2
-#   - SETTLING completion never writes settled_in
-#   - Resolver re-targets SETTLING cats and resets the 2s timer
-#   - Sticky waypoints absent → cat ping-pongs and never arrives
-# The 60s window is the loosest deadline that still surfaces all four;
-# longer is fine, shorter risks flakiness on slow CI.
-func test_starter_cat_other_than_pixel_settles_in_box_within_60s() -> void:
-	var server: Node = GAME_SERVER_SCRIPT.new()
-	get_tree().root.add_child(server)
-	await get_tree().process_frame
-	await get_tree().process_frame
-
-	for _t: int in range(600):
-		await get_tree().physics_frame
+	# Continue to tick 600 — at least one non-Pixel cat must settle in a box.
+	for _t: int in 570:
+		server._physics_process(0.1)
 
 	var settled_count: int = 0
 	for id: int in server.db.get_entities_with(&"ai_state"):
@@ -77,5 +79,5 @@ func test_starter_cat_other_than_pixel_settles_in_box_within_60s() -> void:
 
 	assert_gt(
 		settled_count, 1,
-		"At least 2 cats must be settled_in after 60s (Pixel + ≥1 starter); got %d" % settled_count,
+		"At least 2 cats must be settled_in after 600 ticks (Pixel + ≥1 starter); got %d" % settled_count,
 	)

@@ -1,9 +1,13 @@
 # GameServer Extraction Design Spec
 
 **Date:** 2026-04-06
-**Status:** Partially landed — see "Implementation Status" (rewritten 2026-04-07 after triage)
+**Status:** Superseded for MovementSystem extraction and `_move_animals` test-inlining by `2026-05-02-recipe-driven-balance-design.md`. ObjectStateManager, DesireScatter, and `mark_all_dirty` items remain applicable as historical reference.
 **Related spec:** `2026-04-06-test-verification-system-design.md`
 **Related plan:** `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md`
+
+## Successor specs
+
+- `2026-05-02-recipe-driven-balance-design.md` — absorbed the MovementSystem extraction, AiStateSystem extraction (formerly out of scope here), the food-finder migration to `FoodSystem` public API, and the integration-test inlining for `_move_animals` and `_scatter_desires`. Recipe-driven balance also tightened the species schema (v3→v4) so per-recipe walk speed, decay rates, and ambient-state durations no longer need engine-side defaults.
 
 > **2026-04-07 update:** Triage of the post-stash-chaos state showed that more of this extraction actually made it onto `main` than the original "Implementation Status" section claimed. The "Lessons Learned" section is still useful as a record of what went wrong and how to avoid it next time. The "Implementation Status" at the bottom has been rewritten to reflect ground truth as of `11dce11`.
 
@@ -268,9 +272,10 @@ Commit message: `refactor: extract <ClassName> from GameServer`. Body explains w
 | `ObjectStateManager` (generic, config-driven) | ✅ Landed | `engine/objects/object_state_manager.gd` (committed in `8245d85`) |
 | `DesireScatter` | ✅ Landed | `engine/desires/desire_scatter.gd` (committed in `8245d85`) |
 | `DesireResolver.mark_all_dirty()` | ✅ Landed | `engine/desires/desire_resolver.gd:21`, called from `nodes/game_server.gd:53` |
-| `MovementSystem` extraction | ❌ Never written | `git log --all -S "MovementSystem"` shows only this spec doc |
-| 4 affected test files updated to call new classes | ❌ Still inline production logic | `test_object_state.gd`, `test_desire_scatter.gd`, `test_performing.gd`, `test_tick_loop.gd` |
-| Re-stamp updated test files | ❌ Blocked on the row above | |
+| `MovementSystem` extraction | ✅ Superseded — landed via `2026-05-02-recipe-driven-balance-design.md` | `engine/animals/movement_system.gd` (recipe-driven balance branch) |
+| `AiStateSystem` extraction | ✅ Superseded — landed via `2026-05-02-recipe-driven-balance-design.md` (formerly out of scope here) | `engine/animals/ai_state_system.gd` |
+| 4 affected test files updated to call new classes | ⚠️ Partially superseded — `test_desire_scatter.gd` and `test_runtime_smoke.gd` (now `test_movement_smoke.gd`) tracked in recipe-driven balance; `test_tick_loop.gd` (still inlines `_decay_commitment`) and `test_object_state.gd` / `test_performing.gd` remain on this spec's TODO. | mixed |
+| Re-stamp updated test files | ⚠️ Partially superseded — recipe-driven-balance commits stamped their tests; remaining ones tied to row above. | |
 
 **Why the original status was wrong:** the previous session ended with the author believing the extractions had been lost in worktree merge failures. Triage on 2026-04-07 found that the production code for the first three items had actually made it into `8245d85 feat: object-interactions scaffolding` (probably as part of the same recovery push that pulled most of `stash@{0}` back into commits). The lost-artifact narrative carried over into this spec uncorrected. The spec is otherwise still accurate as a design reference.
 
@@ -279,9 +284,9 @@ Commit message: `refactor: extract <ClassName> from GameServer`. Body explains w
 **Remaining work:**
 
 1. **Verify ObjectStateManager + DesireScatter match the spec design.** Read the current files. Confirm generic API. If the API drifted to per-type methods, refactor. Re-stamp affected tests.
-2. **Extract `MovementSystem` from `nodes/game_server.gd`.** Sequential, in `main`, no worktrees, follow the "Plan of attack" section above.
-3. **Update the 4 inlining test files** to call the extracted classes (`ObjectStateManager`, `DesireScatter`, `MovementSystem`) instead of reimplementing them. Phase 1-5 of the test verification checklist (mutation testing against the *real* production code is the safety net — tests that survive mutation against real code were giving false confidence before).
-4. **Stamp the updated test files** via `script/stamp_tests`.
+2. ~~**Extract `MovementSystem` from `nodes/game_server.gd`.**~~ **Superseded by `2026-05-02-recipe-driven-balance-design.md`** — landed as part of recipe-driven balance work.
+3. **Update the remaining inlining test files** to call the extracted classes. `test_desire_scatter.gd` and what's now `test_movement_smoke.gd` were updated in recipe-driven-balance; `test_tick_loop.gd` (still inlines `_decay_commitment`), `test_object_state.gd`, and `test_performing.gd` are still on this spec.
+4. **Stamp the updated test files** via `script/tdd_verify stamp`.
 5. **Run `script/checks/verify_tests`** and confirm green.
 
 **Blocker:** the DesireResolver WANDERING-vs-SEEKING regression (see `docs/superpowers/plans/2026-04-07-stash-recovery-and-cleanup.md` Phase 2) needs to be fixed first. The 4 inlining tests are downstream of `desire_resolver.gd` behavior, and re-stamping them against broken production code would seal the wrong behavior into the verification system.

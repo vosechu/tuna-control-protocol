@@ -15,9 +15,9 @@ The perception-channels migration shipped in PR #14 (2026-05-03):
 
 This spec **does not** add a `senses` block, change perception radius, modify ad scoring/scatter shapes, or rename desire keys on its own. An earlier draft of this spec proposed a single `senses.radius_px` field; that's superseded by the per-sense design now permanent in `animal-ai.md`.
 
-**Schema_version arithmetic.** Each landing that changes recipe shape bumps the version once; the absolute number is bookkeeping. The current shipped value is `schema_version: 2`. With perception-PR1, my phase 2, and perception-PR2 each bumping by one, recipes end at `5` after all three land. The order between perception-PR1 and my phase 2 is not load-bearing (they're additive on disjoint blocks); perception-PR2 must land before or with my phase 2's recipe content commit, because phase 2's `desire_decay` example uses the post-PR2 desire-key set. If all three commits cluster within a week and a single consolidated v3 ships, that's fine too — at pre-release the version field is documentation, not load-bearing.
+**Schema_version arithmetic.** Species recipes shipped post-PR #14 at `schema_version: 3`. Phase 2 of this spec bumps species recipes to `4`. Object recipes are unaffected (no `desires`).
 
-**Validator coordination.** Both specs add required-field rules to `SpeciesSchemaValidator`: perception-PR1 requires `senses` (when desires present) and rejects `effect_slot: true` on free-floating entities; my phase 2 requires `desire_decay`, per-entry `min_duration_ticks`, `special_states`, and `body_capabilities.walks.speed_px_per_tick`. The aggregated grouped-error reporting documented at §"Component Materialization" must merge violations from both rule sets into one `push_error` call per recipe.
+**Validator coordination.** `SpeciesSchemaValidator` already enforces perception-channels' rules (`senses` block when desires present, `effect_slot: true` only on slot-anchored entities). Phase 2 of this spec adds: `desire_decay` (when desires present), per-entry `min_duration_ticks` on ambient_states, `special_states` (when ambient_states present), and `body_capabilities.walks.speed_px_per_tick` (when walks present). The grouped-error reporting documented at §"Component Materialization" merges all violations into one `push_error` call per recipe.
 
 What this spec **does** cover (orthogonal to perception):
 
@@ -51,7 +51,7 @@ The decay sweep is especially structurally wrong: `db.add_all(&"desires", &"comf
 
 **In scope:**
 
-1. Recipe schema additions: `desire_decay`, inline `min_duration_ticks` on ambient_states entries, `special_states.<NAME>.min_duration_ticks` for event-triggered states (STARTLED today), `body_capabilities.walks.speed_px_per_tick`. Schema version bumps from 2 → 3 (cooperatively with perception-channels).
+1. Recipe schema additions: `desire_decay`, inline `min_duration_ticks` on ambient_states entries, `special_states.<NAME>.min_duration_ticks` for event-triggered states (STARTLED today), `body_capabilities.walks.speed_px_per_tick`. Species recipes bump from `schema_version: 3` (post-PR #14) → `4`.
 2. Loader changes in `entity_def_registry.gd` to materialize the new fields as components.
 3. Schema validator updates in `species_schema_validator.gd` to enforce conditional-required-field rules per `modding.md`'s "no magic defaults" rule, with grouped per-recipe error reporting.
 4. Recipe content updates in `mods/tcp_cats/species/cat.jsonc` and `mods/tcp_ferrets/species/ferret.jsonc`.
@@ -68,11 +68,11 @@ The decay sweep is especially structurally wrong: `db.add_all(&"desires", &"comf
 
 **Out of scope:**
 
-- **Senses, perception radius, channel→sense mapping, ad scoring/scatter changes, signed-weight migration.** All owned by the perception-channels sister spec.
+- **Senses, perception radius, channel→sense mapping, ad scoring/scatter changes, signed-weight migration.** Shipped in PR #14; permanent docs in `.claude/rules/animal-ai.md` and `.claude/rules/objects.md`.
 - `place_object` → `entity_defs.spawn()` migration. Separate Phase 2 spec.
 - Writing recipes for `server_1u`, `cardboard_box`, `clothes_pile`. Phase 2 prerequisite.
 - Extracting `_scatter_desires` or `_decay_commitment` into separate systems. Both stay in `game_server.gd` for now.
-- **Hunger decay restoration.** `desire_decay.hunger` ships at `0` and stays at `0`. This is an intentional balance decision (pacing-cascade noise from non-zero hunger was drowning out other behaviors). When hunger decay does return, it'll be a recipe edit — out of scope for this spec.
+- **Hunger decay restoration.** `desire_decay.hunger` ships at `0` and stays at `0`. This is an intentional balance decision (pacing-cascade noise from non-zero hunger was drowning out other behaviors). When hunger decay does return, it'll be a recipe edit — out of scope for this spec. (Note: shipped recipes still use `hunger` as the desire key. The `Constants.CHANNELS` registry maps the `food` channel to a `food` desire, but cat.jsonc/ferret.jsonc and `cat_food_states.gd` continue to use `hunger` — that desire-key migration is a separate cleanup, not this spec's scope.)
 - Per-individual variation (kitten-vs-adult, personality-derived rates). The next expected pass on this surface — flagged here so future work doesn't cement per-recipe as the only granularity.
 - Promoting `BehaviorTimers`'s dicts to per-entity components in `GameStateDB`. They remain on `BehaviorTimers` for now; `BehaviorTimers` exists specifically to make that future promotion a one-file change.
 - Save migration. No save system exists yet. When one is built, its first migration must synthesize default `desire_decay`/`special_states` from each entity's species_id at load time — the "explode early, no defensive null" stance crashes on save load otherwise. Document this constraint in the future save spec.
@@ -81,26 +81,37 @@ The decay sweep is especially structurally wrong: `db.add_all(&"desires", &"comf
 
 ## Schema Additions
 
-### 1. Per-type desire decay
+### 1. Per-type desire decay (co-located with weights)
 
 Required on any recipe that declares `desires`. Recipes without `desires` (arms, dispensers) do not declare decay.
 
+The recipe shape changes: every `desires` entry is now an object with `weight` (required) and `decay` (required) fields, replacing the bare-int `desires.<channel>: 700` shape.
+
 ```jsonc
-// mods/tcp_cats/species/cat.jsonc — desire keys assume perception-PR2 has landed
-"desire_decay": {
-  "warmth":    -2,
-  "comfort":   -5,
-  "curiosity": -3,
-  "food":       0,    // intentionally disabled — see note below
-  "social":    -2
+// mods/tcp_cats/species/cat.jsonc
+"desires": {
+  "warmth":    { "weight": 700, "decay": -2 },
+  "comfort":   { "weight": 700, "decay": -5 },
+  "curiosity": { "weight": 150, "decay": -3 },
+  "hunger":    { "weight": 700, "decay":  0 },   // intentionally disabled — see note below
+  "social":    { "weight": 500, "decay": -2 },
+  "quiet":     { "weight": 600, "decay":  0 },
+  "peace":     { "weight": 500, "decay":  0 },
+  "safety":    { "weight": 800, "decay":  0 }
 }
 ```
 
-The integer is the per-tick decay delta. Validator rejects values > 0 — `desire_decay` is decay-only; passive recovery, if it ever ships, is a different mechanic with its own field. No magic defaults — a recipe with `desires` must declare `desire_decay` explicitly per `modding.md`'s "no magic defaults" rule. Keys must be a subset of the recipe's `desires` keys (channels not declared as desires can't decay).
+`weight` is the personality weight (loader still seeds `personality.<channel>_weight` and `personality_ranges` still randomizes around `weight` when present). `decay` is the per-tick passive decay delta — always ≤ 0 (validator rejects values > 0); zero means "no passive decay this tick." `desire_decay` is decay-only as a mechanic; passive recovery, if it ever ships, is a different mechanic with its own field.
 
-**Decay channels (post-PR2).** Receiver-side desire keys land via perception-channels PR2: `warmth`, `comfort`, `safety`, `food`, `social`, `curiosity`, `quiet`, `peace`. A recipe declares decay only on the channels it wants to decay — not every desire needs a decay entry. Today's cat decays comfort, curiosity, and social passively; warmth deserves a slow drift toward cold; food stays at 0 (see below); safety/quiet/peace are reactive (depleted by aversion ads), not passively-decaying.
+**No separate `desire_decay` block.** Earlier drafts of this spec proposed a sibling `desire_decay: {warmth: -2, ...}` block. The co-located shape replaces it: a desire and its decay rate live in the same place, mod authors physically can't add decay for an undeclared channel (because there's nowhere to put it), and the validator's "subset" rule disappears. The runtime side is unchanged — the loader materializes both `personality.<channel>_weight` and the `desire_decay` runtime component (a flat `{channel: int}` dict) from the same recipe block.
 
-**Food stays at 0.** The `food: 0` value reflects an intentional balance decision — passive food decay was causing pacing-cascade noise that drowned out other behaviors. The `_scatter_desires` AI-DEV comment at `game_server.gd:167` describing it as "TEMP" is stale; treat the recipe value as authoritative going forward. When/if food decay returns, it returns through a recipe edit (not a code revert), which is exactly the win this whole spec is about. ("Food" is the post-PR2 name for the desire previously called `hunger`.)
+**Personality ranges stay a sibling.** `personality_ranges` continues to live as a top-level block keyed by channel (`"personality_ranges": {"warmth": [500, 800], ...}`). Folding ranges into the same dict was considered and dropped to keep the diff focused.
+
+**No magic defaults.** Both `weight` and `decay` are required on every `desires` entry. A `decay: 0` is explicit "this channel does not passively decay" and must be written, not inferred. The validator rejects entries with `weight` missing, `decay` missing, or non-int values.
+
+**Decay channels.** Today's cat decays comfort, curiosity, and social passively; warmth gets a slow drift toward cold; hunger stays at 0 (see below); safety/quiet/peace are reactive (depleted by aversion ads), not passively-decaying. The shipped cat recipe carries all eight desire channels; each entry now carries an explicit decay value (mostly 0 for the non-decaying channels).
+
+**Hunger stays at 0.** The `hunger: 0` value reflects an intentional balance decision — passive hunger decay was causing pacing-cascade noise that drowned out other behaviors. The `_scatter_desires` AI-DEV comment at `game_server.gd:167` describing it as "TEMP" is stale; treat the recipe value as authoritative going forward. When/if hunger decay returns, it returns through a recipe edit (not a code revert), which is exactly the win this whole spec is about.
 
 ### 2. Inline ambient-state min durations
 
@@ -152,7 +163,7 @@ Copy-pasteable. STARTLED is the only currently-triggered special state; future R
 **Triggers stay in code.** This block declares only the *duration* of an event-triggered state — what triggers it lives in the system that owns the trigger. Two trigger paths exist or are planned:
 
 - **Direct (today):** STARTLED is set on entities within proximity of `remove_object` at `game_server.gd:705`. Bypasses the desire pipeline; the special_state is written directly.
-- **Channel-derived (perception-channels):** the `startle` channel (in perception-PR2's `Constants.CHANNELS` registry) depletes `desires.safety`. A future system could escalate to STARTLED when safety drops past a threshold. Not part of this spec.
+- **Channel-derived (future):** the `startle` channel (in `Constants.CHANNELS`) depletes `desires.safety`. A future system could escalate to STARTLED when safety drops past a threshold. Not part of this spec.
 
 Adding a key here doesn't make a state triggerable; the trigger system has to exist.
 
@@ -183,32 +194,42 @@ The senses block on species recipes — `senses.{sight, hearing, smell, touch}` 
 The two that need new materialization (~3 lines each):
 
 ```gdscript
-# Add to spawn() after the existing component blocks.
-
-if def.has("desire_decay"):
-    var decay: Dictionary = def["desire_decay"]
-    db.set_component(id, &"desire_decay", _to_stringname_keys(decay))
+# Modify spawn()'s existing "Desires + personality" block (~line 150).
+# Each entry in def["desires"] is now an object {weight, decay}, not a bare int.
+#
+# Pseudo-shape of the rewrite:
+#   for key, entry in def["desires"]:
+#       weight     = entry["weight"]                         # int, was the old bare value
+#       decay      = entry["decay"]                          # int, new field, ≤ 0
+#       personality[key + "_weight"] = randomize_or_pass(weight, personality_ranges)
+#       initial_desires[key] = default_satisfaction(key, overrides)
+#       desire_decay[key] = decay
+#   db.set_component(id, &"desires", initial_desires)
+#   db.set_component(id, &"personality", personality)
+#   db.set_component(id, &"desire_decay", desire_decay)   # new: flat {channel: int} runtime dict
 
 if def.has("special_states"):
     var specials: Dictionary = def["special_states"]
     db.set_component(id, &"special_states", _to_stringname_keys(specials))
 ```
 
-`SpeciesSchemaValidator` gets these new conditional required-field checks (the perception-channels spec adds its own; the validator should aggregate violations across both rule sets into one error per recipe):
+The runtime `desire_decay` component is the same shape as the (now-deleted) sibling-block proposal: `{channel: int}` flat dict. Consumer code in phase 3 reads it identically. Only the recipe-side parse path widens.
 
-- If a recipe has `desires`, it must have `desire_decay`.
-- Every key in `desire_decay` must be a key in `desires` (decay can't reference an undeclared channel) and every value must be ≤ 0 (decay-only).
+`SpeciesSchemaValidator` gets these new conditional required-field checks (perception-channels' rules already shipped; this phase appends to the existing validator and reuses the grouped-error path):
+
+- Every entry in `desires` must be an object (not a bare int) with `weight: int` and `decay: int` fields. Both are required; bare-int entries (the v3 shape) are rejected.
+- Every `decay` value must be ≤ 0 (decay-only mechanic).
 - If a recipe has `body_capabilities.walks`, that block must declare `speed_px_per_tick`.
 - Every `ambient_states.warm[]` and `ambient_states.cold[]` entry must declare `min_duration_ticks`.
 - A recipe that declares `ambient_states` must also declare `special_states`, and every `special_states.<NAME>` entry must declare `min_duration_ticks`.
 
-**Grouped errors.** The validator collects all missing-field violations for a single recipe into one `push_error` call rather than firing one per missing field — modders fixing a recipe shouldn't need five reload cycles. The aggregation also covers perception-channels' validator rules (senses block presence, `effect_slot` on free-floating entities) so a single recipe with multiple problems across both rule sets reports once. Validation failures skip registering the recipe; no silent fallback.
+**Grouped errors.** The validator collects all missing-field violations for a single recipe into one `push_error` call rather than firing one per missing field — modders fixing a recipe shouldn't need five reload cycles. Validation failures skip registering the recipe; no silent fallback.
 
-**Schema version bump.** Existing recipes declare `"schema_version": 2`. This spec bumps the version once when phase 2 lands; the absolute number depends on which perception-channels PR landed first (see Coordination above). Per `.claude/rules/modding.md`, schema changes need migration functions; today no third-party species mods exist (TCP is pre-release and the only species recipes ship from inside this repo), so no migration code is required at this point. When third-party mods exist, future schema bumps will need migration. Document the version delta in `modding.md` as part of phase 2's commit.
+**Schema version bump.** Species recipes are at `schema_version: 3` post-PR #14. Phase 2 of this spec bumps them to `4`. Per `.claude/rules/modding.md`, schema changes need migration functions; today no third-party species mods exist (TCP is pre-release and the only species recipes ship from inside this repo), so no migration code is required at this point. When third-party mods exist, future schema bumps will need migration. Document the v3→v4 delta in `modding.md` as part of phase 2's commit.
 
-**Recipes for entities without `desires`.** Arms, dispensers, buttons, HUM devices, tuna cans don't declare `desires` and therefore don't need `desire_decay`, `ambient_states`, or `special_states`. They keep `schema_version: 2` (or bump to 3 with no schema-relevant change) — no required-field violations apply.
+**Recipes for entities without `desires`.** Arms, dispensers, buttons, HUM devices, tuna cans don't declare `desires` and therefore don't need `desire_decay`, `ambient_states`, or `special_states`. Their schema_versions stay where they are — no required-field violations apply, no version bump required from this spec.
 
-**Audit before phase 2.** Before phase 2 commits, scan all recipe files (`mods/**/*.jsonc`) for any that declare `desires` to make sure all are updated. As of 2026-05-02 the only such recipes are `mods/tcp_cats/species/cat.jsonc` and `mods/tcp_ferrets/species/ferret.jsonc`. The parallel cat-jumps-into-box thread does not introduce new desires-bearing recipes.
+**Audit before phase 2.** Before phase 2 commits, scan all recipe files (`mods/**/*.jsonc`) for any that declare `desires` to make sure all are updated. The only such recipes are `mods/tcp_cats/species/cat.jsonc` and `mods/tcp_ferrets/species/ferret.jsonc`.
 
 ## Consumer Changes
 
@@ -228,15 +249,18 @@ for species_id: StringName in entity_defs.get_all_entities():
         continue
     for desire_type: StringName in decay:
         var rate: int = decay[desire_type]
-        for entity_id: int in entities:
-            db.add_field(entity_id, &"desires", desire_type, rate)
+        if rate == 0:
+            continue                           # no-op; skip the inner loop
+        db.add_field_subset(entities, &"desires", desire_type, rate)
 ```
 
-`EntityDefRegistry` gains two query helpers: `has_desire_decay(species_id) -> bool` and `get_desire_decay(species_id) -> Dictionary`.
+`EntityDefRegistry` gains two query helpers: `has_desire_decay(species_id) -> bool` (returns true iff the species recipe has any `desires` entry with a non-zero `decay`) and `get_desire_decay(species_id) -> Dictionary` (returns the flat `{channel: int}` decay dict materialized at spawn time, or `{}` for species without decay).
 
 **`clamp_all` calls stay as global sweeps.** The clamp_all sweep at lines 176–180 (today) clamps every cell in each desires column to `[0, 1000]` regardless of species. That stays as-is — clamping is a column-friendly safety net with no per-species variation, and replacing it with per-species clamps would lose the packed-array fast path for no benefit.
 
-**Performance.** At ~5 species × 4 channels × ~10 entities = ~200 `add_field` calls per tick versus 4 `add_all` calls today. Negligible at prototype scale. A column-friendly batched-subset op in `GameStateDB` (`add_field_subset(entity_ids, component, field, delta)`) is a possible future optimization; not introduced here. See open question 1.
+**`add_field_subset` is a new GameStateDB op.** Per Open Question 1's resolution (decided yes): `GameStateDB.add_field_subset(entity_ids: Array[int], component: StringName, field: StringName, delta: int) -> void` walks the entity_ids and applies the delta to each entity's `component.field`. Lands as part of phase 3, before the consumer rewrite. Wraps the existing single-entity `add_field` path (so dirty marking and watchers fire correctly per entity) but accepts the entity list up front so callers don't need their own loop. ~10 lines.
+
+**Performance.** At ~5 species × 4 channels × ~10 entities, the per-entity loop runs ~200 times per tick versus the four `add_all` calls today. Negligible at prototype scale. The `add_field_subset` wrapper above is a single function-call layer over `add_field` — doesn't speed things up by itself, but gives a single seam to optimize later (column-friendly fast path when the entity_ids are dense in the column).
 
 **Arms don't decay.** An arm has no `desires` block in its recipe, so `entity_defs.has_desire_decay(&"tcp_base:arm")` returns false and the inner loop never runs against arm entities. The current `add_all` sweep would silently apply to any entity that happened to have a desires column; the new path is structurally incapable of writing to entities outside its declared species set.
 
@@ -254,9 +278,9 @@ if OS.is_debug_build():
 
 Document the contract in `.claude/rules/animal-ai.md`: any entity carrying `desires` must also carry `species`. Test fixtures that violate this should add a stub species or stop adding desires.
 
-### Perception radius (deferred to perception-channels spec)
+### Perception radius (already shipped in PR #14)
 
-`desire_scatter.gd:28` and `desire_resolver.gd:118`'s hardcoded `8 * Constants.SLOT_HEIGHT_PX` perception radius is replaced as part of the perception-channels spec, not here. That work bounds the spatial query at `BAY_WIDTH_PX` and gates per-channel against the entity's `senses[carrier]` acuity.
+The hardcoded `8 * Constants.SLOT_HEIGHT_PX` perception radius was replaced by the perception-channels work: spatial queries bound at `BAY_WIDTH_PX`, per-sense gating happens after the broad-phase query. This spec does not touch that path.
 
 ### `_move_animals` → `MovementSystem` (extraction)
 
@@ -387,7 +411,7 @@ assert(_db.has_component(entity_id, &"special_states"),
     "Entity in STARTLED but recipe declared no special_states block")
 ```
 
-**Food-finder migration to FoodSystem.** Today `_update_ambient_states` calls `_find_nearby_food`, `_find_nearest_box`, `_find_nearest_dispenser`, and `_mark_nearest_can_eaten` — all private helpers on `GameServer`. Extracting AiStateSystem cleanly requires these to be reachable from outside the Node. Promote all four to **public methods on `FoodSystem`** as part of phase 6:
+**Food-finder migration to FoodSystem.** Today `_update_ambient_states` calls `_find_nearby_food`, `_find_nearest_box`, `_find_nearest_dispenser`, and `_mark_nearest_can_eaten` — all private helpers on `GameServer`. Extracting AiStateSystem cleanly requires these to be reachable from outside the Node. Promote all four to **public methods on `FoodSystem`** as part of phase 5:
 
 | Old GameServer private | New FoodSystem public |
 |---|---|
@@ -398,13 +422,11 @@ assert(_db.has_component(entity_id, &"special_states"),
 
 `food_system.find_nearest_dispenser` already delegates to `CatFoodStates.find_nearest_dispenser`; the migration just renames the GameServer wrapper to a FoodSystem method. The other three are pure spatial queries that fit FoodSystem's existing scope. This is a small, atomic API addition to FoodSystem — not the larger Open Question 1 (moving the entire food state machine into FoodSystem).
 
-**Coordination with parallel cat-jumps-into-box thread.** Both `_move_animals` and `_update_ambient_states` are being touched right now by parallel work on cat settling. This spec's extraction lands *after* that thread merges. Phase ordering below sequences accordingly.
+**Re-baseline before cutting phases 4 and 5.** The cat-jumps-into-box thread merged before this spec lands. Before each extraction phase:
 
-**Re-baseline checkpoint after parallel thread merges.** When the cat-jumps-into-box thread merges, before cutting phases 5 and 6 commits:
-
-1. Re-read the current `_move_animals` and `_update_ambient_states` methods. The line counts above (~115, ~167) are pre-merge estimates.
-2. Update phase 5/6 implementation against the current method bodies, not the snapshot this spec captured.
-3. Note any new state-timer keys, new `_min_durations` entries, or new state-machine branches the parallel thread added; they enter `BehaviorTimers` or `special_states`/`ambient_states` accordingly.
+1. Re-read the current `_move_animals` and `_update_ambient_states` methods to confirm the touchable surface against the merged base.
+2. Update phase 4/5 implementation against the current method bodies, not the snapshot this spec captured.
+3. Note any state-timer keys, `_min_durations` entries, or state-machine branches added by the merged thread; they enter `BehaviorTimers` or `special_states`/`ambient_states` accordingly.
 4. Update `tests/integration/test_tick_loop.gd`'s `EXPECTED_ORDER` constant with the new method names (`movement_system.tick()`, `ai_state_system.tick()`). The AI-DEV note "MUST NOT modify" is about preventing reorder, not preventing renames; the tick order stays the same, only the symbol strings change.
 
 ### Test updates
@@ -420,22 +442,22 @@ Re-stamp both per `/verify-test` once green.
 
 ## Order of Work
 
-Each step is one atomic commit. Each leaves `script/validate` green. The phasing minimizes merge-collision risk with the parallel cat-jumps-into-box thread.
+Each step is one atomic commit. Each leaves `script/validate` green. Both perception-channels and cat-jumps-into-box have merged; this spec lands on a clean base.
 
 | # | Phase | Touches | Conflict risk |
 |---|---|---|---|
 | 1 | Loader extensions only (no validator activation) | `engine/mod/entity_def_registry.gd` (additive — new component materializations for `desire_decay` and `special_states`), `engine/animals/behavior_timers.gd` (new struct, unused) | None |
-| 2 | Validator rules + recipe content (atomic) | `engine/mod/species_schema_validator.gd` (new required-field rules), `mods/tcp_cats/species/cat.jsonc`, `mods/tcp_ferrets/species/ferret.jsonc` (version bump, all new blocks, post-PR2 desire-key set), `.claude/rules/modding.md` (version-delta changelog, two-track recipe note) | Perception-PR2 must land before or with this commit (recipe content uses post-PR2 desire keys: `food` not `hunger`, `quiet` instead of signed `noise`); perception-PR1 can land before, with, or after |
+| 2 | Validator rules + recipe content (atomic) | `engine/mod/species_schema_validator.gd` (new required-field rules), `mods/tcp_cats/species/cat.jsonc`, `mods/tcp_ferrets/species/ferret.jsonc` (v3→v4 bump, all new blocks), `.claude/rules/modding.md` (v3→v4 changelog, two-track recipe note) | None |
 | 3 | `_scatter_desires` decay consumer (in-place) | `nodes/game_server.gd:_scatter_desires`, `engine/mod/entity_def_registry.gd` (helper queries `has_desire_decay`/`get_desire_decay`), `.claude/rules/animal-ai.md` (desires-implies-species contract) | None |
-| 4 | `MovementSystem` extraction + speed consumer + BehaviorTimers wired | `nodes/game_server.gd:_move_animals` (delete), `engine/animals/movement_system.gd` (new), `tests/integration/test_desire_scatter.gd`, `tests/integration/test_tick_loop.gd` (EXPECTED_ORDER update) | Possible — wait for cat-jumps-into-box (now merged) |
-| 5 | `AiStateSystem` extraction + min-duration consumer + food-finder migration | `nodes/game_server.gd:_update_ambient_states` (delete), `engine/animals/ai_state_system.gd` (new), `engine/core/food_system.gd` (4 promoted public methods), `tests/integration/test_tick_loop.gd` (EXPECTED_ORDER update) | High — wait for cat-jumps-into-box (now merged) |
+| 4 | `MovementSystem` extraction + speed consumer + BehaviorTimers wired | `nodes/game_server.gd:_move_animals` (delete), `engine/animals/movement_system.gd` (new), `tests/integration/test_desire_scatter.gd`, `tests/integration/test_tick_loop.gd` (EXPECTED_ORDER update) | None |
+| 5 | `AiStateSystem` extraction + min-duration consumer + food-finder migration | `nodes/game_server.gd:_update_ambient_states` (delete), `engine/animals/ai_state_system.gd` (new), `engine/core/food_system.gd` (4 promoted public methods), `tests/integration/test_tick_loop.gd` (EXPECTED_ORDER update) | None |
 | 6 | Old spec cleanup | `docs/superpowers/specs/2026-04-06-game-server-extraction-design.md` | None |
 
-After phase 1, phase 2 must follow before any consumer phase. Phase 3 is independent after phase 2 lands. Phases 4 and 5 are now unblocked since cat-jumps-into-box has merged.
+After phase 1, phase 2 must follow before any consumer phase. Phase 3 is independent after phase 2 lands.
 
 **Phase 1 atomicity.** Phase 1 is loader-only and additive. New `if def.has(...)` branches in `entity_def_registry.spawn()` materialize the new components when a recipe declares them — but no recipe declares them yet, and no consumer reads them yet. After phase 1: zero behavior change, validate green. The validator changes do NOT land in phase 1 — landing them before recipe content is updated would break validate immediately.
 
-**Phase 2 atomicity.** Validator rules + recipe content + `modding.md` documentation ship as one commit. The validator now requires the new fields when their parent block exists; the recipes carry them; the rule doc explains the v2→v3 delta. Half this list landing alone would break validate.
+**Phase 2 atomicity.** Validator rules + recipe content + `modding.md` documentation ship as one commit. The validator now requires the new fields when their parent block exists; the recipes carry them; the rule doc explains the v3→v4 delta. Half this list landing alone would break validate.
 
 **Phases 3–5.** Each consumer phase reads the components materialized in phase 1 and validated in phase 2. The hunger value in the recipe stays at `0` (intentional balance decision); the refactor does not touch it.
 
@@ -479,19 +501,19 @@ No content removed from the older spec — the lessons-learned section is durabl
 
 **Behavior (verify with playable build):**
 
-- Food (post-PR2) stays at 0 decay (recipe carries `food: 0`, formerly `hunger`); behavior identical to today. No new pacing, no missing pacing.
+- Hunger stays at 0 decay (recipe carries `hunger: 0`); behavior identical to today. No new pacing, no missing pacing.
 - Cats stay in LOAFING for ~15 sec before switching (150 ticks), matching recipe declaration.
-- No regression in cat-settling behavior; phase 6 lands after the parallel thread merges, so verification happens at that point with the merged behavior intact.
+- No regression in cat-settling behavior on the merged base.
 
 ## What This Does NOT Do
 
 - Does not refactor `place_object` or write recipes for `server_1u` / `cardboard_box` / `clothes_pile`. (Separate Phase 2 spec.)
 - Does not extract `_scatter_desires` or `_decay_commitment` into separate systems. They stay in `game_server.gd`.
 - Does not move the food state machine (PACING/EATING/SETTLING transitions) into `FoodSystem`. AiStateSystem keeps the state-machine logic; only the four spatial-query helpers (`find_nearby_food` etc.) migrate to FoodSystem.
-- Does not change tuning values. Existing values (including `food: 0` for what was `hunger`) move to recipes verbatim.
-- Does not touch the `senses` block, perception radius, ad scoring/scatter shape, channel registry, signed-weight migration, or desire-key rename. Those belong to the perception-channels sister spec.
+- Does not change tuning values. Existing values (including `hunger: 0`) move to recipes verbatim.
+- Does not touch the `senses` block, perception radius, ad scoring/scatter shape, channel registry, signed-weight migration, or desire-key rename. Those shipped in PR #14 (perception-channels).
 - Does not promote `BehaviorTimers`'s dicts to per-entity components in `GameStateDB`. The struct is the staging ground for that future move.
-- Does not introduce a `GameStateDB.add_field_subset(entity_ids, component, field, delta)` op. The naive per-entity loop in phase 3 is good enough at prototype scale; introduce the batched op only if profiling demands it.
+- ~~Does not introduce a `GameStateDB.add_field_subset(entity_ids, component, field, delta)` op.~~ **Reversed (2026-05-03):** Open Question 1 resolved as yes. Phase 3 introduces the op. See "Consumer Changes → `_scatter_desires`" for the API.
 - Does not write a schema migration function. No third-party species mods exist yet (TCP is pre-release); when they do, future schema bumps will need migration.
 - Does not surface validator errors in-game. `push_error` to the Godot console is the developer-grade UX; in-game mod-load toasts wait for the in-game mod manager.
 
@@ -504,6 +526,16 @@ No content removed from the older spec — the lessons-learned section is durabl
 
 Recipes tune "how long does the entity stay in this state once an external event sets it." Adding `special_states.RELOCATING.min_duration_ticks` to a recipe doesn't make the entity relocatable — the trigger system has to exist.
 
-## Open Questions
+## Resolved Questions
 
-1. **Do we want a small batched-subset op in `GameStateDB` now?** `add_field_subset(entity_ids, component, field, delta)` would restore the column-friendly hot path for decay. Cheap to add (~10 lines), and Phase 3 is the natural place to introduce it. Decide before phase 3 starts; default is "no, naive loop is fine until profiling says otherwise."
+1. **~~Do we want a small batched-subset op in `GameStateDB` now?~~** Resolved 2026-05-03: **yes**. Phase 3 introduces `GameStateDB.add_field_subset(entity_ids, component, field, delta)` as a precondition for the consumer rewrite. ~10 lines. Single-call seam for the per-species decay loop and a hook point for a future column-friendly fast path.
+
+2. **~~Co-locate `desire_decay` next to weights in `desires`?~~** Resolved 2026-05-03: **yes**. Recipe shape is now `desires.<channel>: {weight, decay}` — the sibling `desire_decay` block proposed in earlier drafts is gone. See "Schema Additions → 1. Per-type desire decay (co-located with weights)."
+
+3. **~~`ambient_states` array → dict shape?~~** Resolved 2026-05-03: **stay array**. Order preservation matters for deterministic random selection; the validator rejects duplicate `state` keys.
+
+4. **~~Cache `body_capabilities.walks.speed_px_per_tick` somewhere flat?~~** Resolved 2026-05-03: **no cache**. MovementSystem reads via `db.get_component(...).walks.speed_px_per_tick` each tick. Microsecond performance hit at prototype scale; correctness over perf.
+
+5. **~~`assert` vs `push_error` on STARTLED-without-special_states?~~** Resolved 2026-05-03: **assert (debug-only)**. Matches `design-philosophy.md` "Explode Early." Production behavior on missing `special_states` is "the assert was stripped; the next read will null-error in `set_field` anyway." Trade for an observability solution post-launch.
+
+6. **~~`desire_decay` naming — accommodate future passive recovery?~~** Resolved 2026-05-03: **decay-only**. Validator rejects values > 0. If passive recovery ever ships, it ships as a separate field with its own validator rule. Renaming is cheap (single grep) if priorities change.

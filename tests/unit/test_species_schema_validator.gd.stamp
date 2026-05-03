@@ -3,9 +3,9 @@
 # manually update hashes.
 ---
 setup_hash: e3b0c442
-verified_at: '2026-05-03T02:18:18Z'
+verified_at: '2026-05-03T15:15:33Z'
 tests:
-  test_valid_species_def_passes: 4204510d
+  test_valid_species_def_passes: 0addbd57
   test_missing_desires_rejected: 4e5ae902
   test_missing_body_capabilities_rejected: df71715a
   test_missing_body_geometry_rejected: 06fcca35

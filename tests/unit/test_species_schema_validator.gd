@@ -10,8 +10,9 @@ func test_valid_species_def_passes():
 	var validator := SpeciesSchemaValidator.new()
 	var def: Dictionary = {
 		"id": "test:cat",
-		"desires": {"warmth": 500},
-		"body_capabilities": {"walks": {}},
+		"schema_version": 4,
+		"desires": {"warmth": {"weight": 500, "decay": -2}},
+		"body_capabilities": {"walks": {"speed_px_per_tick": 2}},
 		"body_geometry": {"size_ru": 2},
 		"senses": {"sight": 186, "hearing": 186, "smell": 186, "touch": 64},
 	}

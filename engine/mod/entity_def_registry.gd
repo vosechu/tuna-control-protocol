@@ -146,7 +146,12 @@ func spawn(
 			id, pos.get(&"x", 0), pos.get(&"y", 0),
 		)
 
-	# Desires + personality (species only)
+	# Desires + personality + decay (species only).
+	#
+	# v4 shape: each desires entry is an object {weight: int, decay: int}.
+	# v3 fallback: bare-int entries are tolerated as {weight: <int>, decay: 0}
+	# so phase 1 doesn't require recipe rewrites; phase 2's validator rejects
+	# bare-int entries and the fallback becomes dead code.
 	if def.has("desires") and not def["desires"].is_empty():
 		var base_desires: Dictionary = def["desires"]
 		var desire_overrides: Dictionary = overrides.get(
@@ -154,8 +159,20 @@ func spawn(
 		)
 		var personality: Dictionary = {}
 		var initial_desires: Dictionary = {}
+		var desire_decay: Dictionary = {}
 		for key: String in base_desires:
 			var skey: StringName = StringName(key)
+			var entry_value: Variant = base_desires[key]
+
+			var weight: int
+			var decay: int
+			if entry_value is Dictionary:
+				weight = int((entry_value as Dictionary).get("weight", 0))
+				decay = int((entry_value as Dictionary).get("decay", 0))
+			else:
+				weight = int(entry_value)
+				decay = 0
+
 			if def.has("personality_ranges") \
 					and def["personality_ranges"].has(key):
 				var bounds: Array = def["personality_ranges"][key]
@@ -164,8 +181,8 @@ func spawn(
 				personality[StringName(key + "_weight")] = \
 					randi_range(min_val, max_val)
 			else:
-				personality[StringName(key + "_weight")] = \
-					int(base_desires[key])
+				personality[StringName(key + "_weight")] = weight
+
 			# Deep-merge: override wins if present, else per-channel default
 			if desire_overrides.has(skey):
 				initial_desires[skey] = int(desire_overrides[skey])
@@ -173,8 +190,12 @@ func spawn(
 				initial_desires[skey] = _DEFAULT_INITIAL_SATISFACTION_BY_KEY.get(
 					skey, _DEFAULT_INITIAL_SATISFACTION,
 				)
+
+			desire_decay[skey] = decay
+
 		db.set_component(id, &"desires", initial_desires)
 		db.set_component(id, &"personality", personality)
+		db.set_component(id, &"desire_decay", desire_decay)
 
 	# Senses: per-channel perception acuity (sight/hearing/smell/touch).
 	# Required by SpeciesSchemaValidator at mod load — by the time we get
@@ -222,6 +243,17 @@ func spawn(
 		db.set_component(id, &"body_capabilities", def["body_capabilities"])
 	if def.has("body_geometry"):
 		db.set_component(id, &"body_geometry", def["body_geometry"])
+
+	# Per-name special-state durations (STARTLED today; RELOCATING/BEING_CARRIED
+	# future). Required on any recipe that declares ambient_states (validator
+	# enforces in phase 2). Recipes without it just don't materialize.
+	if def.has("special_states"):
+		var specials: Dictionary = def["special_states"]
+		var typed_specials: Dictionary = {}
+		for state_name: String in specials:
+			var entry: Dictionary = specials[state_name]
+			typed_specials[StringName(state_name)] = _to_stringname_keys(entry)
+		db.set_component(id, &"special_states", typed_specials)
 
 	# Capability tags: any recipe-level boolean field we want to project
 	# onto the entity as a zero-data component.

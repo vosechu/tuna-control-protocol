@@ -13,12 +13,12 @@ const EXPECTED_ORDER: Array[String] = [
 	"_decay_commitment",
 	"desire_resolver.mark_all_dirty",
 	"desire_resolver.evaluate_budget",
-	"_move_animals",
+	"movement_system.tick",
 	"food_system.tick_arms",
 	"food_system.tick_cleanup",
 	"reclamation_system.tick",
 	"plant_growth_system.tick",
-	"_update_ambient_states",
+	"ai_state_system.tick",
 	"db.flush_notifications",
 ]
 
