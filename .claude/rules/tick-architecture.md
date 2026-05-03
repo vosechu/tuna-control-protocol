@@ -14,46 +14,41 @@ Set `Engine.physics_ticks_per_second = 10` in project settings (or in an autoloa
 
 ## Tick Order
 
+The tick is 17 numbered steps in `nodes/game_server.gd::_physics_process`. The integration test `tests/integration/test_tick_loop.gd::test_tick_order_matches_game_server` extracts this list from the source and compares against `EXPECTED_ORDER` — adding, removing, or reordering a step requires updating both.
+
 ```gdscript
 func _physics_process(_delta: float) -> void:
-    db.advance_tick()
-
-    # Step 1: Heat propagation (grid math, no entities)
-    heat_grid.propagate()
-
-    # Step 2: Object decay — batch column op
-    db.add_all(&"integrity", &"value", -1)
-
-    # Step 3: Desire update — batch decay + advertisement scatter
-    db.add_all(&"desires", &"hunger", 5)
-    db.add_all(&"desires", &"curiosity", 3)
-    desire_scatter.scatter_from_ads()   # two passes: slot-delivery then radius-delivery
-    db.clamp_all(&"desires", &"hunger", 0, 1000)
-    db.clamp_all(&"desires", &"warmth", 0, 1000)
-    db.clamp_all(&"desires", &"social", 0, 1000)
-
-    # Step 3b: Purr emitter update — contentment→purr bridge
-    #   For every entity with both `contentment` and `purr`:
-    #     purr.intensity = purr_config.rate_when_satisfied if satisfied else 0
-    #   Must run before tick_charge so charge reads current intensity.
-    contentment_purr_bridge.tick()
-
-    # Step 3c: HUM charge — emit/listen, per-entity batteries
-    hum_system.tick_charge()       # sum purr intensity at nearest hum_receiver
-    hum_system.tick_idle_drain()   # per-HUM decay
-
-    # Step 4: AI scoring — adaptive time budget, priority ordered
-    desire_resolver.evaluate_budget()
-
-    # Step 5: Movement — per-entity, updates cell mappings
-    movement_system.tick()
-
-    # Step 6: Proximity event checks
-    proximity_event_manager.check_triggers()
-
-    # Step 7: Flush watcher notifications
-    db.flush_notifications()
+    db.advance_tick()                                       # 1
+    heat_grid.propagate()                                   # 2
+    _scatter_desires()                                      # 3 — warmth-from-temp,
+                                                            #     desire_decay_system.tick(),
+                                                            #     desire_scatter.scatter_from_ads(),
+                                                            #     clamp_all
+    contentment.evaluate_all()                              # 4
+    contentment_purr_bridge.tick()                          # 5 — bridge reads is_satisfied
+    hum_system.tick_charge()                                # 6 — emit/listen, per-entity batteries
+    hum_system.tick_idle_drain()                            # 7
+    _decay_commitment()                                     # 8
+    desire_resolver.mark_all_dirty()                        # 9
+    desire_resolver.evaluate_budget(_curiosity_trackers)    # 10 — adaptive time budget
+    movement_system.tick()                                  # 11 — per-entity walk speed from recipe
+    food_system.tick_arms()                                 # 12
+    food_system.tick_cleanup()                              # 13
+    reclamation_system.tick()                               # 14
+    plant_growth_system.tick()                              # 15
+    ai_state_system.tick()                                  # 16 — recipe-driven min_duration_ticks
+    db.flush_notifications()                                # 17
 ```
+
+Load-bearing constraints:
+- `heat_grid` before `_scatter_desires` (warmth feeds desire scatter)
+- `contentment` before `contentment_purr_bridge` (bridge reads `is_satisfied`)
+- `contentment_purr_bridge` before `hum_system.tick_charge` (writes `purr.intensity` before charge reads it)
+- `hum_system` before `desire_resolver` (HUM reserve affects arm actions)
+- `movement_system` before `reclamation_system` (reads fresh positions)
+- `food_system` before `reclamation_system` (food state resolves before presence)
+- `reclamation_system` before `plant_growth_system` (reads fresh presence)
+- `plant_growth_system` before `ai_state_system` (transitions influence next tick's ambient state selection)
 
 ## Scatter Pattern (Step 3)
 

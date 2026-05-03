@@ -74,6 +74,7 @@ func entity_count() -> int
 # ── Batch column operations (hot path — backed by PackedInt32Array) ──
 
 func add_all(component: StringName, field: StringName, delta: int) -> void
+func add_field_subset(component: StringName, field: StringName, deltas_by_entity: Dictionary) -> void   # per-entity deltas in one pass
 func mul_all(component: StringName, field: StringName, factor: int) -> void   # factor in 0-1000 scale
 func clamp_all(component: StringName, field: StringName, min_val: int, max_val: int) -> void
 func set_all(component: StringName, field: StringName, value: int) -> void
@@ -160,7 +161,7 @@ func destroy_entities_bulk(entity_ids: Array[int]) -> void
 
 | Per tick | Methods |
 |---|---|
-| Thousands | `add_all`, `mul_all`, `clamp_all`, `get_field`, `set_field` |
+| Thousands | `add_all`, `add_field_subset`, `mul_all`, `clamp_all`, `get_field`, `set_field` |
 | Tens | `get_entities_with`, `query_radius_with`, `update_spatial`, `was_changed`, `get_changed_entities` |
 | Once | `advance_tick`, `flush_notifications`, `pop_dirty` |
 | On network tick | `snapshot_delta`, `apply_delta` |
