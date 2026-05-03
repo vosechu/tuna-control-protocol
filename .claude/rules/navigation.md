@@ -24,7 +24,7 @@ Point graph using Godot's `AStar2D`. Not navmesh (too structured) or tile grid (
 - `ENTER` — emitted from a box entry node to its interior iff the species carries `body_capabilities.settles_in_containers` AND `body_geometry.size_ru <= join.inner_size_ru`
 - `CLIMB_TUBE` / `CLIMB_CABLE` / `RAMP` — deferred; future capability tags
 
-The migration from `traversal: ["WALK", …]` to `body_capabilities: {walks: {}, jumps: {max_height_ru: 3}, …}` shipped in the cat-jumps-into-box plan; the dict form lets each verb carry parametric data instead of scalars on the species root.
+The dict form (each verb carries its own parametric data) replaced an older `traversal: ["WALK", …]` array with scalars on the species root. Modders writing new species recipes always use the dict form; the array form is gone.
 
 ## Species Body Schema
 

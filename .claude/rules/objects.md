@@ -44,10 +44,13 @@ Each object type declares its state machine under `OBJECT_CONFIG[&"type_name"]`:
 ```gdscript
 {
     &"state_ads": {
-        &"<state_name>": [<ad>, <ad>, ...],   # list of advertisements for this state
+        &"<state_name>": {
+            &"ads":  [<ad>, <ad>, ...],   # advertisements for this state
+            &"join": { ... },             # optional — see "Join blocks" below
+        },
         ...
     },
-    &"hp_thresholds": [                         # optional; only for degradable objects
+    &"hp_thresholds": [                   # optional; only for degradable objects
         {&"min_hp": 501, &"state": &"new"},
         {&"min_hp": 1,   &"state": &"worn"},
         {&"min_hp": 0,   &"state": &"scraps"},
@@ -56,6 +59,8 @@ Each object type declares its state machine under `OBJECT_CONFIG[&"type_name"]`:
 ```
 
 Ordering inside `hp_thresholds`: highest `min_hp` first. `get_state_for_hp` returns the first match, so a descending list means the highest-qualifying state wins.
+
+A state with no `join` key has no relationship-forming behavior in that state — when an object transitions into a `join`-less state while occupied (e.g. `cardboard_box` decaying into `scraps`), the navgraph drops the `add_box_enterable` edges and the position-coupling pass dissolves any incoming `&"settled_in"` bonds and STARTLEs the joiners. See `.claude/rules/navigation.md` §"Dynamic Updates".
 
 ### Advertisement fields
 
@@ -81,6 +86,32 @@ Every passive-scatter ad declares **exactly one** of `effect_radius_px` (physics
 2. **Radius delivery** — entity-first. Each entity reads its own `senses` once per tick, runs a broad-phase spatial query bounded by `BAY_WIDTH_PX`, then per-ad gates on `effect_radius_px` AND `senses[CHANNELS[channel].sense]`. Falloff per the ad's curve.
 
 Both passes **skip any ad with an `action` key** unless the receiver is bonded to the ad-owner. That skip is the mechanism by which "cats must actively eat to be fed" is enforced — an open tuna can is only satisfying via the EATING state loop, never just by standing nearby. Bonds gate action-ad consumption only; they do **not** participate in passive scatter — the cat-in-box loop is handled by `effect_slot: true` on box ads, not by a bond bypass.
+
+### Join blocks
+
+A state's `join` block declares how a joiner couples to the host on arrival. Three join types:
+
+| `type` | Joiner outcome | Position coupling | Z-order |
+|---|---|---|---|
+| `&"contained"` | Joiner sits *inside* the host (cat tucked into box) | `host.position + interior_origin_offset` | Joiner draws **behind** host (`Constants.Z_PLACED_OBJECTS_TUCKED`) so the host's lip occludes the body. |
+| `&"stack"` | Joiner sits *on top of* the host (kitten on cat) | `host.position + slot_offset` | Joiner draws **in front of** host (default `200 + y/2`). |
+| `&"nearby"` | Joiner stays *within radius* of the host (play partners) | No coupling — joiner free-walks; relationship dissolves when distance > `radius_px`. | Default. |
+
+Today only `contained` is wired (cardboard_box). `stack` and `nearby` are reserved types described in the resting-on design and lit up by their respective implementation phases.
+
+```gdscript
+&"join": {
+    &"type": &"contained",                          # one of the three above
+    &"direction": &"any",                            # joiner-state filter; today &"any"
+    &"capacity": 5,                                  # weight-capacity (5 kittens at weight=1, or 1 cat at weight=5)
+    &"entry_origin_offset":    Vector2i(0, -16),    # px from host position to top-stand nav node (used by ENTER edge)
+    &"interior_origin_offset": Vector2i(0, -8),     # px from host position to inside nav node (where joiner snaps)
+    &"entry_threshold_ru": 1,                       # required jumps.max_height_ru to traverse the ENTER edge
+    &"inner_size_ru": 2,                             # required body_geometry.size_ru ceiling for the joiner
+}
+```
+
+`entry_origin_offset` and `interior_origin_offset` are pixel deltas from the host's stored position. `entry_threshold_ru` and `inner_size_ru` are integer rack-units (size dimension), gates against the joiner's `body_capabilities.jumps.max_height_ru` and `body_geometry.size_ru` respectively. See `.claude/rules/navigation.md` §"Edge Types" for the ENTER scanner.
 
 ### Bond components (action-ad bypass)
 

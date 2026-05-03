@@ -81,7 +81,7 @@ The framework branches on components, not species labels. These are the capabili
 | `&"tends_servers"` | `{}` | Entity contributes to reclamation when near a server. |
 | `&"hum_receiver"` | `{radius_px: int}` | Entity listens on the `&"purr"` channel within its radius. |
 | `&"purr"` | `{intensity: int}` | Entity emits on the purr channel at this per-tick strength. |
-| `&"purr_config"` | `{rate_when_satisfied: int}` | Recipe-level rate used by the contentment→purr bridge. |
+| `&"purr_config"` | `{rate_when_satisfied: int, base_radius_ru: int}` | Recipe-level inputs to `ContentmentPurrBridge`. `rate_when_satisfied` is the per-tick intensity emitted while satisfied; `base_radius_ru` is the at-full-bliss emission radius in slot-heights (cat: 6 → 48 px, kitten: TBD lower). The bridge writes both `purr.intensity` and `purr.radius_px = base_radius_ru * SLOT_HEIGHT_PX * intensity / UNIT` each tick. |
 
 Mechanics and invariants live in each subsystem's rule file (see `hum-cable-system.md`, `growth-system.md`). Adding a new capability is a narrow, first-use declaration; promote to a broader name only when a second system needs the same check. The cable subsystem (`hum_powered`, `hum_cable`, `cable_to` scenario field) is currently parked — see the banner on `hum-cable-system.md`.
 
