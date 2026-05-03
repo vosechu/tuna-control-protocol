@@ -61,17 +61,26 @@ Ordering inside `hp_thresholds`: highest `min_hp` first. `get_state_for_hp` retu
 
 | Field | Required | Purpose |
 |---|---|---|
-| `desire_type` | yes | Desire channel (`&"warmth"`, `&"hunger"`, `&"comfort"`, `&"curiosity"`, `&"openable"`, ...). |
-| `strength` | yes | 0–1000 scoring weight, matches the desire scale. |
-| `radius_px` | yes | Effect radius in rack units. Converted to PU via ``. |
+| `channel` | yes | Emission name. Must exist in `Constants.CHANNELS` (12 entries: 6 attractor + 6 aversion). The registry maps each channel to its `{sense, desire, effect}` triple — see `animal-ai.md` §"Aversions". |
+| `strength` | yes | 0–1000, always positive. Effect direction comes from `CHANNELS[channel].effect`. |
+| `effect_radius_px` | one of | Hard cutoff for radius-delivery scatter. Cap: `BAY_WIDTH_PX`. Mutually exclusive with `effect_slot`. |
+| `effect_slot` | one of | `true` selects slot delivery: full strength to every entity sharing the ad-owner's slot; zero elsewhere. Mutually exclusive with `effect_radius_px`. Validator rejects an `effect_slot: true` ad whose owner is not slot-anchored (zone returned by `bay_local_to_slot` must be `&"slot"`). |
+| `falloff` | optional | Curve for radius delivery: `quadratic` (default), `linear`, `step`, `inverse_square`. Quadratic encodes "a buzzer across the bay should not bother a cat unless it's *really* loud." |
 | `action` | optional | Sentinel (presence only — value not read). When present, `DesireScatter` skips the ad during passive satisfaction; consumers must do the work explicitly (PACING→EATING flow, arm tick, etc.). |
 | `max_occupants` | optional | Soft cap for pile-on-style ads. Consumer decides enforcement. |
 | `novelty_duration` | optional | On-arrival SNIFFING time for curiosity ads (in ticks/10, seconds). Read by arrival logic. |
 | `novelty_cooldown` | optional | Per-tracker decay time before the same ad counts as novel again. |
 
+Every passive-scatter ad declares **exactly one** of `effect_radius_px` (physics-of-emission curve — heat, sound, scent, body heat) or `effect_slot: true` (structural effect — boxes, beds, tubes, cat towers). An ad with neither is an action ad: it never lands via passive scatter; the effect only flows through direct consumption (e.g. `settle`/`eat` actions).
+
 ### Passive scatter vs. active consumption
 
-`DesireScatter.scatter_from_ads` (engine/desires) runs every tick and applies the strongest in-range ad per desire-type to each entity with matching desires. It **skips any ad with an `action` key**. That skip is the mechanism by which "cats must actively eat to be fed" is enforced — an open tuna can is only satisfying via the EATING state loop, never just by standing nearby.
+`DesireScatter.scatter_from_ads` runs every tick in two passes:
+
+1. **Slot delivery** — for each ad with `effect_slot: true`, resolve the ad-owner's slot and apply `strength / 10` per tick to every other entity in that slot. Sidesteps pixel-tuning: the cat *in* the slot gets full strength regardless of anchor offset; the cat in the next slot gets nothing.
+2. **Radius delivery** — entity-first. Each entity reads its own `senses` once per tick, runs a broad-phase spatial query bounded by `BAY_WIDTH_PX`, then per-ad gates on `effect_radius_px` AND `senses[CHANNELS[channel].sense]`. Falloff per the ad's curve.
+
+Both passes **skip any ad with an `action` key** unless the receiver is bonded to the ad-owner. That skip is the mechanism by which "cats must actively eat to be fed" is enforced — an open tuna can is only satisfying via the EATING state loop, never just by standing nearby. Bonds gate action-ad consumption only; they do **not** participate in passive scatter — the cat-in-box loop is handled by `effect_slot: true` on box ads, not by a bond bypass.
 
 ### Bond components (action-ad bypass)
 
@@ -79,7 +88,7 @@ A "bond" is a marker component on an entity declaring an active relationship wit
 
 **Convention:** every bond marker component carries a `&"host_id"` field pointing at the bonded host. New bond types register their component name once at boot via `Bonds.register_bond(&"my_marker")` (see `engine/core/bonds.gd`). The system that manages the bond owns the registration call (e.g. `SettledLifecycle._init` registers `&"settled_in"`).
 
-`DesireScatter` reads bonds with `Bonds.has_any_bond` (cheap fast path for ~all entities, which have no bond) and only allocates the full host list via `Bonds.get_bond_hosts` when needed. Future systems (action-tick loops, contentment, narrator, inspect UI) reuse the same query.
+Bonds gate **action-ad consumption only** — passive scatter never reads them. The cat-in-box satisfaction loop is delivered by `effect_slot: true` on the box's `safety` and `comfort` ads (see "Passive scatter vs. active consumption" above). Earlier drafts routed scatter through a bond bypass; that overreach is retired in favor of slot delivery.
 
 ## Shipped object types
 

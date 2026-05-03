@@ -24,12 +24,10 @@ func _physics_process(_delta: float) -> void:
     # Step 2: Object decay — batch column op
     db.add_all(&"integrity", &"value", -1)
 
-    # Step 3: Desire update — batch ops + cached scatter
+    # Step 3: Desire update — batch decay + advertisement scatter
     db.add_all(&"desires", &"hunger", 5)
     db.add_all(&"desires", &"curiosity", 3)
-    scatter_heat_to_warmth()        # cached cell→entities mapping
-    scatter_comfort_to_desires()     # cached surface→occupants mapping
-    scatter_social_to_desires()      # cached cell→neighbor_count
+    desire_scatter.scatter_from_ads()   # two passes: slot-delivery then radius-delivery
     db.clamp_all(&"desires", &"hunger", 0, 1000)
     db.clamp_all(&"desires", &"warmth", 0, 1000)
     db.clamp_all(&"desires", &"social", 0, 1000)
@@ -57,47 +55,28 @@ func _physics_process(_delta: float) -> void:
     db.flush_notifications()
 ```
 
-## Scatter Pattern (Steps 3)
+## Scatter Pattern (Step 3)
 
-Two-phase cached mapping eliminates per-entity spatial lookups from the hot tick.
-
-**Phase 1 — Maintain mappings (incremental, on movement only):**
+`DesireScatter.scatter_from_ads()` is one call that drives two ordered passes. Both read advertisement components on emitters and write `desires` on receivers. **Scatter runs before scoring** within each tick — scoring's deficit term reads `desires[target]`, so scatter writes first; otherwise the deficit reflects last-tick's contribution.
 
 ```gdscript
-# cell→entities mapping, updated when entities cross cell boundaries
-var _cell_entities: Array[Array[int]]  # cell_index -> [entity_ids]
-
-func _on_entity_moved(entity_id: int, old_cell: int, new_cell: int) -> void:
-    _cell_entities[old_cell].erase(entity_id)
-    _cell_entities[new_cell].append(entity_id)
-    # Mark affected cells dirty for social recount
-    _dirty_social_cells.append(old_cell)
-    _dirty_social_cells.append(new_cell)
+func scatter_from_ads() -> void:
+    _scatter_slot_delivery()    # ads with effect_slot: true
+    _scatter_radius_delivery()  # ads with effect_radius_px (entity-first iteration)
 ```
 
-**Phase 2 — Scatter values (every tick, O(n) with no lookups):**
+**Pass 1 — Slot delivery.** For each ad with `effect_slot: true`, resolve the ad-owner's slot via `Constants.bay_local_to_slot()` and apply `strength / 10` per tick to every other entity sharing that slot. No falloff. Validator rejects `effect_slot: true` ads on non-slot-anchored emitters at mod load. This is how boxes, beds, and tubes deliver: whoever's *in* the slot gets full strength regardless of pixel-level anchor offset.
 
-```gdscript
-func scatter_heat_to_warmth() -> void:
-    for cell_idx in heat_grid.cell_count():
-        var temp: int = heat_grid.get_temp(cell_idx)
-        for entity_id in _cell_entities[cell_idx]:
-            db.set_field(entity_id, &"desires", &"warmth", temp)
+**Pass 2 — Radius delivery, entity-first.** Iterate entities with `desires`. Each entity reads its own `senses` once per tick, runs a broad-phase spatial query bounded by `BAY_WIDTH_PX`, then per-ad gates on `effect_radius_px` (emitter physics) AND `senses[CHANNELS[channel].sense]` (receiver acuity). Both gates apply: a deaf cat (`senses.hearing = 0`) next to a noise emitter receives nothing; a cat outside `effect_radius_px` of a server's warmth ad receives nothing even with full touch sense. Falloff per the ad's `falloff` curve (default `quadratic`).
 
-func scatter_social_to_desires() -> void:
-    for cell_idx in _occupied_cells:
-        var count: int = _cell_neighbor_count[cell_idx]
-        var social_val: int = _social_curve(count)
-        for entity_id in _cell_entities[cell_idx]:
-            db.set_field(entity_id, &"desires", &"social", social_val)
-```
+| Pass | Owner-side selector | Receiver-side gate | Strength delivered |
+|---|---|---|---|
+| Slot | `effect_slot: true` + slot-anchored | Same `(bay, rack, slot)` | `strength / 10` per tick, no falloff |
+| Radius | `effect_radius_px > 0` | `dist <= effect_radius_px` AND `dist <= senses[carrier_sense]` | `strength * falloff_factor / 10` per tick |
 
-**Cache invalidation:** ~70% of animals are ambient/stationary. Only entities crossing cell boundaries update mappings. Social neighbor counts recomputed only for dirty cells.
+`falloff_factor` is `(1 - dist/radius)²` for `quadratic` (the default), `(1 - dist/radius)` for `linear`, `1000` for `step`, `1 / (1 + (dist/radius)²)` for `inverse_square`. Returned in thousandths.
 
-| Mapping | Caches | Invalidated by |
-|---|---|---|
-| cell → entities | entity positions | Entity moves to new cell |
-| cell → neighbor_count | nearby entity density | Entity moves (recount adjacent cells) |
+**Effect direction comes from the registry, not the ad.** `CHANNELS[channel].effect` is `&"satisfy"` or `&"deplete"`; scatter clamps the result to `[0, 1000]` accordingly. See `animal-ai.md` §"Aversions" for the full mapping.
 | surface → occupants | what's sitting on what | Entity arrives/departs surface |
 
 ## Adaptive Time Budget (Step 4)
