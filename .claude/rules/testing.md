@@ -3,7 +3,7 @@ paths:
   - "tests/**"
   - "script/checks/gut_tests"
   - "script/checks/verify_tests"
-  - "script/stamp_tests"
+  - "script/tdd_verify"
 ---
 
 # TCP Testing Rules

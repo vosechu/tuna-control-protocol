@@ -3,6 +3,8 @@ extends GutTest
 var _db: GameStateDB
 var _heat_grid: HeatGrid
 var _resolver: DesireResolver
+var _osm: ObjectStateManager
+var _scatter: DesireScatter
 
 
 func before_each() -> void:
@@ -10,6 +12,8 @@ func before_each() -> void:
 	_db = GameStateDB.new()
 	_heat_grid = HeatGrid.new(_db)
 	_resolver = DesireResolver.new(_db)
+	_osm = ObjectStateManager.new(_db)
+	_scatter = DesireScatter.new(_db)
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -53,19 +57,8 @@ func _make_cat(
 func _make_open_can(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(
-		id, &"object_type", {&"type": &"tuna_can"},
-	)
-	_db.set_component(
-		id, &"object_state", {&"state": &"open"},
-	)
-	_db.set_component(id, &"advertisements", {&"list": [{
-		&"desire_type": &"food",
-		&"strength": 800,
-		&"radius_px": 40,
-		&"action": &"eat",
-		&"action_duration": 50,
-	}]})
+	_db.set_component(id, &"object_type", {&"type": &"tuna_can"})
+	_osm.transition_state(id, &"open")
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -100,19 +93,8 @@ func _make_arm(x: int, y: int) -> int:
 func _make_sealed_can(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(
-		id, &"object_type", {&"type": &"tuna_can"},
-	)
-	_db.set_component(
-		id, &"object_state", {&"state": &"sealed"},
-	)
-	_db.set_component(id, &"advertisements", {&"list": [{
-		&"desire_type": &"openable",
-		&"strength": 800,
-		&"radius_px": 24,
-		&"action": &"open",
-		&"action_duration": 30,
-	}]})
+	_db.set_component(id, &"object_type", {&"type": &"tuna_can"})
+	_osm.transition_state(id, &"sealed")
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -120,149 +102,15 @@ func _make_sealed_can(x: int, y: int) -> int:
 func _make_box(x: int, y: int, hp: int = 1000) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(
-		id, &"object_type", {&"type": &"cardboard_box"},
-	)
-	_db.set_component(
-		id, &"object_state", {&"state": &"new"},
-	)
+	_db.set_component(id, &"object_type", {&"type": &"cardboard_box"})
 	_db.set_component(id, &"object_hp", {&"hp": hp})
-	_db.set_component(id, &"advertisements", {&"list": [
-		{
-			&"desire_type": &"comfort",
-			&"strength": 700,
-			&"radius_px": 32,
-		},
-		{
-			&"desire_type": &"curiosity",
-			&"strength": 500,
-			&"radius_px": 40,
-			&"action": &"shred",
-			&"action_duration": 20,
-		},
-	]})
+	# Migration note: production OBJECT_CONFIG attaches a `join` block on
+	# new/worn cardboard_box states. The old inline helper did not. None of
+	# this file's tests inspect `join`, so the new shape is observably
+	# equivalent for these tests.
+	_osm.transition_state(id, _osm.get_state_for_hp(&"cardboard_box", hp))
 	_db.update_spatial(id, x, y)
 	return id
-
-
-# Mirrors GameServer.transition_object_state / _update_ads_for_*
-# (inline helper, same pattern as test_tuna_chain.gd)
-func _transition_object(
-	entity_id: int, new_state: StringName,
-) -> void:
-	_db.set_component(
-		entity_id, &"object_state",
-		{&"state": new_state},
-	)
-	var obj: Dictionary = _db.get_component(
-		entity_id, &"object_type",
-	)
-	match obj[&"type"]:
-		&"tuna_can":
-			_transition_tuna_ads(entity_id, new_state)
-		&"cardboard_box":
-			_transition_box_ads(entity_id, new_state)
-
-
-func _transition_tuna_ads(
-	entity_id: int, state: StringName,
-) -> void:
-	match state:
-		&"sealed":
-			_db.set_component(entity_id, &"advertisements", {
-				&"list": [{
-					&"desire_type": &"openable",
-					&"strength": 800,
-					&"radius_px": 24,
-					&"action": &"open",
-					&"action_duration": 30,
-				}],
-			})
-		&"open":
-			_db.set_component(entity_id, &"advertisements", {
-				&"list": [{
-					&"desire_type": &"food",
-					&"strength": 800,
-					&"radius_px": 40,
-					&"action": &"eat",
-					&"action_duration": 50,
-				}],
-			})
-		&"empty":
-			_db.remove_component(entity_id, &"advertisements")
-
-
-func _transition_box_ads(
-	entity_id: int, state: StringName,
-) -> void:
-	match state:
-		&"new":
-			_db.set_component(entity_id, &"advertisements", {
-				&"list": [
-					{
-						&"desire_type": &"comfort",
-						&"strength": 700,
-						&"radius_px": 32,
-					},
-					{
-						&"desire_type": &"curiosity",
-						&"strength": 500,
-						&"radius_px": 40,
-						&"action": &"shred",
-						&"action_duration": 20,
-					},
-				],
-			})
-		&"worn":
-			_db.set_component(entity_id, &"advertisements", {
-				&"list": [
-					{
-						&"desire_type": &"comfort",
-						&"strength": 400,
-						&"radius_px": 24,
-					},
-					{
-						&"desire_type": &"curiosity",
-						&"strength": 300,
-						&"radius_px": 32,
-						&"action": &"shred",
-						&"action_duration": 20,
-					},
-				],
-			})
-		&"scraps":
-			_db.set_component(entity_id, &"advertisements", {
-				&"list": [{
-					&"desire_type": &"comfort",
-					&"strength": 600,
-					&"radius_px": 24,
-				}],
-			})
-
-
-# Mirrors GameServer.damage_object / _box_state_for_hp
-func _damage_object(entity_id: int, amount: int) -> void:
-	var hp: Dictionary = _db.get_component(
-		entity_id, &"object_hp",
-	)
-	var new_hp: int = maxi(0, hp[&"hp"] - amount)
-	_db.set_component(
-		entity_id, &"object_hp", {&"hp": new_hp},
-	)
-	var new_state: StringName = _box_state_for_hp(new_hp)
-	var old: Dictionary = _db.get_component(
-		entity_id, &"object_state",
-	)
-	if new_state != old[&"state"]:
-		_transition_object(entity_id, new_state)
-
-
-func _box_state_for_hp(hp: int) -> StringName:
-	if hp <= 0:
-		return &"scraps"
-	if hp <= 500:
-		return &"worn"
-	return &"new"
 
 
 # ── Tests ────────────────────────────────────────────────────
@@ -305,68 +153,19 @@ func test_fed_cat_ignores_open_can() -> void:
 
 
 func test_food_not_scattered_passively() -> void:
-	# Food desire must not increase from passive scatter;
-	# it is action-only (in _ACTION_ONLY_DESIRES).
+	# Open tuna can's food ad carries `action: eat`. Passive scatter (the
+	# real production path, DesireScatter.scatter_from_ads) skips action
+	# ads unless the receiver is bonded to the ad-owner. The cat is not
+	# bonded, so its food desire must not budge.
 	_make_open_can(0, 10)
 	var cat_id: int = _make_cat(0, 10, 200)
 
-	# Manually replicate the scatter logic from GameServer.
-	# _scatter_from_ads skips _ACTION_ONLY_DESIRES.
-	var pos: Dictionary = _db.get_component(
-		cat_id, &"position",
-	)
-	var nearby: Array[int] = _db.query_radius(
-		pos[&"x"], pos[&"y"], (8 * Constants.SLOT_HEIGHT_PX),
-	)
-	var best: Dictionary = {}
-	for other_id: int in nearby:
-		if other_id == cat_id:
-			continue
-		if not _db.has_component(other_id, &"advertisements"):
-			continue
-		var ads: Dictionary = _db.get_component(
-			other_id, &"advertisements",
-		)
-		var other_pos: Dictionary = _db.get_component(
-			other_id, &"position",
-		)
-		var dist: int = (
-			absi(pos[&"x"] - other_pos[&"x"])
-			+ absi(pos[&"y"] - other_pos[&"y"])
-		)
-		for ad: Dictionary in ads[&"list"]:
-			var radius_px: int = ad[&"radius_px"]
-			if dist > radius_px:
-				continue
-			var dtype: StringName = ad[&"desire_type"]
-			var strength: int = ad[&"strength"]
-			if strength > best.get(dtype, 0):
-				best[dtype] = strength
+	_scatter.scatter_from_ads()
 
-	# Apply, respecting action-only exclusion
-	var action_only: Array[StringName] = [
-		&"food", &"openable", &"scannable",
-	]
-	for dtype: StringName in best:
-		if dtype in action_only:
-			continue
-		var desires: Dictionary = _db.get_component(
-			cat_id, &"desires",
-		)
-		if not desires.has(dtype):
-			continue
-		var current: int = desires[dtype]
-		_db.set_field(
-			cat_id, &"desires", dtype,
-			mini(1000, current + best[dtype]),
-		)
-
-	var desires: Dictionary = _db.get_component(
-		cat_id, &"desires",
-	)
+	var desires: Dictionary = _db.get_component(cat_id, &"desires")
 	assert_eq(
 		desires[&"food"], 200,
-		"Food must not increase from passive scatter",
+		"Food must not increase from passive scatter (action ad on the can)",
 	)
 
 
@@ -401,7 +200,6 @@ func test_arm_ignores_can_beyond_reach() -> void:
 func test_object_state_transition_swaps_ads() -> void:
 	# Create a sealed can, transition to open. Assert ads
 	# changed from openable to food.
-	# (Inline helper mirrors game_server logic)
 	var can_id: int = _make_sealed_can(0, 1000)
 
 	# Verify sealed ads
@@ -409,21 +207,22 @@ func test_object_state_transition_swaps_ads() -> void:
 		can_id, &"advertisements",
 	)
 	assert_eq(
-		ads_before[&"list"][0][&"desire_type"], &"openable",
+		ads_before[&"list"][0][&"channel"], &"openable",
 		"Sealed can should advertise openable",
 	)
 
-	_transition_object(can_id, &"open")
+	_osm.transition_state(can_id, &"open")
 
 	var ads_after: Dictionary = _db.get_component(
 		can_id, &"advertisements",
 	)
 	assert_eq(
-		ads_after[&"list"][0][&"desire_type"], &"food",
+		ads_after[&"list"][0][&"channel"], &"food",
 		"Open can should advertise food",
 	)
+	# OBJECT_CONFIG[tuna_can][open].ads[0].effect_radius_px = 40
 	assert_eq(
-		ads_after[&"list"][0][&"radius_px"], 40,
+		ads_after[&"list"][0][&"effect_radius_px"], 40,
 		"Open can food ad radius should be 40 px (5 slot-heights)",
 	)
 	var state: Dictionary = _db.get_component(
@@ -438,7 +237,6 @@ func test_object_state_transition_swaps_ads() -> void:
 func test_box_damage_transitions_at_threshold() -> void:
 	# Box starts at HP 1000 (new). Damage 600 -> HP 400
 	# (worn). Damage 400 more -> HP 0 (scraps, comfort only).
-	# (Inline helper mirrors game_server logic)
 	var box_id: int = _make_box(0, 1000)
 
 	# Verify initial state
@@ -451,7 +249,7 @@ func test_box_damage_transitions_at_threshold() -> void:
 	)
 
 	# Damage by 600 -> HP 400 -> worn
-	_damage_object(box_id, 600)
+	_osm.damage(box_id, 600)
 	state = _db.get_component(box_id, &"object_state")
 	assert_eq(
 		state[&"state"], &"worn",
@@ -463,7 +261,7 @@ func test_box_damage_transitions_at_threshold() -> void:
 	assert_eq(hp[&"hp"], 400, "HP should be 400 after 600 dmg")
 
 	# Damage by 400 more -> HP 0 -> scraps
-	_damage_object(box_id, 400)
+	_osm.damage(box_id, 400)
 	state = _db.get_component(box_id, &"object_state")
 	assert_eq(
 		state[&"state"], &"scraps",
@@ -478,6 +276,6 @@ func test_box_damage_transitions_at_threshold() -> void:
 		"Scraps should have exactly 1 ad",
 	)
 	assert_eq(
-		ads[&"list"][0][&"desire_type"], &"comfort",
+		ads[&"list"][0][&"channel"], &"comfort",
 		"Scraps ad should be comfort-only",
 	)
