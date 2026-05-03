@@ -2,7 +2,7 @@
   // Ferret species definition — derived from game_server.gd hardcoded values
   // Slinky: warmth 300, comfort 600, curiosity 900
   // Bandit: warmth 400, comfort 800, curiosity 800
-  "schema_version": 3,
+  "schema_version": 4,
   "id": "tcp_ferrets:ferret",
   "name": "Ferret",
   "senses": {
@@ -11,15 +11,17 @@
     "smell":   186,
     "touch":    32
   },
+  // Each desires entry is {weight, decay} (v4 co-located shape).
+  // Ferrets cycle faster than cats — heavier comfort + curiosity decay.
   "desires": {
-    "warmth":    350,
-    "comfort":   700,
-    "curiosity": 850,
-    "hunger":    700,
-    "social":    400,
-    "quiet":     400,
-    "peace":     400,
-    "safety":    600
+    "warmth":    { "weight": 350, "decay":  0 },
+    "comfort":   { "weight": 700, "decay": -3 },
+    "curiosity": { "weight": 850, "decay": -2 },
+    "hunger":    { "weight": 700, "decay":  0 },
+    "social":    { "weight": 400, "decay": -3 },
+    "quiet":     { "weight": 400, "decay":  0 },
+    "peace":     { "weight": 400, "decay":  0 },
+    "safety":    { "weight": 600, "decay":  0 }
   },
   "personality_ranges": {
     "warmth":    [300, 400],
@@ -34,7 +36,7 @@
   "physical": { "mass": 1500, "size_ru": 1 },
   "strength": 1500,
   "body_capabilities": {
-    "walks":  {},
+    "walks":  { "speed_px_per_tick": 2 },
     "jumps":  { "max_height_ru": 2 },
     "drops":  { "max_height_ru": 4 },
     "settles_in_containers": { "max_body_size_ru": 1 }
@@ -45,16 +47,19 @@
   "variants": ["lilotter"],
   "ambient_states": {
     "warm": [
-      { "state": "IDLE",       "weight": 10 },
-      { "state": "SNIFFING",   "weight": 20 },
-      { "state": "SPEED_BUMP", "weight": 10 },
-      { "state": "SLEEPING",   "weight": 15 }
+      { "state": "IDLE",       "weight": 10, "min_duration_ticks": 20 },
+      { "state": "SNIFFING",   "weight": 20, "min_duration_ticks": 50 },
+      { "state": "SPEED_BUMP", "weight": 10, "min_duration_ticks": 30 },
+      { "state": "SLEEPING",   "weight": 15, "min_duration_ticks": 200 }
     ],
     "cold": [
-      { "state": "IDLE",       "weight": 10 },
-      { "state": "SNIFFING",   "weight": 20 },
-      { "state": "SPEED_BUMP", "weight": 10 }
+      { "state": "IDLE",       "weight": 10, "min_duration_ticks": 20 },
+      { "state": "SNIFFING",   "weight": 20, "min_duration_ticks": 50 },
+      { "state": "SPEED_BUMP", "weight": 10, "min_duration_ticks": 30 }
     ]
+  },
+  "special_states": {
+    "STARTLED": { "min_duration_ticks": 10 }
   },
   "sprite_config": {
     "base_path": "res://mods/tcp_ferrets/sprites/{variant}",

@@ -3,7 +3,7 @@
   // Mochi: warmth 800, comfort 600, curiosity 100
   // Biscuit: warmth 500, comfort 900, curiosity 100
   // Noodle: warmth 700, comfort 700, curiosity 200
-  "schema_version": 3,
+  "schema_version": 4,
   "id": "tcp_cats:cat",
   "name": "Cat",
   "senses": {
@@ -17,15 +17,18 @@
     "rate_when_satisfied": 1000,
     "base_radius_ru": 6
   },
+  // Each desires entry is {weight, decay} (v4 co-located shape).
+  // weight: personality strength (0-1000). decay: per-tick passive decay (must be <= 0).
+  // hunger.decay = 0 is intentional — passive hunger decay was causing pacing-cascade noise.
   "desires": {
-    "warmth":    700,
-    "comfort":   700,
-    "curiosity": 150,
-    "hunger":    700,
-    "social":    500,
-    "quiet":     600,
-    "peace":     500,
-    "safety":    800
+    "warmth":    { "weight": 700, "decay": -2 },
+    "comfort":   { "weight": 700, "decay": -5 },
+    "curiosity": { "weight": 150, "decay": -3 },
+    "hunger":    { "weight": 700, "decay":  0 },
+    "social":    { "weight": 500, "decay": -2 },
+    "quiet":     { "weight": 600, "decay":  0 },
+    "peace":     { "weight": 500, "decay":  0 },
+    "safety":    { "weight": 800, "decay":  0 }
   },
   "personality_ranges": {
     "warmth":    [500, 800],
@@ -40,7 +43,7 @@
   "physical": { "mass": 4000, "size_ru": 2 },
   "strength": 3000,
   "body_capabilities": {
-    "walks":  {},
+    "walks":  { "speed_px_per_tick": 2 },
     "jumps":  { "max_height_ru": 4 },
     "drops":  { "max_height_ru": 5 },
     "settles_in_containers": { "max_body_size_ru": 2 }
@@ -51,16 +54,19 @@
   "variants": ["cat01", "cat02", "cat03", "cat04", "cat05"],
   "ambient_states": {
     "warm": [
-      { "state": "IDLE",     "weight": 10 },
-      { "state": "GROOMING", "weight": 15 },
-      { "state": "LOAFING",  "weight": 20 },
-      { "state": "SLEEPING", "weight": 25 }
+      { "state": "IDLE",     "weight": 10, "min_duration_ticks":  30 },
+      { "state": "GROOMING", "weight": 15, "min_duration_ticks": 100 },
+      { "state": "LOAFING",  "weight": 20, "min_duration_ticks": 150 },
+      { "state": "SLEEPING", "weight": 25, "min_duration_ticks": 300 }
     ],
     "cold": [
-      { "state": "IDLE",     "weight": 10 },
-      { "state": "GROOMING", "weight": 5 },
-      { "state": "LOAFING",  "weight": 10 }
+      { "state": "IDLE",     "weight": 10, "min_duration_ticks":  30 },
+      { "state": "GROOMING", "weight":  5, "min_duration_ticks": 100 },
+      { "state": "LOAFING",  "weight": 10, "min_duration_ticks": 150 }
     ]
+  },
+  "special_states": {
+    "STARTLED": { "min_duration_ticks": 10 }
   },
   "sprite_config": {
     "base_path": "res://mods/tcp_cats/sprites/{variant}",

@@ -104,19 +104,35 @@ Every species recipe (`mods/<mod_id>/species/<id>.jsonc`) must declare:
 
 | Field | Type | Purpose |
 |---|---|---|
+| `schema_version` | int | Recipe schema version. Current: `4`. Older versions may be tolerated by the loader (see migration notes) but new recipes must use the latest. |
 | `id` | `"mod_id:entity_id"` | Namespaced species identifier |
 | `name` | string | Display name |
-| `desires` | `{channel: int}` | Desire weights (see animal-ai.md) |
-| `traversal` | array | Capability tags for path edges (e.g. `["WALK", "JUMP_UP"]`) |
+| `desires` | `{channel: {weight: int, decay: int}}` | Per-channel desire spec. `weight` is personality strength (0–1000); `decay` is per-tick passive decay and **must be ≤ 0** (decay-only mechanic). Use `decay: 0` for channels with no passive decay. |
+| `body_capabilities` | object | Capability components (`walks`, `jumps`, `drops`, …). `walks.speed_px_per_tick` is required when `walks` is present. |
+| `body_geometry` | object | Physical dimensions (`size_ru`, etc.). |
+| `senses` | `{sight: int, hearing: int, smell: int, touch: int}` | Perception acuity per channel. |
 | `sprite_config` | object | `base_path` (with optional `{variant}`), `offset_y`, `animations` (state→key), `animation_frames` (key→strip+frames+fps) |
-| `ambient_states` | object | `warm` and `cold` arrays of `{state, weight}` entries |
+| `ambient_states` | object | `warm` and `cold` arrays of `{state, weight, min_duration_ticks}` entries. `min_duration_ticks` is required on every entry. |
+| `special_states` | `{STATE_NAME: {min_duration_ticks: int}}` | Required when `ambient_states` is present. Declares non-pool states (e.g. `STARTLED`) that the AI can enter and how long they pin the entity. |
 | `hud_color` | `[r, g, b]` | Floats 0.0–1.0 for name labels |
 
-Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `tends_servers` (tag capability), `role_tags` (designer summary).
+Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `tends_servers` (tag capability), `role_tags` (designer summary), `purr` / `purr_config` (capability components).
+
+### v3 → v4 migration
+
+Schema v4 (recipe-driven balance) tightened the desires shape and required new explicit fields. The full migration list:
+
+1. **Desires are now objects, not bare ints.** Replace `"warmth": 500` with `"warmth": {"weight": 500, "decay": 0}`. Decay must be `<= 0` — positive values are rejected. Use `0` for "no passive decay."
+2. **`body_capabilities.walks.speed_px_per_tick` is required** when `walks` is declared. The legacy hardcoded default no longer exists.
+3. **`ambient_states` entries require `min_duration_ticks`.** Every entry in `warm` and `cold` arrays must declare how long the entity stays in the chosen state.
+4. **`special_states` is required when `ambient_states` is declared.** Provide each non-pool state's `min_duration_ticks`. The base recipes ship `STARTLED: {min_duration_ticks: 10}`.
+5. **Bump `schema_version` to `4`** to signal the migration.
+
+The loader still tolerates v3 bare-int desires entries during the transition (treated as `{weight: <int>, decay: 0}`), but `SpeciesSchemaValidator` rejects them. Update recipes to v4 — the fallback exists only so a missed mod doesn't take the boot down.
 
 Canonical example: `mods/tcp_cats/species/cat.jsonc`.
 
-Loading: `SpeciesSchemaValidator` (in `engine/mod/`) runs at mod load and rejects recipes missing any required field via `push_error`. Malformed recipes do not register as species.
+Loading: `SpeciesSchemaValidator` (in `engine/mod/`) runs at mod load and rejects recipes missing any required field via `push_error`. Malformed recipes do not register as species. The validator collects every violation in a recipe and emits them as a single grouped error so modders fixing a recipe don't need a reload cycle per problem.
 
 Regression guard: `script/checks/no_species_dispatch` runs in `script/validate` and the pre-commit hook. It flags `String(...species...).contains("cat")` / `contains("ferret")` patterns and hardcoded `&"tcp_cats:cat"` / `&"tcp_ferrets:ferret"` literals in `engine/` and `nodes/`. Exempt: `tests/`, log-string contexts, the species-label field itself. If a check fails, add a capability to the recipe instead of branching on the species label.
 

@@ -1,10 +1,13 @@
 {
-  "schema_version": 1,
+  "schema_version": 4,
   "id": "tcp_test_species:test_creature",
   "name": "TestCreature",
-  "desires": { "warmth": 500, "comfort": 500 },
+  "desires": {
+    "warmth":  { "weight": 500, "decay": -2 },
+    "comfort": { "weight": 500, "decay": -3 }
+  },
   "senses": { "sight": 186, "hearing": 186, "smell": 186, "touch": 32 },
-  "body_capabilities": { "walks": {} },
+  "body_capabilities": { "walks": { "speed_px_per_tick": 2 } },
   "body_geometry": { "size_ru": 1 },
   "variants": ["cat01"],
   "hud_color": [0.5, 0.5, 0.5],
@@ -21,9 +24,10 @@
     }
   },
   "ambient_states": {
-    "warm": [ { "state": "IDLE", "weight": 10 } ],
-    "cold": [ { "state": "IDLE", "weight": 10 } ]
+    "warm": [ { "state": "IDLE", "weight": 10, "min_duration_ticks": 30 } ],
+    "cold": [ { "state": "IDLE", "weight": 10, "min_duration_ticks": 30 } ]
   },
+  "special_states": { "STARTLED": { "min_duration_ticks": 10 } },
   "states": { "idle": { "advertisements": [] } },
   "initial_state": "idle"
 }
