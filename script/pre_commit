@@ -13,6 +13,18 @@ STAGED=$(git diff --cached --name-only 2>/dev/null || true)
 STAGED_GD=$(echo "$STAGED" | grep -E '\.gd$' || true)
 STAGED_JSON=$(echo "$STAGED" | grep -E '\.(json|jsonc)$' | grep -vE '(\.godot/|\.import/)' || true)
 
+# Ruby files: .rb plus shebang'd scripts without extension.
+STAGED_RB=""
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    [ ! -f "$f" ] && continue
+    case "$f" in
+        *.rb) STAGED_RB="$STAGED_RB"$'\n'"$f" ;;
+        *) head -1 "$f" 2>/dev/null | grep -q '^#!.*ruby' && STAGED_RB="$STAGED_RB"$'\n'"$f" ;;
+    esac
+done <<< "$STAGED"
+STAGED_RB="${STAGED_RB#$'\n'}"
+
 for check in "$CHECKS_DIR"/*; do
     if [ ! -x "$check" ]; then continue; fi
     NAME=$(basename "$check")
@@ -36,6 +48,10 @@ for check in "$CHECKS_DIR"/*; do
         validate_json|json_snake_case_keys|entity_id_prefix)
             [ -z "$STAGED_JSON" ] && continue
             echo "$STAGED_JSON" | xargs "$check"
+            ;;
+        rubocop)
+            [ -z "$STAGED_RB" ] && continue
+            echo "$STAGED_RB" | xargs "$check"
             ;;
         no_secrets)
             [ -z "$STAGED" ] && continue

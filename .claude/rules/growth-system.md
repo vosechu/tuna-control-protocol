@@ -1,3 +1,10 @@
+---
+paths:
+  - "engine/growth/**"
+  - "nodes/dynamic_plants.gd"
+  - "mods/*/species/**"
+---
+
 # TCP Reclamation Growth
 
 The datacenter is being reclaimed. When an entity that carries the `&"tends_servers"` capability settles on a host long enough in a warm-enough slot, a plant grows on that host. This is the mechanical core of the reclamation aesthetic from `narrative.md` and the slow-burn reward loop for "this slot is a good slot."
@@ -28,7 +35,7 @@ Both are RefCounted (pure core, see `design-philosophy.md`). `ReclamationSystem.
 Per tick, for each entity with a `reclamation` component:
 
 1. Query all entities tagged `&"tends_servers"`. Capability, not species label — any recipe that carries the tag counts. See CLAUDE.md → "Species Are Component Recipes."
-2. Check whether any tender is within `±2 × SLOT_HEIGHT_PU` of the host's position in both X and Y (bounding box, not radius — cheap).
+2. Check whether any tender is within `±2 × SLOT_HEIGHT_PX` of the host's position in both X and Y (bounding box, not radius — cheap).
 3. If nearby: `seconds = min(seconds + 10, 1000)`.
 4. Else: `seconds = max(seconds - 5, 0)`.
 
@@ -51,7 +58,7 @@ PRESENT  →(reclamation.seconds < 100)→        DORMANT
 - `WARMTH_MIN = 600` (heat_grid temperature on the 0–1000 scale)
 - `GROW_THRESHOLD_SECONDS = 300` (tick-scaled: 30 s wall clock of continuous tending)
 - `DECAY_THRESHOLD_SECONDS = 100` (reclamation.seconds floor for keeping a plant)
-- `PLANT_COMFORT_STRENGTH = 100`, `PLANT_ADVERT_RADIUS_RU = 1`
+- `PLANT_COMFORT_STRENGTH = 100`, `PLANT_ADVERT_RADIUS_PX = 8` (one slot-height)
 
 ## Invariants
 

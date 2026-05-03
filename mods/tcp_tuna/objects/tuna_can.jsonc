@@ -1,12 +1,12 @@
 {
   // Tuna can object — derived from object_state_manager.gd OBJECT_CONFIG
-  "schema_version": 1,
+  "schema_version": 3,
   "id": "tcp_tuna:tuna_can",
   "name": "Tuna Can",
   "states": {
     "sealed": {
       "advertisements": [
-        { "desire_type": "openable", "strength": 800, "radius_ru": 3, "action": "open" }
+        { "channel": "openable", "strength": 800, "effect_radius_px": 24, "action": "open" }
       ],
       "sprite": "tuna_can_sealed.png",
       "transitions": {
@@ -15,7 +15,7 @@
     },
     "open": {
       "advertisements": [
-        { "desire_type": "food", "strength": 800, "radius_ru": 5, "action": "eat" }
+        { "channel": "food", "strength": 800, "effect_radius_px": 40, "action": "eat" }
       ],
       "sprite": "tuna_can_open.png",
       "transitions": {

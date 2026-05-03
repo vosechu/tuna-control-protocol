@@ -36,10 +36,10 @@ func apply(scenario_id: StringName) -> void:
 				"world_init aborted: required type missing: %s" % type_id
 			)
 			return
-	# Second pass: spawn, record ref_name → entity_id and defer cable_to links
-	# until every ref has resolved.
+	# Second pass: spawn, record ref_name → entity_id and defer
+	# settled_in_ref links until every ref has resolved.
 	var refs: Dictionary = {}
-	var pending_cables: Array = []
+	var pending_settled: Array = []
 	for entry: Dictionary in entities:
 		var type_id: StringName = StringName(entry["type"])
 		if not _entity_defs.has_entity(type_id):
@@ -48,24 +48,40 @@ func apply(scenario_id: StringName) -> void:
 		var entity_id: int = _entity_defs.spawn(type_id, _db, overrides)
 		if entry.has("ref_name"):
 			refs[StringName(entry["ref_name"])] = entity_id
-		if entry.has("cable_to"):
-			var cable: Dictionary = entry["cable_to"]
-			if cable.has("ref_name"):
-				pending_cables.append({
-					&"actuator_id": entity_id,
-					&"ref_name": StringName(cable["ref_name"]),
-				})
-	# Third pass: resolve cable_to links now that every ref is registered.
-	for cable: Dictionary in pending_cables:
-		var actuator_id: int = cable[&"actuator_id"]
-		var ref_name: StringName = cable[&"ref_name"]
-		if not refs.has(ref_name):
+		if entry.has("ai_state"):
+			# Seed the AI state component before scoring runs, so a
+			# pre-settled cat doesn't immediately reroute somewhere.
+			_db.set_component(entity_id, &"ai_state", {
+				&"state": StringName(entry["ai_state"]),
+				&"meta_state": &"AMBIENT",
+				&"commitment_score": 0,
+			})
+		if entry.has("settled_in_ref"):
+			pending_settled.append({
+				&"joiner_id": entity_id,
+				&"ref_name": StringName(entry["settled_in_ref"]),
+			})
+	# Third pass: resolve settled_in_ref. Position the joiner at the host's
+	# anchor and write the settled_in marker, so the rendering tuck-in and
+	# the move-loop's stranded-animal heuristic both see a deliberate rest.
+	if pending_settled.is_empty():
+		return
+	var lifecycle := SettledLifecycle.new(_db)
+	for s: Dictionary in pending_settled:
+		var joiner_id: int = s[&"joiner_id"]
+		var s_ref: StringName = s[&"ref_name"]
+		if not refs.has(s_ref):
 			push_error(
-				"world_init: cable_to.ref_name not found: %s" % ref_name
+				"world_init: settled_in_ref not found: %s" % s_ref
 			)
 			continue
-		var hum_id: int = refs[ref_name]
-		_db.set_component(actuator_id, &"hum_cable", {&"hum_id": hum_id})
+		var host_id: int = refs[s_ref]
+		var host_pos: Dictionary = _db.get_component(host_id, &"position")
+		var hx: int = host_pos[&"x"]
+		var hy: int = host_pos[&"y"]
+		_db.set_component(joiner_id, &"position", {&"x": hx, &"y": hy})
+		_db.update_spatial(joiner_id, hx, hy)
+		lifecycle.enter(joiner_id, host_id)
 
 
 func _overrides_for(entry: Dictionary) -> Dictionary:
@@ -73,23 +89,25 @@ func _overrides_for(entry: Dictionary) -> Dictionary:
 	# EntityDefRegistry.spawn() already consumes. Phase 0 uses bay index 0
 	# for all entities; cross-bay scenarios can add a `bay` field later.
 	#
-	# Rack placement: (rack, slot) → rack_slot_to_pu center.
+	# Rack placement: (rack, slot) → center of slot in world pixels.
 	# Floor placement: (floor_rack, floor_slot_offset) → rack X center,
-	# Y midway through the floor strip. Matches game_server.gd:615's
-	# FLOOR_Y_PU + FLOOR_HEIGHT_PU/2 pattern.
+	# Y midway through the floor strip.
 	var out: Dictionary = {}
+	if entry.has("name"):
+		out[&"name"] = StringName(entry["name"])
 	if entry.has("rack") and entry.has("slot"):
 		var rack: int = int(entry["rack"])
 		var slot: int = int(entry["slot"])
-		var pu: Vector2i = Constants.rack_slot_to_pu(0, rack, slot)
-		out[&"position"] = {&"x": pu.x, &"y": pu.y}
+		var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+		var cx: int = slot_rect.position.x + slot_rect.size.x / 2
+		var cy: int = slot_rect.position.y + slot_rect.size.y / 2
+		out[&"position"] = {&"x": cx, &"y": cy}
 	elif entry.has("floor_rack"):
 		var floor_rack: int = int(entry["floor_rack"])
-		var floor_x: int = Constants.rack_slot_to_pu(0, floor_rack, 0).x
-		var floor_y: int = (
-			Constants.FLOOR_Y * Constants.POSITION_SCALE
-			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, floor_rack)
+		var floor_x: int = rack_col.position.x + rack_col.size.x / 2
+		var floor_rect: Rect2i = Constants.floor_rect_world(0)
+		var floor_y: int = floor_rect.position.y + floor_rect.size.y / 2
 		out[&"position"] = {&"x": floor_x, &"y": floor_y}
 	# dispenser_ref left unconsumed for now — tuna_button/dispenser wiring
 	# is handled by game_server.place_object today; scenario-time resolution

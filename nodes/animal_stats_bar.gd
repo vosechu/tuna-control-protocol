@@ -80,6 +80,15 @@ func _create_panel(entity_id: int) -> PanelContainer:
 			)
 			_add_bar(bars, String(dtype) + "Bar", color)
 
+	var activity_label := Label.new()
+	activity_label.name = "ActivityLabel"
+	activity_label.add_theme_font_size_override("font_size", 5)
+	activity_label.add_theme_color_override(
+		"font_color", Color(0.75, 0.75, 0.8),
+	)
+	activity_label.text = ""
+	vbox.add_child(activity_label)
+
 	panel.gui_input.connect(
 		func(event: InputEvent) -> void:
 			_on_panel_clicked(event, entity_id),
@@ -122,9 +131,8 @@ func _on_panel_clicked(
 		entity_id, &"position",
 	)
 	_camera.position = Vector2(
-		Constants.to_world(pos[&"x"])
-			+ float(Constants.RACK_WIDTH_PX / 2),
-		Constants.to_world(pos[&"y"]),
+		float(pos[&"x"]) + float(Constants.RACK_WIDTH_PX / 2),
+		float(pos[&"y"]),
 	)
 
 
@@ -147,7 +155,7 @@ func _update_panel(
 		var desires: Dictionary = _db.get_component(
 			entity_id, &"desires",
 		)
-		# vbox children: [0]=NameLabel, [1]=Bars
+		# vbox children: [0]=NameLabel, [1]=Bars, [2]=ActivityLabel
 		var bars: VBoxContainer = vbox.get_child(1)
 		var bar_idx: int = 0
 		for dtype: StringName in desires:
@@ -155,6 +163,24 @@ func _update_panel(
 				break
 			_update_bar(bars.get_child(bar_idx), desires[dtype])
 			bar_idx += 1
+	if _db.has_component(entity_id, &"ai_state"):
+		var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
+		var activity_label: Label = vbox.get_child(2)
+		activity_label.text = String(ai[&"state"]).to_lower()
+		# Settled entities tint warmer to flag "deliberately resting" —
+		# distinct from idle ambient states.
+		if _db.has_component(entity_id, &"settled_in"):
+			activity_label.add_theme_color_override(
+				"font_color", Color(0.95, 0.85, 0.55),
+			)
+		elif ai.get(&"meta_state", &"AMBIENT") == &"GOAL_DIRECTED":
+			activity_label.add_theme_color_override(
+				"font_color", Color(0.85, 0.7, 0.95),
+			)
+		else:
+			activity_label.add_theme_color_override(
+				"font_color", Color(0.75, 0.75, 0.8),
+			)
 
 
 func _update_bar(bar: ColorRect, desire_value: int) -> void:

@@ -1,0 +1,46 @@
+#!/bin/bash
+# Runs rubocop on Ruby files.
+# Usage: rubocop [file ...]    (no args = all *.rb files + script/tdd_verify)
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+if [ $# -eq 0 ]; then
+    FILES=$(find "$REPO_ROOT" -name '*.rb' -not -path '*/.godot/*' -not -path '*/.git/*')
+    # Include shebang'd Ruby scripts that lack .rb extension
+    for f in "$REPO_ROOT/script/tdd_verify"; do
+        [ -f "$f" ] && FILES="$FILES"$'\n'"$f"
+    done
+else
+    FILES=$(printf '%s\n' "$@")
+fi
+
+# Filter to actual Ruby files (by extension or shebang)
+RUBY_FILES=""
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    [ ! -f "$file" ] && continue
+    case "$file" in
+        *.rb) RUBY_FILES="$RUBY_FILES"$'\n'"$file" ;;
+        *) head -1 "$file" 2>/dev/null | grep -q '^#!.*ruby' && RUBY_FILES="$RUBY_FILES"$'\n'"$file" ;;
+    esac
+done <<< "$FILES"
+
+# Trim leading newline
+RUBY_FILES="${RUBY_FILES#$'\n'}"
+
+if [ -z "$RUBY_FILES" ]; then exit 0; fi
+
+if ! command -v rubocop &> /dev/null; then
+    echo "WARNING: rubocop not installed. Skipping. Install: gem install rubocop" >&2
+    exit 0
+fi
+
+# shellcheck disable=SC2086
+OUTPUT=$(echo "$RUBY_FILES" | xargs rubocop --force-exclusion 2>&1)
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+    echo "$OUTPUT" >&2
+    exit 1
+fi
+exit 0

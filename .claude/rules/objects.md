@@ -1,3 +1,10 @@
+---
+paths:
+  - "engine/core/object_state_manager.gd"
+  - "engine/objects/**"
+  - "mods/**/objects/**"
+---
+
 # TCP Object Mechanics
 
 Placed/spawned objects are regular entities with a small set of components. Their behavior — state transitions, advertisement swaps, HP-driven degradation — is driven by `ObjectStateManager` reading a per-type config.
@@ -56,7 +63,7 @@ Ordering inside `hp_thresholds`: highest `min_hp` first. `get_state_for_hp` retu
 |---|---|---|
 | `desire_type` | yes | Desire channel (`&"warmth"`, `&"hunger"`, `&"comfort"`, `&"curiosity"`, `&"openable"`, ...). |
 | `strength` | yes | 0–1000 scoring weight, matches the desire scale. |
-| `radius_ru` | yes | Effect radius in rack units. Converted to PU via `Constants.ru_to_pu`. |
+| `radius_px` | yes | Effect radius in rack units. Converted to PU via ``. |
 | `action` | optional | Sentinel (presence only — value not read). When present, `DesireScatter` skips the ad during passive satisfaction; consumers must do the work explicitly (PACING→EATING flow, arm tick, etc.). |
 | `max_occupants` | optional | Soft cap for pile-on-style ads. Consumer decides enforcement. |
 | `novelty_duration` | optional | On-arrival SNIFFING time for curiosity ads (in ticks/10, seconds). Read by arrival logic. |
@@ -65,6 +72,14 @@ Ordering inside `hp_thresholds`: highest `min_hp` first. `get_state_for_hp` retu
 ### Passive scatter vs. active consumption
 
 `DesireScatter.scatter_from_ads` (engine/desires) runs every tick and applies the strongest in-range ad per desire-type to each entity with matching desires. It **skips any ad with an `action` key**. That skip is the mechanism by which "cats must actively eat to be fed" is enforced — an open tuna can is only satisfying via the EATING state loop, never just by standing nearby.
+
+### Bond components (action-ad bypass)
+
+A "bond" is a marker component on an entity declaring an active relationship with a host (today: `&"settled_in"` for "tucked into this box"; future: `&"mounted_on"`, `&"holding"`, `&"inside_tube"`). The bond *is* the active state. While a bond is in place, action-tagged ads from the bonded host bypass the passive-proximity skip, so the bonded entity is satisfied by the host's ads directly.
+
+**Convention:** every bond marker component carries a `&"host_id"` field pointing at the bonded host. New bond types register their component name once at boot via `Bonds.register_bond(&"my_marker")` (see `engine/core/bonds.gd`). The system that manages the bond owns the registration call (e.g. `SettledLifecycle._init` registers `&"settled_in"`).
+
+`DesireScatter` reads bonds with `Bonds.has_any_bond` (cheap fast path for ~all entities, which have no bond) and only allocates the full host list via `Bonds.get_bond_hosts` when needed. Future systems (action-tick loops, contentment, narrator, inspect UI) reuse the same query.
 
 ## Shipped object types
 
@@ -92,7 +107,7 @@ Objects shipped as mod recipes follow this layout (see `mods/tcp_base/objects/`)
 }
 ```
 
-The component-name slot declares this object's specialized component (arms have `arm`, buttons have `tuna_button`, dispensers have `tuna_dispenser`). The component's fields are read by the system that owns that behavior (e.g. `FoodSystem` reads `arm.radius_ru` and `arm.hum_cost`).
+The component-name slot declares this object's specialized component (arms have `arm`, buttons have `tuna_button`, dispensers have `tuna_dispenser`). The component's fields are read by the system that owns that behavior (e.g. `FoodSystem` reads `arm.radius_px` and `arm.hum_cost`).
 
 ## Related rules
 

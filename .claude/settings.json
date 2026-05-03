@@ -16,8 +16,11 @@
 
       "Bash(git checkout)",
       "Bash(git checkout *)",
-      "Bash(git reset --hard)",
-      "Bash(git reset --hard *)",
+      "Bash(git reset)",
+      "Bash(git reset *)",
+      "Bash(git restore)",
+      "Bash(git restore *)",
+      "Bash(git switch *)",
 
       "Bash(git clean -f*)",
 
@@ -84,11 +87,10 @@
       "Bash(git worktree list)",
       "Bash(git fetch *)",
       "Bash(git rev-parse *)",
-      "Bash(git switch)", "Bash(git switch *)",
       "Bash(git add *)", "Bash(git add)",
       "Bash(git commit *)", "Bash(git commit)",
       "Bash(git push)", "Bash(git push *)",
-      "Bash(git mv *)", "Bash(git restore *)",
+      "Bash(git mv *)",
 
       "Bash(mkdir /tmp/*)", "Bash(mkdir -p /tmp/*)",
       "Bash(mkdir tmp/*)",  "Bash(mkdir -p tmp/*)",
@@ -107,26 +109,21 @@
       {
         "matcher": "Bash|Write|Edit",
         "hooks": [
-          { "type": "command", "command": "script/hooks/classify" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/classify" }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/pre-agent-require-worktree" }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "script/hooks/post-edit-validate",
-            "timeout": 30,
-            "statusMessage": "Running script/validate..."
-          }
-        ]
-      },
-      {
         "matcher": ".*",
         "hooks": [
-          { "type": "command", "command": "script/hooks/log-result" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/log-result" }
         ]
       }
     ],
@@ -134,7 +131,7 @@
       {
         "matcher": ".*",
         "hooks": [
-          { "type": "command", "command": "script/hooks/log-result" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/script/hooks/log-result" }
         ]
       }
     ]

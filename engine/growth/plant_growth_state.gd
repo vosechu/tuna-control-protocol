@@ -15,4 +15,4 @@ const GROW_THRESHOLD_SECONDS: int = 300
 const DECAY_THRESHOLD_SECONDS: int = 100
 
 const PLANT_COMFORT_STRENGTH: int = 100
-const PLANT_ADVERT_RADIUS_RU: int = 1
+const PLANT_ADVERT_RADIUS_PX: int = 8  # 1 slot-height

@@ -1,3 +1,10 @@
+---
+paths:
+  - "engine/core/food_system.gd"
+  - "engine/core/object_state_manager.gd"
+  - "mods/tcp_tuna/**"
+---
+
 # TCP Food System
 
 The shipped Ring 0 food chain: player clicks the button → dispenser drops a sealed can → arm auto-opens it → a hungry cat walks over and eats → can despawns. Every link spends HUM reserve from `HumSystem`; cat contentment replenishes it. This is the concrete loop that `core-loop.md` describes abstractly.
@@ -8,7 +15,7 @@ The shipped Ring 0 food chain: player clicks the button → dispenser drops a se
 |---|---|---|
 | Button | `tuna_button: {tethered_to: "tcp_base:tuna_dispenser"}` | Player-clickable trigger. No AI. |
 | Dispenser | `tuna_dispenser: {hum_cost, can_type}` | Spawns sealed cans when paired button is pressed. Advertises `hunger` to draw hungry cats to the right rack. |
-| Arm | `arm: {radius_ru, hum_cost, open_duration_ticks}` | Floor entity. Every tick, opens any sealed tuna_can within radius, paying HUM. No AI, no movement. |
+| Arm | `arm: {radius_px, hum_cost, open_duration_ticks}` | Floor entity. Every tick, opens any sealed tuna_can within radius, paying HUM. No AI, no movement. |
 | Tuna can | `tuna_can: {state, despawn_timer}` + `object_type: {type: "tuna_can"}` | Spawned by dispenser. State machine drives advertisements. |
 
 All numbers (HUM costs, radii, durations) are declared in the mod recipes at `mods/tcp_base/objects/` — no hardcoded values in engine code.
@@ -29,7 +36,7 @@ After entering `eaten`, the can's despawn timer runs; `FoodSystem.tick_cleanup()
 
 `FoodSystem` ticks in two phases, both called from `GameServer._physics_process`:
 
-1. `tick_arms()` — for each entity with an `arm` component, query `radius_ru` around its position for `tuna_can` entities. For each sealed can found, if `_hum.has_reserve(arm.hum_cost)`: drain, transition the can to `opened` (state + ad swap), emit `Events.can_opened(can_id)`. Stops early if HUM runs out.
+1. `tick_arms()` — for each entity with an `arm` component, query `radius_px` around its position for `tuna_can` entities. For each sealed can found, if `_hum.has_reserve(arm.hum_cost)`: drain, transition the can to `opened` (state + ad swap), emit `Events.can_opened(can_id)`. Stops early if HUM runs out.
 2. `tick_cleanup()` — for each `tuna_can` in state `eaten`, increment despawn_timer. When it hits `CAN_DESPAWN_TICKS`, `remove_spatial` + `destroy_entity`.
 
 The scheduler runs `tick_arms` before `tick_cleanup`, and both after `food_system.tick_arms()` in the documented tick order (see `nodes/game_server.gd::_physics_process`).
@@ -94,7 +101,7 @@ cat satisfied  →  HumSystem.tick_charge  →  reserve ++
                                          reserve approaches 0 → brownout visuals
 ```
 
-Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. If reserve is insufficient, food actions silently no-op (button press returns `INVALID_ID`; arm tick skips the can). This is graceful-degradation, not an error state — the game is still playable, just slower to feed cats.
+Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. Dispensers and arms both route drain through `FoodSystem.is_powered(device_id, cost)`, which today returns the first HUM with enough reserve, ignoring `device_id` (cables are not implemented — see the banner on `hum-cable-system.md`). If no HUM has enough reserve, food actions silently no-op (button press returns `INVALID_ID`; arm tick skips the can). This is graceful-degradation, not an error state — the game is still playable, just slower to feed cats.
 
 ## Events
 
@@ -103,7 +110,7 @@ Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. I
 | `food_dispensed(can_id)` | `game_client._try_click_entity` | Can entity ID |
 | `can_opened(can_id)` | `FoodSystem.tick_arms` | Can entity ID |
 | `creature_started_pacing(animal_id)` | `game_server._update_ambient_states` (HUNGRY→PACING transition) | Animal entity ID |
-| `hum_reserve_changed(old, new)` | `HumSystem._emit_if_changed` | Raw reserve values (0–10000). Consumers compute ratio via `HumSystem.DEFAULT_CAPACITY`. |
+| `hum_reserve_changed(hum_id, old, new)` | `HumSystem._emit_if_changed` | Per-HUM reserve values. HUD aggregates for display. |
 
 The HUD's HumBar, SoundManager, and LightingSystem all subscribe to `hum_reserve_changed`. See `.claude/rules/signals.md` for the full signal taxonomy.
 
@@ -111,5 +118,6 @@ The HUD's HumBar, SoundManager, and LightingSystem all subscribe to `hum_reserve
 
 - `.claude/rules/objects.md` — Object state mechanics underlying the tuna can.
 - `.claude/rules/core-loop.md` — Design intent for the purr-power loop this implements.
+- `.claude/rules/hum-cable-system.md` — Per-HUM battery design (cable layer not currently implemented; banner explains).
 - `.claude/rules/animal-ai.md` — Desire scoring (how hungry cats pick targets).
 - `.claude/rules/signals.md` — Event bus ownership for cross-system signals.

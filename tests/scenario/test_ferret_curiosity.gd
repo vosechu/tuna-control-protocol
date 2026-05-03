@@ -36,7 +36,7 @@ func _make_rack(x: int, y: int) -> int:
 	var id: int = _db.create_entity()
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"advertisements", {&"list": [
-		{&"desire_type": &"curiosity", &"strength": 300, &"radius_ru": 8,
+		{&"desire_type": &"curiosity", &"strength": 300, &"radius_px": 64,
 			&"novelty_duration": 30, &"novelty_cooldown": 100},
 	]})
 	_db.update_spatial(id, x, y)
@@ -44,7 +44,7 @@ func _make_rack(x: int, y: int) -> int:
 
 
 func test_ferret_seeks_curiosity_source():
-	var ferret_id: int = _make_ferret(0, 1000)
+	var ferret_id: int = _make_ferret(0, 10)
 	var rack_id: int = _make_rack(0, 0)
 	_resolver.mark_dirty(ferret_id)
 	_resolver.evaluate_budget(_trackers)
@@ -60,9 +60,9 @@ func test_visited_rack_scores_zero_ferret_picks_other():
 	# Ferret at (0, 1500). rack_a at (0, 0), rack_b at (0, 700).
 	# Both within perception radius (8 RU = 5600 pu). After visiting rack_a,
 	# the ferret must target rack_b instead.
-	var ferret_id: int = _make_ferret(0, 1500)
+	var ferret_id: int = _make_ferret(0, 15)
 	var rack_a: int = _make_rack(0, 0)
-	var rack_b: int = _make_rack(0, 700)
+	var rack_b: int = _make_rack(0, 7)
 	# Pre-visit rack_a
 	_trackers[ferret_id].visit(rack_a, 0)
 	_db.advance_tick()
@@ -74,16 +74,16 @@ func test_visited_rack_scores_zero_ferret_picks_other():
 
 
 func test_ferret_prefers_novel_object_over_rack():
-	var ferret_id: int = _make_ferret(0, 2000)
+	var ferret_id: int = _make_ferret(0, 20)
 	var rack_id: int = _make_rack(0, 0)
 	# Novel pillow — higher strength, never visited
 	var pillow_id: int = _db.create_entity()
-	_db.set_component(pillow_id, &"position", {&"x": 0, &"y": 1000})
+	_db.set_component(pillow_id, &"position", {&"x": 0, &"y": 10})
 	_db.set_component(pillow_id, &"advertisements", {&"list": [
-		{&"desire_type": &"curiosity", &"strength": 500, &"radius_ru": 8,
+		{&"desire_type": &"curiosity", &"strength": 500, &"radius_px": 64,
 			&"novelty_duration": 500, &"novelty_cooldown": 200},
 	]})
-	_db.update_spatial(pillow_id, 0, 1000)
+	_db.update_spatial(pillow_id, 0, 10)
 	_resolver.mark_dirty(ferret_id)
 	_resolver.evaluate_budget(_trackers)
 	var target: Dictionary = _db.get_component(ferret_id, &"target")
@@ -94,7 +94,7 @@ func test_ferret_prefers_novel_object_over_rack():
 func test_cat_ignores_curiosity_ads():
 	var cat_id: int = _db.create_entity()
 	_db.set_component(cat_id, &"species", {&"id": &"tcp_cats:cat"})
-	_db.set_component(cat_id, &"position", {&"x": 0, &"y": 2000})
+	_db.set_component(cat_id, &"position", {&"x": 0, &"y": 20})
 	_db.set_component(cat_id, &"desires", {&"warmth": 800, &"comfort": 800, &"curiosity": 1000})
 	_db.set_component(cat_id, &"personality", {
 		&"warmth_weight": 800, &"comfort_weight": 600, &"curiosity_weight": 100,
@@ -106,7 +106,7 @@ func test_cat_ignores_curiosity_ads():
 		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
-	_db.update_spatial(cat_id, 0, 2000)
+	_db.update_spatial(cat_id, 0, 20)
 	_make_rack(0, 0)
 	_resolver.mark_dirty(cat_id)
 	_resolver.evaluate_budget()

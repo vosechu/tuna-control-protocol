@@ -1,34 +1,53 @@
 {
-  // Starter scenario — the smallest playable bay for Phase 0 HUM cable hookup.
-  // Names one HUM device, a tuna dispenser + button pair, a robot arm on the
-  // floor, and two optional cats near the HUM. Consumed by the scenario loader
-  // to populate a fresh game state without hand-placed saves.
+  // Starter scenario — populates the Phase 0 starter bay with everything
+  // scenario-spawnable: HUM, tuna chain, arm, two cats. Servers and cardboard
+  // boxes are still placed by `_seed_starter_box_stacks` in game_server.gd
+  // (no entity_def recipe for them yet), and the engine seed is also where the
+  // cat-in-box demo tuck-in happens — this scenario seeds the cats it picks.
   //
-  // `ref_name` labels an entity so later entries can refer to it symbolically.
-  // `cable_to: { ref_name }` writes a hum_cable component on the spawned entity
-  // pointing at the named HUM. Phase 2 provides UX for wiring cables at runtime;
-  // this pre-cabling keeps a fresh game playable before the player builds any.
-  "schema_version": 1,
+  // schema v2: slot 0 is the BOTTOM slot (was the top). All slot indices below
+  // are bottom-first.
+  "schema_version": 2,
   "id": "tcp_base:starter",
   "entities": [
-    { "type": "tcp_base:hum_device",     "rack": 0, "slot": 0, "ref_name": "hum_a" },
+    { "type": "tcp_base:hum_device", "rack": 0, "slot": 9, "ref_name": "hum_a" },
     {
       "type": "tcp_base:tuna_dispenser",
-      "rack": 2, "slot": 1,
-      "ref_name": "tuna_a",
-      "cable_to": { "ref_name": "hum_a" }
+      "rack": 2, "slot": 8,
+      "ref_name": "tuna_a"
     },
     {
       "type": "tcp_base:tuna_button",
-      "rack": 2, "slot": 2,
-      "dispenser_ref": { "rack": 2, "slot": 1 }
+      "rack": 2, "slot": 7,
+      "dispenser_ref": { "rack": 2, "slot": 8 }
     },
     {
       "type": "tcp_base:arm",
-      "floor_rack": 0, "floor_slot_offset": 0,
-      "cable_to": { "ref_name": "hum_a" }
+      "floor_rack": 0, "floor_slot_offset": 0
     },
-    { "type": "tcp_cats:cat", "rack": 0, "slot": 7, "required": false },
-    { "type": "tcp_cats:cat", "rack": 0, "slot": 8, "required": false }
+
+    // Cat A — listed first so engine seed's "first purrer" pick lands here.
+    // The seed force-tucks the first purrer into the rack-1 box and seeds
+    // SLEEPING. ai_state is also written here so any downstream consumer
+    // observing pre-seed state still sees a coherent SLEEPING animal.
+    {
+      "type": "tcp_cats:cat",
+      "name": "Pixel",
+      "floor_rack": 1, "floor_slot_offset": 0,
+      "ref_name": "cat_a",
+      "ai_state": "SLEEPING",
+      "required": false
+    },
+
+    // Cat B — emergent demo. Spawned on the floor near rack 2; its desire
+    // scoring should pull it toward a comfort ad on its own.
+    {
+      "type": "tcp_cats:cat",
+      "name": "Mittens",
+      "floor_rack": 2, "floor_slot_offset": 0,
+      "ref_name": "cat_b",
+      "ai_state": "IDLE",
+      "required": false
+    }
   ]
 }

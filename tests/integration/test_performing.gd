@@ -62,7 +62,7 @@ func _make_open_can(x: int, y: int) -> int:
 	_db.set_component(id, &"advertisements", {&"list": [{
 		&"desire_type": &"food",
 		&"strength": 800,
-		&"radius_ru": 5,
+		&"radius_px": 40,
 		&"action": &"eat",
 		&"action_duration": 50,
 	}]})
@@ -109,7 +109,7 @@ func _make_sealed_can(x: int, y: int) -> int:
 	_db.set_component(id, &"advertisements", {&"list": [{
 		&"desire_type": &"openable",
 		&"strength": 800,
-		&"radius_ru": 3,
+		&"radius_px": 24,
 		&"action": &"open",
 		&"action_duration": 30,
 	}]})
@@ -131,12 +131,12 @@ func _make_box(x: int, y: int, hp: int = 1000) -> int:
 		{
 			&"desire_type": &"comfort",
 			&"strength": 700,
-			&"radius_ru": 4,
+			&"radius_px": 32,
 		},
 		{
 			&"desire_type": &"curiosity",
 			&"strength": 500,
-			&"radius_ru": 5,
+			&"radius_px": 40,
 			&"action": &"shred",
 			&"action_duration": 20,
 		},
@@ -173,7 +173,7 @@ func _transition_tuna_ads(
 				&"list": [{
 					&"desire_type": &"openable",
 					&"strength": 800,
-					&"radius_ru": 3,
+					&"radius_px": 24,
 					&"action": &"open",
 					&"action_duration": 30,
 				}],
@@ -183,7 +183,7 @@ func _transition_tuna_ads(
 				&"list": [{
 					&"desire_type": &"food",
 					&"strength": 800,
-					&"radius_ru": 5,
+					&"radius_px": 40,
 					&"action": &"eat",
 					&"action_duration": 50,
 				}],
@@ -202,12 +202,12 @@ func _transition_box_ads(
 					{
 						&"desire_type": &"comfort",
 						&"strength": 700,
-						&"radius_ru": 4,
+						&"radius_px": 32,
 					},
 					{
 						&"desire_type": &"curiosity",
 						&"strength": 500,
-						&"radius_ru": 5,
+						&"radius_px": 40,
 						&"action": &"shred",
 						&"action_duration": 20,
 					},
@@ -219,12 +219,12 @@ func _transition_box_ads(
 					{
 						&"desire_type": &"comfort",
 						&"strength": 400,
-						&"radius_ru": 3,
+						&"radius_px": 24,
 					},
 					{
 						&"desire_type": &"curiosity",
 						&"strength": 300,
-						&"radius_ru": 4,
+						&"radius_px": 32,
 						&"action": &"shred",
 						&"action_duration": 20,
 					},
@@ -235,7 +235,7 @@ func _transition_box_ads(
 				&"list": [{
 					&"desire_type": &"comfort",
 					&"strength": 600,
-					&"radius_ru": 3,
+					&"radius_px": 24,
 				}],
 			})
 
@@ -269,8 +269,8 @@ func _box_state_for_hp(hp: int) -> StringName:
 
 func test_hungry_cat_targets_open_can() -> void:
 	# Cat with food=200 (hungry) near an open tuna can
-	var can_id: int = _make_open_can(0, 1000)
-	var cat_id: int = _make_cat(0, 2000, 200)
+	var can_id: int = _make_open_can(0, 10)
+	var cat_id: int = _make_cat(0, 20, 200)
 
 	_resolver.mark_dirty(cat_id)
 	_resolver.evaluate_budget()
@@ -291,8 +291,8 @@ func test_hungry_cat_targets_open_can() -> void:
 
 func test_fed_cat_ignores_open_can() -> void:
 	# Cat with food=950 (satisfied) near an open tuna can
-	_make_open_can(0, 1000)
-	var cat_id: int = _make_cat(0, 2000, 950)
+	_make_open_can(0, 10)
+	var cat_id: int = _make_cat(0, 20, 950)
 
 	_resolver.mark_dirty(cat_id)
 	_resolver.evaluate_budget()
@@ -307,8 +307,8 @@ func test_fed_cat_ignores_open_can() -> void:
 func test_food_not_scattered_passively() -> void:
 	# Food desire must not increase from passive scatter;
 	# it is action-only (in _ACTION_ONLY_DESIRES).
-	_make_open_can(0, 1000)
-	var cat_id: int = _make_cat(0, 1000, 200)
+	_make_open_can(0, 10)
+	var cat_id: int = _make_cat(0, 10, 200)
 
 	# Manually replicate the scatter logic from GameServer.
 	# _scatter_from_ads skips _ACTION_ONLY_DESIRES.
@@ -316,7 +316,7 @@ func test_food_not_scattered_passively() -> void:
 		cat_id, &"position",
 	)
 	var nearby: Array[int] = _db.query_radius(
-		pos[&"x"], pos[&"y"], Constants.ru_to_pu(8),
+		pos[&"x"], pos[&"y"], (8 * Constants.SLOT_HEIGHT_PX),
 	)
 	var best: Dictionary = {}
 	for other_id: int in nearby:
@@ -335,10 +335,8 @@ func test_food_not_scattered_passively() -> void:
 			+ absi(pos[&"y"] - other_pos[&"y"])
 		)
 		for ad: Dictionary in ads[&"list"]:
-			var radius_pu: int = Constants.ru_to_pu(
-				ad[&"radius_ru"],
-			)
-			if dist > radius_pu:
+			var radius_px: int = ad[&"radius_px"]
+			if dist > radius_px:
 				continue
 			var dtype: StringName = ad[&"desire_type"]
 			var strength: int = ad[&"strength"]
@@ -372,33 +370,17 @@ func test_food_not_scattered_passively() -> void:
 	)
 
 
-func test_arm_scores_sealed_can_within_reach() -> void:
-	# Arm with purpose=200 (needy) and sealed can at same
-	# position. Within ARM_REACH_RU (3 RU = 2100 PU).
-	var arm_id: int = _make_arm(1000, 1000)
-	var can_id: int = _make_sealed_can(1000, 1000)
-
-	_resolver.mark_dirty(arm_id)
-	_resolver.evaluate_budget()
-
-	var ai: Dictionary = _db.get_component(
-		arm_id, &"ai_state",
-	)
-	assert_eq(
-		ai[&"state"], &"SEEKING",
-		"Arm should SEEK sealed can within reach",
-	)
-	var target: Dictionary = _db.get_component(
-		arm_id, &"target",
-	)
-	assert_eq(
-		target[&"entity_id"], can_id,
-		"Arm should target the sealed tuna can",
-	)
+# test_arm_scores_sealed_can_within_reach was deleted in the
+# perception-channels migration. The arm doesn't go through the desire
+# resolver in production — FoodSystem.tick_arms() finds nearby sealed
+# cans by direct query and opens them. score_ad now correctly returns 0
+# for action ads outside Constants.CHANNELS (e.g. `openable`), matching
+# the architecture: channels are perceptual, action ads are state-loop
+# consumed.
 
 
 func test_arm_ignores_can_beyond_reach() -> void:
-	# 5000 PU apart > ARM_REACH_RU (3 RU = 2100 PU).
+	# 5000 PU apart > ARM_REACH_PX (3 RU = 2100 PU).
 	# The can's ad radius is 3 RU so score_ad returns 0
 	# and the arm cannot target it.
 	var arm_id: int = _make_arm(1000, 1000)
@@ -441,8 +423,8 @@ func test_object_state_transition_swaps_ads() -> void:
 		"Open can should advertise food",
 	)
 	assert_eq(
-		ads_after[&"list"][0][&"radius_ru"], 5,
-		"Open can food ad radius should be 5 RU",
+		ads_after[&"list"][0][&"radius_px"], 40,
+		"Open can food ad radius should be 40 px (5 slot-heights)",
 	)
 	var state: Dictionary = _db.get_component(
 		can_id, &"object_state",

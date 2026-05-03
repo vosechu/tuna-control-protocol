@@ -35,16 +35,12 @@ func press_button(button_id: int) -> int:
 	var disp_pos: Dictionary = _db.get_component(
 		dispenser_id, &"position",
 	)
-	var button_rack: int = (
-		button_pos[&"x"] / Constants.RACK_WIDTH_PU
-	)
-	var disp_rack: int = (
-		disp_pos[&"x"] / Constants.RACK_WIDTH_PU
-	)
-	if button_rack != disp_rack:
+	var button_rack: int = _rack_of(button_pos)
+	var disp_rack: int = _rack_of(disp_pos)
+	if button_rack != disp_rack or button_rack == Constants.INVALID_ID:
 		return Constants.INVALID_ID
 
-	# HUM cost check — cable-driven lookup.
+	# HUM cost check — drains the first HUM with reserve (cable-free).
 	var disp_data: Dictionary = _db.get_component(
 		dispenser_id, &"tuna_dispenser",
 	)
@@ -57,10 +53,9 @@ func press_button(button_id: int) -> int:
 	_hum.drain_action(hum_id, cost)
 	var can_id: int = _db.create_entity()
 	var can_x: int = disp_pos[&"x"]
-	var can_y: int = (
-		Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-		+ Constants.FLOOR_HEIGHT_PU / 4
-	)
+	# Drop at floor level (quarter-depth into the floor strip).
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
+	var can_y: int = floor_rect.position.y + floor_rect.size.y / 4
 	_db.set_component(can_id, &"position", {
 		&"x": can_x, &"y": can_y,
 	})
@@ -85,16 +80,14 @@ func tick_arms() -> void:
 		var arm_pos: Dictionary = _db.get_component(
 			arm_id, &"position",
 		)
-		var radius_pu: int = Constants.ru_to_pu(
-			arm_data[&"radius_ru"],
-		)
+		var radius_px: int = arm_data[&"radius_px"]
 		var cost: int = arm_data[&"hum_cost"]
 		var arm_hum_id: int = is_powered(arm_id, cost)
 		if arm_hum_id == Constants.INVALID_ID:
 			continue
 
 		var nearby: Array[int] = _db.query_radius(
-			arm_pos[&"x"], arm_pos[&"y"], radius_pu,
+			arm_pos[&"x"], arm_pos[&"y"], radius_px,
 		)
 		for entity_id: int in nearby:
 			if not _db.has_component(entity_id, &"tuna_can"):
@@ -119,33 +112,24 @@ func tick_arms() -> void:
 				{&"list": [{
 					&"desire_type": &"hunger",
 					&"strength": 900,
-					&"radius_ru": 6,
+					&"radius_px": 48,
 					&"max_occupants": 1,
+					&"action": &"eat",
 				}]},
 			)
 			if _events and _events.has_signal(&"can_opened"):
 				_events.can_opened.emit(entity_id)
 
 
-func is_powered(device_id: int, cost: int) -> int:
-	# AI-DEV: Query whether a hum_powered device has a live cable to a HUM
-	# with enough reserve to cover `cost`. Returns the source hum_id on
-	# success or Constants.INVALID_ID on any failure. Tombstone-safe: a
-	# cable whose hum_id no longer resolves reports not-powered.
-	if not _db.has_component(device_id, &"hum_powered"):
-		return Constants.INVALID_ID
-	if not _db.has_component(device_id, &"hum_cable"):
-		return Constants.INVALID_ID
-	var hum_id: int = _db.get_field(device_id, &"hum_cable", &"hum_id")
-	var resolved: bool = (
-		hum_id != Constants.INVALID_ID
-		and _db.has_entity(hum_id)
-		and _db.has_component(hum_id, &"hum")
-		and _hum.has_reserve(hum_id, cost)
-	)
-	if not resolved:
-		return Constants.INVALID_ID
-	return hum_id
+func is_powered(_device_id: int, cost: int) -> int:
+	# AI-DEV: Cable-free reduction of the original gate. Returns the first
+	# HUM with enough reserve to cover `cost`, or Constants.INVALID_ID. When
+	# the cable layer comes back (see hum-cable-system.md) restore the
+	# hum_powered / hum_cable / per-device routing here.
+	for hum_id: int in _db.get_entities_with(&"hum"):
+		if _hum.has_reserve(hum_id, cost):
+			return hum_id
+	return Constants.INVALID_ID
 
 
 func tick_cleanup() -> void:
@@ -167,3 +151,14 @@ func tick_cleanup() -> void:
 	for can_id: int in to_remove:
 		_db.remove_spatial(can_id)
 		_db.destroy_entity(can_id)
+
+
+func _rack_of(pos: Dictionary) -> int:
+	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+	var bay: int = Constants.world_to_bay(world_pos)
+	if bay == Constants.INVALID_BAY:
+		return Constants.INVALID_ID
+	var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+	if q.zone == &"other":
+		return Constants.INVALID_ID
+	return q.rack

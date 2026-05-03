@@ -17,18 +17,15 @@ if ! command -v gdlint &> /dev/null; then
     exit 0
 fi
 
-ERRORS=""
-while IFS= read -r file; do
-    if [ -f "$file" ]; then
-        OUTPUT=$(gdlint "$file" 2>&1)
-        if [ $? -ne 0 ]; then
-            ERRORS="$ERRORS\n$OUTPUT"
-        fi
-    fi
-done <<< "$FILES"
+# Batch all files into one gdlint invocation — per-file calls pay ~150ms
+# of Python startup each, which turned 122 files into a 21s check.
+# shellcheck disable=SC2086
+OUTPUT=$(echo "$FILES" | xargs gdlint 2>&1)
+STATUS=$?
 
-if [ -n "$ERRORS" ]; then
-    echo -e "GDScript lint errors:$ERRORS" >&2
+if [ $STATUS -ne 0 ]; then
+    echo "GDScript lint errors:" >&2
+    echo "$OUTPUT" >&2
     exit 1
 fi
 exit 0

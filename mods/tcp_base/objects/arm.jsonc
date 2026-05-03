@@ -1,17 +1,16 @@
 {
   // ARM — Autonomous Retrieval Manipulator
-  // Floor object. Opens sealed tuna cans within radius. Requires HUM.
-  "schema_version": 1,
+  // Floor object. Opens sealed tuna cans within radius. Drains HUM per open.
+  "schema_version": 2,
   "id": "tcp_base:arm",
   "name": "ARM",
   "size_ru": 2,
   "placement": "floor",
   "arm": {
-    "radius_ru": 3,
+    "radius_px": 24,
     "hum_cost": 30,
     "open_duration_ticks": 20
   },
-  "hum_powered": {},
   "physical": { "mass": 15000, "size_ru": 2 },
   "advertisements": []
 }

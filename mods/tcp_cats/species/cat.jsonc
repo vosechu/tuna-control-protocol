@@ -3,35 +3,51 @@
   // Mochi: warmth 800, comfort 600, curiosity 100
   // Biscuit: warmth 500, comfort 900, curiosity 100
   // Noodle: warmth 700, comfort 700, curiosity 200
-  "schema_version": 1,
+  "schema_version": 3,
   "id": "tcp_cats:cat",
   "name": "Cat",
+  "senses": {
+    "sight":   186,
+    "hearing": 186,
+    "smell":   186,
+    "touch":    64
+  },
   "tends_servers": true,
   "purr": {
-    "rate_when_satisfied": 10
+    "rate_when_satisfied": 1000,
+    "base_radius_ru": 6
   },
   "desires": {
-    "warmth": 700,
-    "comfort": 700,
+    "warmth":    700,
+    "comfort":   700,
     "curiosity": 150,
-    "hunger": 700,
-    "attention": 500,
-    "noise": -600,
-    "chased": -900
+    "hunger":    700,
+    "social":    500,
+    "quiet":     600,
+    "peace":     500,
+    "safety":    800
   },
   "personality_ranges": {
-    "warmth": [500, 800],
-    "comfort": [600, 900],
+    "warmth":    [500, 800],
+    "comfort":   [600, 900],
     "curiosity": [100, 200],
-    "hunger": [600, 800],
-    "attention": [400, 600],
-    "noise": [-840, -360],
-    "chased": [-1000, -800]
+    "hunger":    [600, 800],
+    "social":    [400, 600],
+    "quiet":     [400, 800],
+    "peace":     [350, 650],
+    "safety":    [700, 900]
   },
   "physical": { "mass": 4000, "size_ru": 2 },
   "strength": 3000,
-  "traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
-  "max_jump_height_ru": 3,
+  "body_capabilities": {
+    "walks":  {},
+    "jumps":  { "max_height_ru": 4 },
+    "drops":  { "max_height_ru": 5 },
+    "settles_in_containers": { "max_body_size_ru": 2 }
+  },
+  "body_geometry": {
+    "size_ru": 2
+  },
   "variants": ["cat01", "cat02", "cat03", "cat04", "cat05"],
   "ambient_states": {
     "warm": [
@@ -60,33 +76,46 @@
       "SLEEPING":   { "animation": "sleep" },
       "STARTLED":   { "animation": "fright" }
     },
+    // Per-segment animations during MOVING_TO / SEEKING / WANDERING. The
+    // animal_node classifies the current step's delta_y (current vs. previous
+    // position) and picks an entry here; missing edges fall back to "walk".
+    "edge_animations": {
+      "WALK":      { "animation": "walk" },
+      "JUMP_UP":   { "animation": "jump" },
+      "JUMP_DOWN": { "animation": "fall" },
+      "ENTER":     { "animation": "ledgeclimb" }
+    },
     "animation_frames": {
-      "idle":   { "sprite": "_idle_strip8.png",   "frames": 8, "fps": 6.0 },
-      "walk":   { "sprite": "_walk_strip8.png",   "frames": 8, "fps": 8.0 },
-      "sit":    { "sprite": "_sit_strip8.png",    "frames": 8, "fps": 4.0 },
-      "sleep":  { "sprite": "_sleep_strip8.png",  "frames": 8, "fps": 2.0 },
-      "crouch": { "sprite": "_crouch_strip8.png", "frames": 8, "fps": 6.0 },
-      "fright": { "sprite": "_fright_strip8.png", "frames": 8, "fps": 8.0 }
+      "idle":       { "sprite": "_idle_strip8.png",        "frames": 8,  "fps": 6.0 },
+      "walk":       { "sprite": "_walk_strip8.png",        "frames": 8,  "fps": 8.0 },
+      "sit":        { "sprite": "_sit_strip8.png",         "frames": 8,  "fps": 4.0 },
+      "sleep":      { "sprite": "_sleep_strip8.png",       "frames": 8,  "fps": 2.0 },
+      "crouch":     { "sprite": "_crouch_strip8.png",      "frames": 8,  "fps": 6.0 },
+      "fright":     { "sprite": "_fright_strip8.png",      "frames": 8,  "fps": 8.0 },
+      "jump":       { "sprite": "_jump_strip4.png",        "frames": 4,  "fps": 8.0 },
+      "fall":       { "sprite": "_fall_strip3.png",        "frames": 3,  "fps": 6.0 },
+      "ledgeclimb": { "sprite": "_ledgeclimb_strip11.png", "frames": 11, "fps": 8.0 },
+      "land":       { "sprite": "_land_strip2.png",        "frames": 2,  "fps": 6.0 }
     }
   },
   "states": {
     "idle": {
       "advertisements": [
-        { "desire_type": "warmth", "strength": 300, "radius_ru": 2 },
-        { "desire_type": "curiosity", "strength": 400, "radius_ru": 3, "novelty_duration": 150, "novelty_cooldown": 50 }
+        { "channel": "warmth", "strength": 300, "effect_radius_px": 16 },
+        { "channel": "curiosity", "strength": 400, "effect_radius_px": 24, "novelty_duration": 150, "novelty_cooldown": 50 }
       ]
     },
     "sleeping": {
       "advertisements": [
-        { "desire_type": "warmth", "strength": 400, "radius_ru": 1 },
-        { "desire_type": "comfort", "strength": 300, "radius_ru": 2 }
+        { "channel": "warmth", "strength": 400, "effect_radius_px": 8 },
+        { "channel": "comfort", "strength": 300, "effect_slot": true }
       ]
     },
     "grooming": { "advertisements": [] },
     "seeking": { "advertisements": [] },
     "startled": {
       "advertisements": [
-        { "desire_type": "noise", "strength": 200, "radius_ru": 3 }
+        { "channel": "noise", "strength": 200, "effect_radius_px": 24 }
       ]
     }
   },
@@ -106,8 +135,8 @@
   "hud_color": [0.9, 0.8, 0.6],
   "initial_state": "idle",
   "starters": [
-    { "name": "Mochi",   "rack": 1, "desires": { "hunger": 900, "attention": 600 } },
-    { "name": "Biscuit", "rack": 2, "desires": { "hunger": 900, "attention": 600 } },
-    { "name": "Noodle",  "rack": 3, "desires": { "hunger": 900, "attention": 600 } }
+    { "name": "Mochi",   "rack": 1 },
+    { "name": "Biscuit", "rack": 2 },
+    { "name": "Noodle",  "rack": 3 }
   ]
 }

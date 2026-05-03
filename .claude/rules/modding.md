@@ -1,3 +1,9 @@
+---
+paths:
+  - "mods/**"
+  - "engine/mod/**"
+---
+
 # TCP Modding Architecture Rules
 
 ## Base Game Is a Mod — Day One, Not Later
@@ -21,6 +27,9 @@ Three lanes (first/default/last). Within each lane: topological sort by auto-det
 ## Config Schema Versioning
 Every config file type (species, objects, behaviors, infrastructure) includes a `"schema_version": 1` field. Schema changes require migration functions, same as save files. Adding versioning now is trivial; adding it later requires touching every existing file.
 
+## No magic defaults
+Required fields must be declared in every recipe. A missing field is a validation error at mod load time, not a silent fallback to some engine-side default. Silent defaults produce mysterious behavior for mod authors who don't know the value exists; explicit errors point at the exact line to fix. Schema validators (`SpeciesSchemaValidator`, `ScenarioSchemaValidator`, etc.) own this check and must `push_error` + skip, not paper over the gap.
+
 ## Config Layering
 Deep merge per-key. Later mods override earlier. `user://config/` always wins. To delete a key, set to `null`. ConfigRegistry produces frozen immutable dictionary.
 
@@ -38,6 +47,43 @@ Patches that should only apply when another mod is present need a `:NEEDS` equiv
 
 ## Rename Redirects
 Old titles in `previous_titles` array. Redirects registered at load time. Save files migrated. Append-only.
+
+## Scenarios
+
+Scenarios live per-mod under `mods/<mod_id>/scenarios/<id>.jsonc`. On a fresh game, `WorldInitSystem` applies the scenario identified by `settings.starter_scenario_id` (default `&"tcp_base:starter"`). A scenario lists entity refs — type + placement — that populate a new world without hand-placed saves.
+
+```jsonc
+{
+  "schema_version": 2,
+  "id": "tcp_base:starter",
+  "entities": [
+    { "type": "tcp_base:hum_device", "rack": 0, "slot": 9, "ref_name": "hum_a" },
+    { "type": "tcp_base:tuna_dispenser", "rack": 2, "slot": 8, "ref_name": "tuna_a" },
+    { "type": "tcp_cats:cat", "floor_rack": 1, "floor_slot_offset": 0, "required": false }
+  ]
+}
+```
+
+- **Placement:** `{rack, slot}` for rack entities, `{floor_rack, floor_slot_offset}` for floor entities. Structured objects only — no in-band string DSL.
+- **`ref_name`:** optional symbolic label so later entries can cross-reference this entity within the scenario (e.g. `settled_in_ref`).
+- **`required`:** defaults to `true`. A missing type on a required entry aborts the whole population with `push_error`. Optional entries are silently skipped when their type isn't registered — this is how third-party species mods contribute starter animals without hard-coding tcp_base's file.
+- **Load ordering:** scenarios are applied *after* every mod has registered its entity types. A scenario referencing `tcp_cats:cat` requires `tcp_cats` to be loaded.
+- **Idempotency:** the save root stores `starter_scenario_applied: true` after population. `WorldInitSystem` checks the flag, not save presence — reloads, desync recoveries, and MP resyncs never double-populate.
+
+Mods override by offering an alternative scenario and asking players to swap `settings.starter_scenario_id`, not by shadowing another mod's file.
+
+## Capability Components
+
+The framework branches on components, not species labels. These are the capability tags defined today:
+
+| Tag | Shape | Purpose |
+|---|---|---|
+| `&"tends_servers"` | `{}` | Entity contributes to reclamation when near a server. |
+| `&"hum_receiver"` | `{radius_px: int}` | Entity listens on the `&"purr"` channel within its radius. |
+| `&"purr"` | `{intensity: int}` | Entity emits on the purr channel at this per-tick strength. |
+| `&"purr_config"` | `{rate_when_satisfied: int}` | Recipe-level rate used by the contentment→purr bridge. |
+
+Mechanics and invariants live in each subsystem's rule file (see `hum-cable-system.md`, `growth-system.md`). Adding a new capability is a narrow, first-use declaration; promote to a broader name only when a second system needs the same check. The cable subsystem (`hum_powered`, `hum_cable`, `cable_to` scenario field) is currently parked — see the banner on `hum-cable-system.md`.
 
 ---
 

@@ -1,0 +1,15 @@
+AllCops:
+  NewCops: disable
+  TargetRubyVersion: 3.0
+  Exclude:
+    - '.godot/**/*'
+    - 'addons/**/*'
+
+# Script-style CLI tools have long, branchy command handlers by nature.
+# Refactoring them just to satisfy metrics adds indirection without value.
+Metrics:
+  Enabled: false
+
+# Shebang scripts don't need frozen_string_literal magic comments.
+Style/FrozenStringLiteralComment:
+  Enabled: false

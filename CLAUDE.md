@@ -1,5 +1,21 @@
 # Tuna Control Protocol (TCP) — Datacenter Animal Habitat Simulator
 
+## Stop forgetting
+
+- **Verify before asserting.** Never claim how code or a system works without reading it first. Hedge ("I think", "probably") if you haven't checked; state facts only after opening the file. Inferring from naming, conventions, or rules docs is speculation, not knowledge — confident wrong claims cost more debug time than the read would have taken.
+- **Capabilities, never species.** Branch on components, never on species labels. See "Species Are Component Recipes" below.
+- **Never a broken commit.** Every commit leaves `script/validate` green and the game bootable. No exceptions.
+- **Never use `--no-verify`** on commit or push, ever. If hooks fail, fix the underlying issue. There is no valid reason to bypass them.
+- **Never `git stash` with session work in flight.** Stash sweeps everything uncommitted; recovery is lossy. Use a branch (`git checkout -b test-foo HEAD`) or don't.
+- **Use `script/validate` and `script/checks/gut_tests`** — not raw Godot commands.
+- **Explode early.** Integers for game values (ints with scaling, not floats). No `Variant`, no `null`. Guard at system boundaries; trust internally.
+- **Hook/tool warnings aren't wallpaper.** A non-blocking failure that repeats on every tool call is a signal something is wrong with the environment. Investigate at the first occurrence, not the tenth.
+- **Worktree isolation for code-writing work.** New feature from a clean base → spawn the Agent with `isolation: "worktree"` (or, for the main thread, `git worktree add` before touching code). Continuing an existing feature branch, or meta-edits to `.claude/` / `script/` / `CLAUDE.md`, → current branch is fine. The `pre-agent-require-worktree` hook enforces this on Agent spawns; read-only agent types (`Explore`, `claude-code-guide`, players, `statusline-setup`) are allowlisted. **Dev-team agents are not allowlisted** (`game-programmer`, `game-designer`, `community-modder`, `game-qa`, `sound-designer`, `narrative-designer`, `accessibility-advocate`, `game-artist`, `game-asset-creator`) — pass `isolation: "worktree"` even for review-only invocations; the worktree auto-cleans if the agent makes no changes.
+
+---
+
+## What the game is
+
 A cozy, abundance-driven game about raising thousands of animals in an abandoned datacenter. Players build interconnected infrastructure, animals arrive and thrive, and the game is about maximizing collective happiness. There is no lose condition. The challenge is finding the theoretical maximum — which is hard because animals have complex, interacting desires and emergent teaching behaviors.
 
 **The ultimate goal: feel buried in fluffy joy and thousands of kittens.**
@@ -175,42 +191,53 @@ Design collaboration uses specialized agents in `.claude/agents/`:
 
 Rules live in `.claude/rules/` as auto-loadable files.
 
-### Always loaded (code & architecture)
+### Always loaded (cross-cutting, small)
 
 | Rule file | Covers |
 |---|---|
-| `design-philosophy.md` | Pure Core, Redux state, integers, null, determinism, config-not-code, change detection, spawn templates, lifecycle hooks, relationships, GameStateDB reference |
-| `code-style.md` | Types, naming, returns, null handling, signals, comments, code examples |
-| `testing.md` | GUT, test suites, CI pipeline, coverage targets, test exemplars |
-| `signals.md` | Three signal patterns, event bus, ownership, UI pattern, scenario traces |
 | `file-structure.md` | Full `res://` directory tree |
-| `save-system.md` | GameStateDB, MessagePack format, save payload, versioning, sharing, migrator reference |
-| `networking.md` | Client-server protocol, deltas, bandwidth, interest management |
-| `viewport-lod.md` | Subscription zones, billboard rendering, tier model |
-| `modding.md` | Auto-detection, three-lane ordering, ID derivation, observable state reference |
-| `scene-tree.md` | Scene tree skeleton, animal scene, key ownership |
-| `tick-architecture.md` | 10 Hz sim tick, staggered eval, rendering interpolation, key numbers |
-| `animal-ai.md` | State machine, hysteresis, object advertisements, scoring loop |
-| `objects.md` | Object state components, ObjectStateManager API, OBJECT_CONFIG schema |
-| `food-system.md` | Tuna-can lifecycle, button/dispenser/arm flow, cat PACING/EATING loop |
-| `growth-system.md` | Reclamation + plant-growth state machine, tended_seconds accumulator, HUM brownout immunity |
-| `navigation.md` | AStar2D point graph, node/edge types, species capabilities, dynamic updates |
 | `secrets.md` | What never gets committed, where secrets go, .gitignore policy |
 | `ai-dev.md` | AI-DEV inline comment markers — permanent LLM instructions in code |
-| `llm-test-verification.md` | Red-green-refactor verification, test protection, post-hoc review |
 | `naming-conventions.md` | Verb vocabulary, boolean prefixes, A/HC/LC structure, opposites |
-| `pr-review-checklist.md` | Review roles, security/testing/quality checklists, failure thinking |
 | `test-philosophy.md` | Sandi Metz test matrix, unit vs integration philosophy |
+| `signals.md` | Three signal patterns, event bus, ownership, UI pattern (scenario traces moved to `/trace-signal-flow` skill) |
 
-### Loaded by path (design specs)
+### On-demand skills (replace former rules)
 
-| Rule file | Loads when touching | Covers |
-|---|---|---|
-| `art-direction.md` | `**/*.png`, `**/*.tscn`, `sprites/**` | Pixel grid, palettes, cat models, zoom levels, lighting, z-order, robot arm visual |
-| `asset-pipeline.md` | `mods/tcp_base/**`, `**/*.png`, `**/*.ogg` | Directory structure, naming, sprite/sound lists, animation frame budgets |
-| `input-design.md` | `nodes/**`, `**/*.tscn`, `config/input/**` | Keyboard shortcuts, controller flow, inspect panel, tooltips, color-independent indicators |
-| `narrative.md` | `mods/tcp_base/**`, `**/*.json`, `**/locale/**` | Robot arc, animals leaving/returning, reclamation aesthetic, device naming, robot logs |
-| `sound-design.md` | `**/*.ogg`, `mods/tcp_base/sounds/**`, `mods/tcp_base/config/**` | Mixing strategy, purr variation, silence states, player feedback sounds, spatial audio |
+| Skill | Invoke when |
+|---|---|
+| `/verify-test` | Writing, modifying, or verifying a test — red-green-refactor + mutation + stamp protocol. Required for `verify_tests` to pass. |
+| `/pr-review` | Reviewing a pull request — universal checklist, failure-mode thinking. |
+| `/edit-claude-md` | Creating or editing a CLAUDE.md file — size budget, structure, conditional-context patterns. |
+| `/trace-signal-flow` | Wiring a new cross-system signal or debugging signal propagation. Four worked traces. |
+
+### Loaded by path
+
+Each file's `paths:` frontmatter is authoritative; this table is the human index.
+
+| Rule file | Loads when touching |
+|---|---|
+| `code-style.md` | `**/*.gd` |
+| `testing.md` | `tests/**`, `script/checks/gut_tests`, `script/checks/verify_tests`, `script/stamp_tests` |
+| `design-philosophy.md` | `engine/**`, `nodes/**` |
+| `tick-architecture.md` | `nodes/game_server.gd`, `engine/core/**`, `engine/desires/**`, `engine/growth/**` |
+| `animal-ai.md` | `engine/animals/**`, `engine/desires/**`, `engine/core/{contentment,animal,desire}*`, `mods/*/species/**`, `config/balance/desire_thresholds.json` |
+| `objects.md` | `engine/core/object_state_manager.gd`, `engine/objects/**`, `mods/**/objects/**` |
+| `food-system.md` | `engine/core/food_system.gd`, `engine/core/object_state_manager.gd`, `mods/tcp_tuna/**` |
+| `hum-cable-system.md` | `engine/core/{hum_,wiring_,contentment}*`, `engine/core/food_system.gd`, `nodes/hud/{wiring,cable,hum_bar,dangling_tip}*`, `mods/tcp_base/config/hum.jsonc` |
+| `core-loop.md` | `engine/core/{hum_,food_system,contentment,wiring_}*`, `nodes/hud/hum_bar.gd`, `nodes/robot_narrator.gd` |
+| `growth-system.md` | `engine/growth/**`, `nodes/dynamic_plants.gd`, `mods/*/species/**` |
+| `navigation.md` | `engine/navigation/**`, `mods/*/species/**` |
+| `save-system.md` | `engine/**/{save,snapshot,serialize,migrat}*`, `tests/snapshots/saves/**` |
+| `networking.md` | `engine/**/{net_,network,peer}*`, `nodes/**/net_*` |
+| `viewport-lod.md` | `nodes/camera_controller.gd`, `nodes/heat_overlay.gd`, `engine/spatial/**`, `engine/environment/**` |
+| `scene-tree.md` | `nodes/**`, `**/*.tscn` |
+| `modding.md` | `mods/**`, `engine/mod/**` |
+| `art-direction.md` | `**/*.png`, `**/*.tscn`, `sprites/**` |
+| `asset-pipeline.md` | `mods/tcp_base/**`, `**/*.png`, `**/*.ogg` |
+| `input-design.md` | `nodes/**`, `**/*.tscn`, `config/input/**` |
+| `narrative.md` | `mods/tcp_base/**`, `**/*.json`, `**/locale/**` |
+| `sound-design.md` | `**/*.ogg`, `mods/tcp_base/sounds/**`, `mods/tcp_base/config/**` |
 
 Read `.claude/rules/` before writing any code.
 
@@ -239,16 +266,15 @@ Internal viewport: **224×128** (14×8 tiles). Layout constants in `engine/core/
 
 ### Coordinate system — use canonical helpers
 
-Two coordinate spaces: **PU** (position units, `POSITION_SCALE=100`, used by GameStateDB/AI/physics) and **world pixels** (used for rendering/input). Never do ad-hoc math with rack/slot offsets — always use the helpers in `constants.gd`:
+All positions are stored as integer **world pixels**. No PU, no `POSITION_SCALE`, no RU. There is one three-layer addressing API in `constants.gd`:
 
-- `rack_slot_to_pu(bay, rack, slot) -> Vector2i` — canonical PU position (X at rack center)
-- `pu_to_bay_rack_slot(pu_x, pu_y) -> Dictionary` — inverse
-- `rack_slot_to_world(bay, rack, slot) -> Vector2` — world pixels for sprite rendering
-- `world_to_rack_slot(world_x, world_y, bay) -> Dictionary` — click position to rack/slot
-- `world_to_pu(world_x, world_y) -> Vector2i` — click position to PU (accounts for RACK_SLOT0_Y offset)
-- `to_world(pu) -> float` / `from_world(w) -> int` — scalar conversion only
+- **Bay layer:** `bay_origin_world(bay)`, `bay_rect_world(bay)`, `world_to_bay(world_pos)`, `bay_center(bay)`
+- **Rack layer:** `rack_column_rect_world(bay, rack)`, `rack_interior_rect_world(bay, rack)`, `rack_frame_rect(bay, rack)`, `rack_baseboard_rect(bay, rack)`
+- **Slot layer:** `slot_rect_world(bay, rack, slot)`, `slot_origin_world(bay, rack, slot)`. Slot 0 is the BOTTOM slot; slot 9 is the top. The helper inverts the slot index internally — callers never flip Y.
+- **Floor:** `floor_rect_world(bay)`
+- **Reverse query:** `bay_local_to_slot(bay, world_pos) -> SlotQuery`. `SlotQuery.zone` is one of `&"slot"`, `&"frame"`, `&"baseboard"`, `&"floor"`, `&"other"`. `get_slot()` and `get_rack()` assert on misuse.
 
-`RACK_SLOT0_Y` accounts for the rack sprite's 8px transparent padding + 4px visible frame = 12px offset from `RACK_TOP_Y`. Dividing PU X by `RACK_WIDTH_PU` is wrong (it omits `LEFTMOST_RACK_OFFSET_PU` and uses width instead of stride). Always use the helpers.
+Radii and distances are always in pixels (`radius_px`). Never do ad-hoc math with rack/slot offsets — always use the helpers above.
 
 ### Tilemap layout (tcp_environment tileset)
 
@@ -307,8 +333,8 @@ script/validate
 
 - **Comfort-focused cats still prefer warmth:** Pile ad radius too small relative to server. Tuning needed.
 - **LightingSystem (CanvasModulate) disabled:** Washes out colors at 224×128 viewport. Needs redesign.
-- **PU coordinate system adds unnecessary complexity:** `POSITION_SCALE=100` multiplier makes coordinate math confusing. Candidate for removal refactor. Animals hardcode Y to `FLOOR_Y - 1`; proper rack climbing will need real Y handling.
-- **Heat overlay alignment uses RACK_SLOT0_Y now** (was empirical `+4.0`). Other overlay positions may still be fragile.
+- **Animals occasionally render high inside racks:** With real-Y rendering wired (cat-jumps-into-box, Task 4), animals whose movement state walks them through high nav nodes — or whose target position was set to a rack-mounted entity — can end up rendered at slot-7+ heights even when their species' `max_height_ru` shouldn't allow it. The `can_reach` gate covers SEEKING and HUNGRY transitions; other transition paths still need the same gate. Pre-existing bug masked by the old `FLOOR_Y - 1` hardcode.
+- **Object sprites can exist without backing DB entities.** `nodes/game_client.gd` previously created raw `Sprite2D`s in `_build_starter_objects()` and parented them to `$World/PlacedObjects` without ever calling `db.create_entity()` or going through `place_object()`. Symptom: a "phantom" server visible in rack 1, slot 1 with no entity behind it (no advertisements, no heat source, no inspect target). Fix shipped: deleted `_build_starter_objects` / `_register_starter_sprites` / `_starter_sprites` so the only path that produces an object sprite is `_create_object_sprite` triggered by `Events.object_placed`. **Outstanding:** there's no enforcement that prevents a future regression — anyone can `Sprite2D.new(); $World/PlacedObjects.add_child(sprite)`. Want a guard. Options: (a) `script/checks` regex for `add_child` into PlacedObjects/Animals from outside `_create_object_sprite` / `_spawn_animal_nodes`; (b) wrap PlacedObjects in a custom Node that asserts every child has a paired entity_id in `_object_sprites`; (c) per-frame audit that diffs `$World/PlacedObjects.get_children()` against `db.get_entities_with(&"object_type")` and pushes an error on mismatch.
 
 ## GameStateDB Gotchas
 
@@ -334,3 +360,4 @@ See [README.md](README.md) for prerequisites, installation, and contributor guid
 
 - Design-phase work: brainstorm freely
 - Once implementation starts: all code changes need explicit user approval ("commit this")
+- **Godot `.gd.uid` sidecars belong in git.** Every `.gd` file gets a paired `.gd.uid` — scenes reference scripts by UID. Stage both in the same commit. Do NOT add `*.uid` to `.gitignore`; missing UIDs break scene references silently.

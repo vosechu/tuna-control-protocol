@@ -4,6 +4,7 @@ class_name SpeciesAStar extends AStar2D
 const WALK: StringName = &"WALK"
 const JUMP_UP: StringName = &"JUMP_UP"
 const JUMP_DOWN: StringName = &"JUMP_DOWN"
+const ENTER: StringName = &"ENTER"
 
 var _species: StringName = &""
 var _capabilities: Array = [WALK]

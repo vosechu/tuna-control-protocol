@@ -67,6 +67,14 @@ nodes/                    # Engine scenes (framework, not content)
 - **Archive:** Original files (pre-normalization) are kept in `../game_assets/`.
 - **Tools:** `sox` (install via `brew install sox`) for normalization and format conversion.
 
+### AI Sprite Generation (GPT Images 2.0)
+
+Constraint-template workflow for generating new pixel-art sprites via GPT Images 2.0 lives at `../game_assets/gpt_templates/` (per-asset subfolders with `template_prefilled.png` + `prompt.md`). Full prompt skeleton, TCP palette reference, channel-selection guide (Codex vs ChatGPT web), and post-generation checklist at `../game_assets/gpt_pixel_template_PROMPT.md`. Generators: `scripts/make_gpt_pixel_template.py` (blank templates, single- or multi-row, `--native` mode) and `scripts/make_gpt_asset_templates.py` (pre-fills templates with frame 0 of existing sprites as a reference for GPT).
+
+**Native-size + calibration-strip approach (default):** Templates are sized to match one of GPT's fixed output resolutions (2048×2048 for Codex / gpt-image-2, 1024-class for ChatGPT web UI / gpt-image-1) so GPT doesn't rescale at render time. Each logical sprite pixel is a uniform N×N block of real pixels (N=4–6 in 2K). A 24-real-pixel calibration strip at the top of every template holds three test patches (1-px checkerboard, resolution gauge, N-px checkerboard) that detect resampling and let the user reject degraded outputs before wasting review time.
+
+**Known limitation (unmitigated):** GPT's diffusion model may still smooth across logical-pixel blocks even with the constraint template — the N-px checkerboard in the calibration strip is the specific reject filter for this. For tiny sprites (like 23×48 at N=3–4) expect multiple re-rolls; treat usable GPT output as *composition reference* and hand-pixel the final sprite when the calibration strip fails. Behavior at larger sprite sizes and with fresh 2K (Codex) output is still being validated.
+
 ---
 
 ## Asset Trackers

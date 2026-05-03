@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Hook: blocks Agent spawns that don't set isolation: "worktree".
+# Allowlists read-only agent types that never mutate the repo.
+# Called by Claude Code PreToolUse hook with tool JSON on stdin.
+
+INPUT=$(cat)
+
+SUBAGENT=$(jq -r '.tool_input.subagent_type // "general-purpose"' <<<"$INPUT")
+ISOLATION=$(jq -r '.tool_input.isolation // ""' <<<"$INPUT")
+
+case "$SUBAGENT" in
+  Explore|Plan|claude-code-guide|statusline-setup|\
+  player-the-casual|player-the-controller|player-the-mouse|\
+  player-the-collector|player-the-nurturer|player-the-optimizer|\
+  player-the-social|player-the-architect)
+    exit 0
+    ;;
+esac
+
+if [ "$ISOLATION" = "worktree" ]; then
+  exit 0
+fi
+
+cat <<EOF >&2
+Agent spawns that may write code must include isolation: "worktree".
+Subagent type "$SUBAGENT" is not on the read-only allowlist.
+Retry the Agent call with: "isolation": "worktree"
+(Or, if this agent is genuinely read-only, add it to the allowlist in
+script/hooks/pre-agent-require-worktree.)
+EOF
+exit 2

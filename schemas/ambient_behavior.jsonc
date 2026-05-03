@@ -1,6 +1,6 @@
 // Ambient Behavior Table Schema
 // All game values use integer scale: 0-1000 maps to 0.0-1.0
-// Positions use POSITION_SCALE (100): 1 unit = 0.01 pixels
+// Positions are stored as integer world pixels.
 //
 // Defines the pool of idle/ambient behaviors for each species.
 // These are what animals do when NOT pursuing a goal-directed action.

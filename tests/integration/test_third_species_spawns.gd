@@ -42,7 +42,8 @@ func test_synthetic_species_is_rejected_when_missing_desires():
 	validator.add_required_field("hud_color")
 	var bad_def: Dictionary = {
 		"id": "bad:creature",
-		"traversal": ["WALK"],
+		"body_capabilities": {"walks": {}},
+		"body_geometry": {"size_ru": 1},
 		"hud_color": [0.5, 0.5, 0.5],
 		"sprite_config": {},
 		"ambient_states": {},

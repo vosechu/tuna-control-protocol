@@ -24,17 +24,18 @@ func _unhandled_input(event: InputEvent) -> void:
 func _draw() -> void:
 	if not _visible or _heat_grid == null:
 		return
-	var x_offset: float = float(Constants.LEFTMOST_RACK_OFFSET_PX)
-	var y_offset: float = float(Constants.RACK_SLOT0_Y)
+	# Bay 0 only. Slot 0 is the BOTTOM; heat grid cell indices still run 0..9
+	# where 0 is bottom. We paint each slot's cell into its slot_rect.
 	for rack: int in Constants.RACK_COUNT:
 		for slot: int in Constants.SLOTS_PER_RACK:
 			var cell: int = Constants.rack_cell(rack, slot)
 			var temp: int = _heat_grid.get_temperature(cell)
 			if temp <= 0:
 				continue
-			var x: float = float(rack * Constants.RACK_STRIDE_PX) + x_offset
-			var y: float = float(slot * Constants.SLOT_HEIGHT_PX) + y_offset
-			var rect := Rect2(x, y, Constants.RACK_WIDTH_PX, Constants.SLOT_HEIGHT_PX)
+			var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+			var x: float = float(slot_rect.position.x)
+			var y: float = float(slot_rect.position.y)
+			var rect := Rect2(x, y, float(slot_rect.size.x), float(slot_rect.size.y))
 			var color: Color
 			if temp <= 500:
 				color = Color(0.2, 0.3, 0.8).lerp(Color(0.9, 0.8, 0.2), float(temp) / 500.0)
@@ -45,21 +46,27 @@ func _draw() -> void:
 			# Hatch pattern for color-blind accessibility
 			var density: int = temp / 200
 			for i: int in density:
-				var hatch_offset: float = float(i + 1) * float(Constants.SLOT_HEIGHT_PX) / float(density + 1)
+				var hatch_offset: float = (
+					float(i + 1) * float(slot_rect.size.y) / float(density + 1)
+				)
 				draw_line(
 					Vector2(x, y + hatch_offset),
-					Vector2(x + float(Constants.RACK_WIDTH_PX), y + hatch_offset),
+					Vector2(x + float(slot_rect.size.x), y + hatch_offset),
 					Color(1.0, 1.0, 1.0, 0.15), 1.0
 				)
-	# Floor cells
-	var floor_y: float = float(Constants.FLOOR_Y)
+	# Floor cells — one per rack column
+	var floor_rect: Rect2i = Constants.floor_rect_world(0)
 	for rack: int in Constants.RACK_COUNT:
 		var cell: int = Constants.floor_cell(rack)
 		var temp: int = _heat_grid.get_temperature(cell)
 		if temp <= 0:
 			continue
-		var x: float = float(rack * Constants.RACK_STRIDE_PX) + x_offset
-		var rect := Rect2(x, floor_y, Constants.RACK_WIDTH_PX, Constants.FLOOR_HEIGHT_PX)
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack)
+		var x: float = float(rack_col.position.x)
+		var rect := Rect2(
+			x, float(floor_rect.position.y),
+			float(rack_col.size.x), float(floor_rect.size.y),
+		)
 		var color: Color
 		if temp <= 500:
 			color = Color(0.2, 0.3, 0.8).lerp(Color(0.9, 0.8, 0.2), float(temp) / 500.0)

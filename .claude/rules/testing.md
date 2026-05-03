@@ -1,3 +1,11 @@
+---
+paths:
+  - "tests/**"
+  - "script/checks/gut_tests"
+  - "script/checks/verify_tests"
+  - "script/stamp_tests"
+---
+
 # TCP Testing Rules
 
 ## Core Belief
@@ -34,6 +42,8 @@ func test_missing_field_returns_null():
 ```
 
 Each `push_error` call must be matched by exactly one `assert_push_error`. Multiple errors need multiple assertions, in order.
+
+Godot's built-in `assert()` halts the debug runner and cannot be trapped by GUT — there is no `assert_fail` helper. Code using `assert()` for programmer-error guards (bounds checks, invalid inputs per `.claude/rules/design-philosophy.md`) is not directly unit-testable. Document the uncovered guard as an intentional coverage gap in the test file's AI-DEV header rather than attempting to wrap it.
 
 ## CI Pipeline
 1. `gdlint` — style enforcement

@@ -36,19 +36,20 @@ func test_get_all_entities():
 	assert_has(all, &"tcp_tuna:tuna_can")
 
 
-func test_has_traversal_true_for_species():
+func test_has_body_capabilities_true_for_species():
 	_registry.register(&"tcp_cats:cat", {
-		"id": "cat", "traversal": ["WALK", "JUMP_UP"],
+		"id": "cat",
+		"body_capabilities": {"walks": {}, "jumps": {"max_height_ru": 3}},
 	})
-	assert_true(_registry.has_traversal(&"tcp_cats:cat"))
+	assert_true(_registry.has_body_capabilities(&"tcp_cats:cat"))
 
 
-func test_has_traversal_false_for_object():
+func test_has_body_capabilities_false_for_object():
 	_registry.register(
 		&"tcp_tuna:tuna_can",
 		{"id": "tuna_can", "states": {}},
 	)
-	assert_false(_registry.has_traversal(&"tcp_tuna:tuna_can"))
+	assert_false(_registry.has_body_capabilities(&"tcp_tuna:tuna_can"))
 
 
 func test_has_desires_true_for_species():
@@ -66,16 +67,28 @@ func test_has_desires_false_for_object():
 	assert_false(_registry.has_desires(&"tcp_tuna:tuna_can"))
 
 
-func test_get_traversal():
+func test_get_body_capabilities_returns_recipe_dict():
 	_registry.register(&"tcp_cats:cat", {
 		"id": "cat",
-		"traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
+		"body_capabilities": {
+			"walks": {},
+			"jumps": {"max_height_ru": 3},
+			"drops": {"max_height_ru": 5},
+		},
 	})
-	var traversal: Array = _registry.get_traversal(
-		&"tcp_cats:cat",
-	)
-	assert_eq(traversal.size(), 3)
-	assert_has(traversal, "WALK")
+	var caps: Dictionary = _registry.get_body_capabilities(&"tcp_cats:cat")
+	assert_eq(caps.size(), 3)
+	assert_true(caps.has("walks"))
+	assert_eq(caps["jumps"]["max_height_ru"], 3)
+
+
+func test_get_body_geometry_returns_recipe_dict():
+	_registry.register(&"tcp_cats:cat", {
+		"id": "cat",
+		"body_geometry": {"size_ru": 2},
+	})
+	var geom: Dictionary = _registry.get_body_geometry(&"tcp_cats:cat")
+	assert_eq(geom["size_ru"], 2)
 
 
 func test_get_desires():
@@ -195,6 +208,59 @@ func test_spawn_object_has_no_desires_component():
 	assert_true(db.has_component(id, &"object_state"))
 
 
+func test_migrate_ad_renames_legacy_desire_type_to_channel():
+	var ad: Dictionary = {
+		&"desire_type": &"warmth", &"strength": 500, &"radius_px": 16,
+	}
+	var migrated: Dictionary = EntityDefRegistry.migrate_ad(ad)
+	assert_true(
+		migrated.has(&"channel"),
+		"Legacy desire_type must migrate to channel",
+	)
+	assert_eq(migrated[&"channel"], &"warmth")
+	assert_true(
+		migrated.has(&"effect_radius_px"),
+		"Legacy radius_px must migrate to effect_radius_px",
+	)
+	assert_eq(migrated[&"effect_radius_px"], 16)
+	assert_false(
+		migrated.has(&"desire_type"),
+		"desire_type must be removed after migration",
+	)
+	assert_false(
+		migrated.has(&"radius_px"),
+		"radius_px must be removed after migration",
+	)
+
+
+func test_migrate_ad_passes_through_already_new_shape():
+	var ad: Dictionary = {
+		&"channel": &"warmth", &"strength": 500, &"effect_radius_px": 16,
+	}
+	var migrated: Dictionary = EntityDefRegistry.migrate_ad(ad)
+	assert_eq(migrated[&"channel"], &"warmth")
+	assert_eq(migrated[&"effect_radius_px"], 16)
+
+
+func test_spawn_writes_senses_component():
+	_registry.register(&"tcp_cats:cat", _make_cat_def())
+	var db := GameStateDB.new()
+	var id: int = _registry.spawn(&"tcp_cats:cat", db, {})
+	assert_true(
+		db.has_component(id, &"senses"),
+		"Spawned cat must have `senses` component",
+	)
+	var senses: Dictionary = db.get_component(id, &"senses")
+	assert_eq(
+		senses.get(&"touch", -1), 64,
+		"Touch range must round-trip from recipe to component",
+	)
+	assert_eq(
+		senses.get(&"sight", -1), 186,
+		"Sight range must round-trip from recipe to component",
+	)
+
+
 func _make_cat_def() -> Dictionary:
 	return {
 		"id": "cat", "name": "Cat",
@@ -206,9 +272,17 @@ func _make_cat_def() -> Dictionary:
 			"comfort": [600, 900],
 			"curiosity": [100, 200],
 		},
+		"senses": {
+			"sight": 186, "hearing": 186, "smell": 186, "touch": 64,
+		},
 		"physical": {"mass": 4000, "size_ru": 2},
 		"strength": 3000,
-		"traversal": ["WALK", "JUMP_UP", "JUMP_DOWN"],
+		"body_capabilities": {
+			"walks": {},
+			"jumps": {"max_height_ru": 3},
+			"drops": {"max_height_ru": 5},
+		},
+		"body_geometry": {"size_ru": 2},
 		"variants": [
 			"cat01", "cat02", "cat03", "cat04", "cat05",
 		],

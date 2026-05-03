@@ -1,3 +1,9 @@
+---
+paths:
+  - "engine/**"
+  - "nodes/**"
+---
+
 # TCP Design Philosophy Rules
 
 These rules apply to ALL code written for TCP.

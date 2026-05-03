@@ -12,17 +12,14 @@ fi
 
 if [ -z "$FILES" ]; then exit 0; fi
 
-EXIT_CODE=0
+# Single grep across all files — grep prefixes hits with `file:line:` so
+# the output is the same shape as the old per-file loop.
+# shellcheck disable=SC2086
+MATCHES=$(echo "$FILES" | xargs grep -nE '(get_node[[:space:]]*\([[:space:]]*["'"'"']\.\./)|(NodePath[[:space:]]*\([[:space:]]*["'"'"']\.\.\/)' 2>/dev/null || true)
 
-while IFS= read -r file; do
-    if [ ! -f "$file" ]; then continue; fi
-
-    MATCHES=$(grep -nE '(get_node[[:space:]]*\([[:space:]]*["'"'"']\.\./)|(NodePath[[:space:]]*\([[:space:]]*["'"'"']\.\.\/)' "$file" || true)
-    if [ -n "$MATCHES" ]; then
-        echo "BLOCKED: $file uses ../ paths. Children must not reach up the tree." >&2
-        echo "$MATCHES" >&2
-        EXIT_CODE=1
-    fi
-done <<< "$FILES"
-
-exit $EXIT_CODE
+if [ -n "$MATCHES" ]; then
+    echo "BLOCKED: ../ paths found. Children must not reach up the tree." >&2
+    echo "$MATCHES" >&2
+    exit 1
+fi
+exit 0

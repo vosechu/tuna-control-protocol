@@ -70,7 +70,7 @@ func _register_comfort_advertisement(server_id: int) -> void:
 		&"source": &"plant_growth",
 		&"desire_type": &"comfort",
 		&"strength": _STATE.PLANT_COMFORT_STRENGTH,
-		&"radius_ru": _STATE.PLANT_ADVERT_RADIUS_RU,
+		&"radius_px": _STATE.PLANT_ADVERT_RADIUS_PX,
 	})
 	_db.set_component(server_id, &"advertisements", {&"list": ads})
 
@@ -87,5 +87,13 @@ func _remove_comfort_advertisement(server_id: int) -> void:
 
 
 func _slot_key_for(pos: Dictionary) -> int:
-	var info: Dictionary = Constants.pu_to_bay_rack_slot(pos[&"x"], pos[&"y"])
-	return Constants.rack_cell(info[&"rack"], info[&"slot"])
+	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+	var bay: int = Constants.world_to_bay(world_pos)
+	if bay == Constants.INVALID_BAY:
+		return Constants.rack_cell(0, 0)
+	var query: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+	if query.zone == &"slot":
+		return Constants.rack_cell(query.get_rack(), query.get_slot())
+	# Frame, baseboard, floor, other — attribute to rack's slot 0 for cell key.
+	var rack: int = query.rack if query.rack != Constants.INVALID_ID else 0
+	return Constants.rack_cell(rack, 0)

@@ -16,17 +16,18 @@ func before_each() -> void:
 
 func _make_server(rack: int, slot: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_STRIDE_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"heat_source", {
-		&"value": 800, &"radius_ru": 3,
+		&"value": 800, &"radius_px": 24,
 	})
 	_db.set_component(id, &"advertisements", {&"list": [
 		{
 			&"desire_type": &"warmth",
 			&"strength": 800,
-			&"radius_ru": 8,
+			&"radius_px": 64,
 			&"max_occupants": 1,
 		},
 	]})
@@ -36,8 +37,9 @@ func _make_server(rack: int, slot: int) -> int:
 
 func _make_cat(rack: int, slot: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_STRIDE_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var slot_rect: Rect2i = Constants.slot_rect_world(0, rack, slot)
+	var x: int = slot_rect.position.x + slot_rect.size.x / 2
+	var y: int = slot_rect.position.y + slot_rect.size.y / 2
 	_db.set_component(id, &"species", {
 		&"id": &"tcp_cats:cat",
 		&"variant": &"cat01",
@@ -81,12 +83,14 @@ func test_cold_cat_near_server_transitions_to_seeking() -> void:
 
 	# Scatter warmth desire based on heat at cat's position
 	var pos: Dictionary = _db.get_component(cat, &"position")
-	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
-	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
-	var cell: int = Constants.rack_cell(
-		clampi(rack, 0, Constants.RACK_COUNT - 1),
-		clampi(slot, 0, Constants.SLOTS_PER_RACK - 1),
-	)
+	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+	var bay: int = Constants.world_to_bay(world_pos)
+	var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+	var cell: int
+	if q.zone == &"slot":
+		cell = Constants.rack_cell(q.get_rack(), q.get_slot())
+	else:
+		cell = Constants.rack_cell(0, 0)
 	var temp: int = _heat_grid.get_temperature(cell)
 	_db.set_field(cat, &"desires", &"warmth", temp)
 
@@ -126,7 +130,8 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 	# NOTE: Inlines movement logic from game_server._move_animals because
 	# GameServer requires a scene tree we cannot instantiate in integration
 	# tests. If _move_animals changes, this must be updated to match.
-	for tick: int in 50:
+	var speed: int = 2  # ANIMAL_SPEED_PX
+	for tick: int in 200:
 		var pos: Dictionary = _db.get_component(cat, &"position")
 		var target: Dictionary = _db.get_component(
 			cat, &"target"
@@ -136,14 +141,14 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 		var dx: int = target[&"x"] - pos[&"x"]
 		var dy: int = target[&"y"] - pos[&"y"]
 		var dist: int = absi(dx) + absi(dy)
-		if dist <= 200:
+		if dist <= speed:
 			break
 		var move_x: int = 0
 		var move_y: int = 0
 		if dx != 0:
-			move_x = 200 * dx / dist
+			move_x = speed * dx / dist
 		if dy != 0:
-			move_y = 200 * dy / dist
+			move_y = speed * dy / dist
 		if move_x == 0 and dx != 0:
 			move_x = 1 if dx > 0 else -1
 		if move_y == 0 and dy != 0:
@@ -155,8 +160,10 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 
 	var end_pos: Dictionary = _db.get_component(cat, &"position")
 	var end_y: int = end_pos[&"y"]
-	assert_lt(end_y, start_y,
-		"Cat should have moved upward (lower Y) toward server at slot 5")
+	# Slot 0 is the BOTTOM (higher Y). Slot 5 is below slot 8 in slot-index
+	# space but physically LOWER on screen → larger Y. Cat moves down.
+	assert_gt(end_y, start_y,
+		"Cat should have moved downward (higher Y) toward server at slot 5")
 
 
 func test_mark_animals_dirty_only_marks_species_entities() -> void:
@@ -174,12 +181,14 @@ func test_mark_animals_dirty_only_marks_species_entities() -> void:
 	# Propagate heat + scatter warmth
 	_heat_grid.propagate()
 	var pos: Dictionary = _db.get_component(cat, &"position")
-	var rack: int = pos[&"x"] / Constants.RACK_STRIDE_PU
-	var slot: int = pos[&"y"] / Constants.SLOT_HEIGHT_PU
-	var cell: int = Constants.rack_cell(
-		clampi(rack, 0, Constants.RACK_COUNT - 1),
-		clampi(slot, 0, Constants.SLOTS_PER_RACK - 1),
-	)
+	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
+	var bay: int = Constants.world_to_bay(world_pos)
+	var q: SlotQuery = Constants.bay_local_to_slot(bay, world_pos)
+	var cell: int
+	if q.zone == &"slot":
+		cell = Constants.rack_cell(q.get_rack(), q.get_slot())
+	else:
+		cell = Constants.rack_cell(0, 0)
 	var temp: int = _heat_grid.get_temperature(cell)
 	_db.set_field(cat, &"desires", &"warmth", temp)
 
@@ -204,9 +213,9 @@ func test_movement_arrival_distance_within_speed() -> void:
 	var server_pos: Dictionary = _db.get_component(
 		server, &"position"
 	)
-	# Place cat very close to target (within ANIMAL_SPEED_PU)
-	var close_x: int = server_pos[&"x"] + 100
-	var close_y: int = server_pos[&"y"] + 100
+	# Place cat very close to target (within ANIMAL_SPEED_PX which is 2 px)
+	var close_x: int = server_pos[&"x"] + 1
+	var close_y: int = server_pos[&"y"] + 1
 	_db.set_component(cat, &"position", {
 		&"x": close_x, &"y": close_y,
 	})
@@ -221,14 +230,14 @@ func test_movement_arrival_distance_within_speed() -> void:
 		&"entity_id": server,
 	})
 
-	# Distance is 200 (100+100), which equals ANIMAL_SPEED_PU (200)
+	# Distance is 2 (1+1), which equals ANIMAL_SPEED_PX (2)
 	# So a single movement step should cause arrival
 	var pos: Dictionary = _db.get_component(cat, &"position")
 	var target: Dictionary = _db.get_component(cat, &"target")
 	var dx: int = target[&"x"] - pos[&"x"]
 	var dy: int = target[&"y"] - pos[&"y"]
 	var dist: int = absi(dx) + absi(dy)
-	assert_lte(dist, 200,
+	assert_lte(dist, 2,
 		"Cat should be within arrival distance")
 
 

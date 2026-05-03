@@ -1,6 +1,46 @@
 class_name EntityDefRegistry extends RefCounted
 
+# Per-channel default initial satisfaction for entities spawned without
+# an explicit `desires` override. Hunger is seeded above the
+# `CatFoodStates.HUNGER_THRESHOLD` (400) so a freshly-spawned animal
+# doesn't immediately PACE for an unreachable dispenser; everything
+# else stays at the conservative deficit baseline so the desire
+# resolver still has work to do at boot.
+# AI-DEV: tunable balance number. Move to config when the balance
+# pass starts; keep in code for now so spawn can run without
+# ConfigRegistry being threaded through.
+const _DEFAULT_INITIAL_SATISFACTION: int = 200
+const _DEFAULT_INITIAL_SATISFACTION_BY_KEY: Dictionary = {
+	&"hunger": 600,
+}
+
 var _definitions: Dictionary = {}  # StringName -> Dictionary
+
+
+# AI-DEV: One-shot migrator for the desire_type→channel and
+# radius_px→effect_radius_px rename shipped in PR2 of the
+# perception-channels migration. Called wherever an ad dict is
+# materialized onto an entity so out-of-tree mods on the legacy shape
+# still load. Stays in place after in-tree migration completes —
+# rename is a breaking change (see CHANNELS namespace policy in
+# docs/superpowers/specs/2026-05-02-perception-channels-design.md).
+static func migrate_ad(ad: Dictionary) -> Dictionary:
+	var out: Dictionary = ad.duplicate()
+	if out.has(&"desire_type") and not out.has(&"channel"):
+		out[&"channel"] = out[&"desire_type"]
+		out.erase(&"desire_type")
+	if out.has(&"radius_px") and not out.has(&"effect_radius_px"):
+		out[&"effect_radius_px"] = out[&"radius_px"]
+		out.erase(&"radius_px")
+	# Same shape with String keys (out-of-tree mods loading from JSONC
+	# may still have String-keyed dicts before _to_stringname_keys runs).
+	if out.has("desire_type") and not out.has("channel") and not out.has(&"channel"):
+		out["channel"] = out["desire_type"]
+		out.erase("desire_type")
+	if out.has("radius_px") and not out.has("effect_radius_px") and not out.has(&"effect_radius_px"):
+		out["effect_radius_px"] = out["radius_px"]
+		out.erase("radius_px")
+	return out
 
 
 func register(entity_id: StringName, definition: Dictionary) -> void:
@@ -30,11 +70,14 @@ func get_all_entities() -> Array[StringName]:
 	return result
 
 
-func has_traversal(entity_id: StringName) -> bool:
+func has_body_capabilities(entity_id: StringName) -> bool:
 	if not _definitions.has(entity_id):
 		return false
 	var def: Dictionary = _definitions[entity_id]
-	return def.has("traversal") and not def["traversal"].is_empty()
+	return (
+		def.has("body_capabilities")
+		and not (def["body_capabilities"] as Dictionary).is_empty()
+	)
 
 
 func has_desires(entity_id: StringName) -> bool:
@@ -44,9 +87,14 @@ func has_desires(entity_id: StringName) -> bool:
 	return def.has("desires") and not def["desires"].is_empty()
 
 
-func get_traversal(entity_id: StringName) -> Array:
+func get_body_capabilities(entity_id: StringName) -> Dictionary:
 	var def: Dictionary = get_definition(entity_id)
-	return def.get("traversal", [])
+	return def.get("body_capabilities", {})
+
+
+func get_body_geometry(entity_id: StringName) -> Dictionary:
+	var def: Dictionary = get_definition(entity_id)
+	return def.get("body_geometry", {})
 
 
 func get_desires(entity_id: StringName) -> Dictionary:
@@ -118,16 +166,27 @@ func spawn(
 			else:
 				personality[StringName(key + "_weight")] = \
 					int(base_desires[key])
-			# Deep-merge: override wins if present, else default
+			# Deep-merge: override wins if present, else per-channel default
 			if desire_overrides.has(skey):
 				initial_desires[skey] = int(desire_overrides[skey])
 			else:
-				initial_desires[skey] = 200
+				initial_desires[skey] = _DEFAULT_INITIAL_SATISFACTION_BY_KEY.get(
+					skey, _DEFAULT_INITIAL_SATISFACTION,
+				)
 		db.set_component(id, &"desires", initial_desires)
 		db.set_component(id, &"personality", personality)
 
-	# AI state (species only — entities with traversal)
-	if has_traversal(entity_id):
+	# Senses: per-channel perception acuity (sight/hearing/smell/touch).
+	# Required by SpeciesSchemaValidator at mod load — by the time we get
+	# here the block must be present on any species recipe.
+	if def.has("senses"):
+		var senses: Dictionary = {}
+		for skey: String in def["senses"]:
+			senses[StringName(skey)] = int(def["senses"][skey])
+		db.set_component(id, &"senses", senses)
+
+	# AI state (species only — entities with body_capabilities)
+	if has_body_capabilities(entity_id):
 		var initial: StringName = get_initial_state(entity_id)
 		db.set_component(id, &"ai_state", {
 			&"state": initial,
@@ -140,8 +199,8 @@ func spawn(
 			&"entity_id": Constants.INVALID_ID,
 		})
 
-	# Object state (entities without traversal that have states)
-	if not has_traversal(entity_id) and def.has("states"):
+	# Object state (entities without body_capabilities that have states)
+	if not has_body_capabilities(entity_id) and def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)
 		db.set_component(
 			id, &"object_state", {&"state": initial},
@@ -157,24 +216,31 @@ func spawn(
 			&"size_ru": int(def["physical"].get("size_ru", 1)),
 		})
 
+	# Body schema: capabilities (verbs the body knows) + geometry (physical
+	# extents the navgraph and fit-checks read).
+	if def.has("body_capabilities"):
+		db.set_component(id, &"body_capabilities", def["body_capabilities"])
+	if def.has("body_geometry"):
+		db.set_component(id, &"body_geometry", def["body_geometry"])
+
 	# Capability tags: any recipe-level boolean field we want to project
 	# onto the entity as a zero-data component.
 	if def.get("tends_servers", false):
 		db.set_component(id, &"tends_servers", {})
 
-	# Zero-data capability tag: presence of the key materializes the component,
-	# regardless of the value (recipes write `"hum_powered": {}`).
-	if def.has("hum_powered"):
-		db.set_component(id, &"hum_powered", {})
-
 	# Purr emitter: split recipe dict into two DB components.
 	# purr.intensity is the per-tick broadcast value (hot path, read by HumSystem).
-	# purr_config.rate_when_satisfied is the cold recipe snapshot (read by bridge).
+	# purr.radius_px is also per-tick, written by ContentmentPurrBridge.
+	# purr_config holds cold recipe snapshots (rate_when_satisfied, base_radius_ru).
 	if def.has("purr"):
 		var purr_cfg: Dictionary = def["purr"]
 		var rate: int = int(purr_cfg.get("rate_when_satisfied", 0))
-		db.set_component(id, &"purr", {&"intensity": 0})
-		db.set_component(id, &"purr_config", {&"rate_when_satisfied": rate})
+		var base_radius_ru: int = int(purr_cfg.get("base_radius_ru", 0))
+		db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
+		db.set_component(
+			id, &"purr_config",
+			{&"rate_when_satisfied": rate, &"base_radius_ru": base_radius_ru},
+		)
 
 	# HUM battery: recipe declares capacity; entity starts at full reserve.
 	# Falls back to HumSystem.DEFAULT_CAPACITY when recipe omits the field.
@@ -211,7 +277,14 @@ func spawn(
 			var data: Dictionary = def[comp_str]
 			db.set_component(id, comp_name, _to_stringname_keys(data))
 
-	# State-driven advertisements (set for initial state)
+	# State-driven advertisements (set for initial state).
+	#
+	# Note: migrate_ad is intentionally NOT wired here. In-tree mods are
+	# rewritten on the new shape (Tasks 12, 13 of perception-channels);
+	# out-of-tree mods on the legacy shape will need migrate_ad at a
+	# higher injection point — to be designed alongside score_ad's
+	# channel-aware read (Task 14). Wiring migrate_ad here today would
+	# break consumers that still read the legacy `desire_type` key.
 	var state_ads_set: bool = false
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)

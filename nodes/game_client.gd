@@ -43,10 +43,6 @@ var _placement_ui_node: Control
 var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
 # entity_id -> float (seconds elapsed in clearing)
 var _clearing_objects: Dictionary = {}
-var _starter_sprites: Array[Sprite2D] = []
-var _cable_layer: CableLayer
-var _dangling_tip: DanglingTip
-var _wiring_controller: WiringController
 
 @onready var game_server: Node = %GameServer
 
@@ -56,12 +52,11 @@ func _ready() -> void:
 	_build_bays()
 	_build_rack_decor()
 	_build_dynamic_plants()
-	_build_starter_objects()
 	$World/PlacedObjects.z_index = _Z_PLACED
 	$World/Animals.z_index = _Z_ANIMALS
 	# Wait one frame for GameServer._ready() to create entities
 	await get_tree().process_frame
-	_register_starter_sprites()
+	_render_scenario_placed_objects()
 	_spawn_animal_nodes()
 	_setup_heat_overlay()
 	_setup_sound_manager()
@@ -71,90 +66,7 @@ func _ready() -> void:
 	_setup_stats_bar()
 	_setup_narrator_panel()
 	_setup_debug_hud()
-	_setup_cable_layer()
-	_setup_wiring_controller()
 	# Camera position/zoom handled by camera_controller.gd
-
-
-func _setup_cable_layer() -> void:
-	var layer := CableLayer.new()
-	layer.name = "CableLayer"
-	layer.z_index = _Z_PLACED + 1
-	$World.add_child(layer)
-	layer.initialize(game_server.db, Events)
-	var tip := DanglingTip.new()
-	tip.name = "DanglingTip"
-	tip.z_index = _Z_PLACED + 2
-	$World.add_child(tip)
-	_cable_layer = layer
-	_dangling_tip = tip
-
-
-func _setup_wiring_controller() -> void:
-	var wc := WiringController.new()
-	wc.name = "WiringController"
-	$HUD.add_child(wc)
-	wc.initialize(self)
-	if _cable_layer != null:
-		wc.wiring_mode_changed.connect(_cable_layer.set_wiring_mode)
-	if _dangling_tip != null:
-		_dangling_tip.initialize(wc)
-	_wiring_controller = wc
-
-
-# ── Wiring-intent client adapter ──
-# Single-peer local loop. Networking rewires these to an ENet send when MP
-# ships; WiringController doesn't care which path is used.
-
-
-func send_wiring_intent(peer_id: int, intent: StringName, payload: Dictionary) -> void:
-	var ws: WiringSystem = game_server.wiring_system
-	match intent:
-		&"CABLE_START_INTENT":
-			ws.handle_start(peer_id, int(payload[&"hum_id"]))
-		&"CABLE_CONNECT_INTENT":
-			ws.handle_connect(
-				peer_id,
-				int(payload[&"source_hum_id"]),
-				int(payload[&"target_id"]),
-			)
-		&"CABLE_PICKUP_INTENT":
-			ws.handle_pickup_actuator_end(
-				peer_id,
-				game_server.db.get_tick(),
-				int(payload[&"actuator_id"]),
-			)
-		&"CABLE_CANCEL_INTENT":
-			ws.handle_cancel(peer_id, int(payload[&"actuator_id"]))
-		&"CABLE_DELETE_INTENT":
-			ws.handle_delete(peer_id, int(payload[&"actuator_id"]))
-
-
-func screen_to_world(screen_pos: Vector2) -> Vector2:
-	# Screen → world via the active camera's transform.
-	return $Camera.get_canvas_transform().affine_inverse() * screen_pos
-
-
-func entity_under_point(world_pos: Vector2) -> int:
-	var pu: Vector2i = Constants.world_to_pu(world_pos.x, world_pos.y)
-	var nearby: Array[int] = game_server.db.query_radius(
-		pu.x, pu.y, Constants.ru_to_pu(2),
-	)
-	if nearby.is_empty():
-		return Constants.INVALID_ID
-	return nearby[0]
-
-
-func is_hum(entity_id: int) -> bool:
-	return game_server.db.has_component(entity_id, &"hum")
-
-
-func has_existing_cable(entity_id: int) -> bool:
-	return game_server.db.has_component(entity_id, &"hum_cable")
-
-
-func is_hum_powered_device(entity_id: int) -> bool:
-	return game_server.db.has_component(entity_id, &"hum_powered")
 
 
 func _setup_debug_hud() -> void:
@@ -234,15 +146,15 @@ func _build_bays() -> void:
 		)
 		# All bays render the same — no desaturation for neighboring bays
 		rack_row.add_child(sprite)
-	_build_ru_grid_overlay()
+	_build_slot_grid_overlay()
 
 
-func _build_ru_grid_overlay() -> void:
+func _build_slot_grid_overlay() -> void:
 	var OverlayScript: GDScript = preload(
-		"res://nodes/ru_grid_overlay.gd"
+		"res://nodes/slot_grid_overlay.gd"
 	)
 	var overlay := Node2D.new()
-	overlay.name = "RuGridOverlay"
+	overlay.name = "SlotGridOverlay"
 	overlay.set_script(OverlayScript)
 	overlay.z_index = _Z_DEBUG
 	overlay.visible = false
@@ -264,6 +176,21 @@ func _build_rack_decor() -> void:
 	Events.plant_spawned.connect(
 		_on_plant_spawned_ramp_decor
 	)
+	Events.object_placed.connect(_on_object_placed_render)
+
+
+func _on_object_placed_render(
+		object_id: int, _rack: int, _slot: int, object_type: StringName,
+) -> void:
+	# Render server-spawned objects (e.g. scenario seed) by mirroring the
+	# placement-UI sprite path. Objects already wired by the UI are
+	# idempotent — we never overwrite an existing sprite entry.
+	if _object_sprites.has(object_id):
+		return
+	if not game_server.db.has_component(object_id, &"position"):
+		return
+	var pos: Dictionary = game_server.db.get_component(object_id, &"position")
+	_create_object_sprite(object_id, object_type, int(pos[&"x"]), int(pos[&"y"]))
 
 
 func _on_plant_spawned_ramp_decor(
@@ -293,41 +220,23 @@ func _build_dynamic_plants() -> void:
 	$World.add_child(dp_node)
 
 
-func _build_starter_objects() -> void:
-	var server_sprite := Sprite2D.new()
-	server_sprite.texture = _SERVER_TEX
-	server_sprite.centered = false
-	server_sprite.position = Constants.rack_slot_to_world(0, 1, 8)
-	$World/PlacedObjects.add_child(server_sprite)
-	_starter_sprites.append(server_sprite)
-
-	var box_sprite := Sprite2D.new()
-	box_sprite.texture = _BOX_RACK_TEX
-	box_sprite.centered = false
-	# Starter box is in rack 0, slot 8 (2U tall — slots 8+9)
-	box_sprite.position = Constants.rack_slot_to_world(0, 0, 8)
-	$World/PlacedObjects.add_child(box_sprite)
-	_starter_sprites.append(box_sprite)
-
-
-
-func _register_starter_sprites() -> void:
-	# Match starter sprites to DB entities with object_type
+func _render_scenario_placed_objects() -> void:
+	# Scenario-spawned placeable entities (HUM device, etc.) take the
+	# entity_defs.spawn path, which doesn't fire Events.object_placed —
+	# only game_server.place_object does that. Sweep the DB once at boot
+	# and create the missing sprites. Identified by capability components
+	# rather than object_type because entity_def_registry only sets
+	# object_type for entities that declare a `states` block.
 	var db: GameStateDB = game_server.db
-	var objects: Array[int] = db.get_entities_with(
-		&"object_type"
-	)
-	# Starter objects are created in order: server, box, pile
-	# Match by index (same creation order as sprites)
-	var sprite_idx: int = 0
-	for entity_id: int in objects:
-		if sprite_idx >= _starter_sprites.size():
-			break
-		_object_sprites[entity_id] = (
-			_starter_sprites[sprite_idx]
+	for entity_id: int in db.get_entities_with(&"hum_receiver"):
+		if _object_sprites.has(entity_id):
+			continue
+		if not db.has_component(entity_id, &"position"):
+			continue
+		var pos: Dictionary = db.get_component(entity_id, &"position")
+		_create_object_sprite(
+			entity_id, &"hum_device", int(pos[&"x"]), int(pos[&"y"])
 		)
-		sprite_idx += 1
-	_starter_sprites.clear()
 
 
 func _setup_heat_overlay() -> void:
@@ -403,7 +312,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_tree().quit()
 			return
 		if event.keycode == KEY_G:
-			var grid: Node2D = $World.get_node_or_null("RuGridOverlay")
+			var grid: Node2D = $World.get_node_or_null("SlotGridOverlay")
 			if grid:
 				grid.visible = not grid.visible
 			return
@@ -435,21 +344,11 @@ func _try_place_at(
 	world_pos: Vector2,
 	object_type: StringName,
 ) -> void:
-	var layout: Dictionary = Constants.world_to_rack_slot(
-		world_pos.x, world_pos.y, 0
-	)
-	var rack: int = int(layout[&"rack"])
-	var slot: int = int(layout[&"slot"])
-
-	var place_x: int
-	var place_y: int
-
-	# Detect floor click: below the rack slot area
-	var rack_bottom_y: float = float(
-		Constants.RACK_SLOT0_Y
-		+ Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PX
-	)
-	var is_floor_click: bool = world_pos.y >= rack_bottom_y
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
+	var bay: int = Constants.world_to_bay(click_px)
+	if bay == Constants.INVALID_BAY:
+		return
+	var query: SlotQuery = Constants.bay_local_to_slot(bay, click_px)
 
 	var always_rack: bool = (
 		object_type == &"server_1u"
@@ -457,38 +356,47 @@ func _try_place_at(
 		or object_type == &"tuna_dispenser"
 		or object_type == &"tuna_button"
 	)
+	var is_floor_click: bool = query.zone == &"floor"
 	var place_in_rack: bool = always_rack or (
 		not is_floor_click and object_type != &"arm"
+		and query.zone != &"other"
 	)
 
+	var place_x: int
+	var place_y: int
+
 	if place_in_rack:
-		var size_ru: int = 1
+		var rack_idx: int = query.rack if query.rack != Constants.INVALID_ID else 0
+		var slot_idx: int = 0
+		if query.zone == &"slot":
+			slot_idx = query.get_slot()
+		elif query.zone == &"frame":
+			slot_idx = Constants.SLOTS_PER_RACK - 1  # top slot
+		var size_slots: int = 1
 		if object_type == &"hum_device":
-			size_ru = 6
+			size_slots = 6
 		elif object_type == &"cardboard_box":
-			size_ru = 2
+			size_slots = 2
 		elif object_type == &"clothes_pile":
-			size_ru = 2
-		slot = clampi(
-			slot,
+			size_slots = 2
+		# Slot 0 is bottom; largest valid "lowest" slot for a size-N object is
+		# SLOTS_PER_RACK - size_slots when indexed from top, but since slot 0 is
+		# bottom, we clamp the placement slot to [0, SLOTS_PER_RACK - size_slots].
+		slot_idx = clampi(
+			slot_idx,
 			Constants.TOR_SWITCH_SLOTS,
-			Constants.SLOTS_PER_RACK - size_ru,
+			Constants.SLOTS_PER_RACK - size_slots,
 		)
-		var pos: Vector2i = Constants.rack_slot_to_pu(
-			0, rack, slot
-		)
-		place_x = pos.x
-		place_y = pos.y
+		var slot_rect: Rect2i = Constants.slot_rect_world(0, rack_idx, slot_idx)
+		place_x = slot_rect.position.x + slot_rect.size.x / 2
+		place_y = slot_rect.position.y + slot_rect.size.y / 2
 	else:
 		# Floor placement (box, pile, arm)
-		var pos: Vector2i = Constants.rack_slot_to_pu(
-			0, rack, 0
-		)
-		place_x = pos.x
-		place_y = (
-			Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-			+ Constants.FLOOR_HEIGHT_PU / 2
-		)
+		var rack_idx: int = query.rack if query.rack != Constants.INVALID_ID else 0
+		var rack_col: Rect2i = Constants.rack_column_rect_world(0, rack_idx)
+		place_x = rack_col.position.x + rack_col.size.x / 2
+		var floor_rect: Rect2i = Constants.floor_rect_world(0)
+		place_y = floor_rect.position.y + floor_rect.size.y / 2
 
 	var entity_id: int = game_server.place_object(
 		object_type, place_x, place_y
@@ -500,11 +408,9 @@ func _try_place_at(
 
 
 func _try_remove_at(world_pos: Vector2) -> void:
-	var click_pu: Vector2i = Constants.world_to_pu(
-		world_pos.x, world_pos.y
-	)
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
 	var nearby: Array[int] = game_server.db.query_radius(
-		click_pu.x, click_pu.y, Constants.ru_to_pu(2)
+		click_px.x, click_px.y, 2 * Constants.SLOT_HEIGHT_PX
 	)
 	for entity_id: int in nearby:
 		if not game_server.db.has_component(
@@ -531,12 +437,14 @@ func _start_clearing(entity_id: int) -> void:
 func _create_object_sprite(
 	entity_id: int,
 	object_type: StringName,
-	pu_x: int,
-	pu_y: int,
+	px_x: int,
+	px_y: int,
 ) -> void:
+	# Idempotent: signal-driven and UI-driven calls both arrive here.
+	if _object_sprites.has(entity_id):
+		return
 	var sprite := Sprite2D.new()
-	var floor_pu_y: int = Constants.SLOTS_PER_RACK * Constants.SLOT_HEIGHT_PU
-	var is_on_floor: bool = pu_y >= floor_pu_y
+	var is_on_floor: bool = px_y >= Constants.FLOOR_Y
 	match object_type:
 		&"server_1u":
 			sprite.texture = _SERVER_TEX
@@ -548,31 +456,32 @@ func _create_object_sprite(
 			sprite.texture = _HUM_TEX
 	sprite.centered = false
 	if is_on_floor:
-		# Floor object: render at floor level
+		# Floor object: render at floor level (anchor bottom to FLOOR_Y)
 		sprite.position = Vector2(
-			Constants.to_world(pu_x),
+			float(px_x) - float(sprite.texture.get_width()) / 2.0,
 			float(Constants.FLOOR_Y) - float(sprite.texture.get_height()),
 		)
 	else:
-		# Rack object: convert PU → rack/slot → world pixels
-		var layout: Dictionary = Constants.pu_to_bay_rack_slot(
-			pu_x, pu_y
-		)
-		sprite.position = Constants.rack_slot_to_world(
-			int(layout[&"bay"]),
-			int(layout[&"rack"]),
-			int(layout[&"slot"]),
-		)
+		# Rack object: use slot origin (top-left of slot)
+		var world_px := Vector2i(px_x, px_y)
+		var bay: int = Constants.world_to_bay(world_px)
+		if bay == Constants.INVALID_BAY:
+			bay = 0
+		var query: SlotQuery = Constants.bay_local_to_slot(bay, world_px)
+		if query.zone == &"slot":
+			sprite.position = Vector2(Constants.slot_origin_world(
+				bay, query.get_rack(), query.get_slot(),
+			))
+		else:
+			sprite.position = Vector2(float(px_x), float(px_y))
 	$World/PlacedObjects.add_child(sprite)
 	_object_sprites[entity_id] = sprite
 
 
 func _try_click_entity(world_pos: Vector2) -> void:
-	var click_pu: Vector2i = Constants.world_to_pu(
-		world_pos.x, world_pos.y
-	)
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
 	var nearby: Array[int] = game_server.db.query_radius(
-		click_pu.x, click_pu.y, Constants.ru_to_pu(2),
+		click_px.x, click_px.y, 2 * Constants.SLOT_HEIGHT_PX,
 	)
 	for entity_id: int in nearby:
 		# Click on button → press it
@@ -608,57 +517,12 @@ func _try_click_entity(world_pos: Vector2) -> void:
 
 
 func _pet_animal(entity_id: int) -> void:
-	if not game_server.db.has_component(
-		entity_id, &"desires",
-	):
-		return
-	var attention: int = game_server.db.get_field(
-		entity_id, &"desires", &"attention",
-	)
-	game_server.db.set_field(
-		entity_id, &"desires", &"attention",
-		mini(1000, attention + 500),
-	)
+	PlayerVerbs.pet_animal(game_server.db, entity_id)
 
 
 func _squeak_box(box_id: int) -> void:
 	Events.box_squeaked.emit(box_id)
-	var box_pos: Dictionary = game_server.db.get_component(
-		box_id, &"position",
-	)
-	var nearby: Array[int] = game_server.db.query_radius(
-		box_pos[&"x"], box_pos[&"y"],
-		Constants.ru_to_pu(6),
-	)
-	for entity_id: int in nearby:
-		if not game_server.db.has_component(
-			entity_id, &"species",
-		):
-			continue
-		if not game_server.db.has_component(
-			entity_id, &"ai_state",
-		):
-			continue
-		var ai: Dictionary = game_server.db.get_component(
-			entity_id, &"ai_state",
-		)
-		var s: StringName = ai[&"state"]
-		if s == &"PACING" or s == &"HUNGRY" \
-				or s == &"RETURNING" or s == &"EATING":
-			game_server.db.set_component(
-				entity_id, &"ai_state", {
-					&"state": &"RETURNING",
-					&"meta_state": &"GOAL_DIRECTED",
-					&"commitment_score": 200,
-				},
-			)
-			game_server.db.set_component(
-				entity_id, &"target", {
-					&"x": box_pos[&"x"],
-					&"y": box_pos[&"y"],
-					&"entity_id": box_id,
-				},
-			)
+	PlayerVerbs.squeak_box(game_server.db, box_id)
 
 
 func _process(delta: float) -> void:

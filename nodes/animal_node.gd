@@ -10,6 +10,12 @@ const _NAME_COLORS: Array[Color] = [
 
 static var _next_color: int = 0
 
+# AI-DEV: TEMP — debug outline boxes (yellow=data position, orange=sprite
+# render position) toggle with the C key. Shared static so one keypress flips
+# every animal at once. Remove this flag, `_unhandled_input`, and `_draw()`
+# once the offset_y verification work is done.
+static var _debug_outlines: bool = false
+
 var entity_id: int = Constants.INVALID_ID
 
 var _db: GameStateDB
@@ -17,7 +23,9 @@ var _prev_pos: Vector2
 var _target_pos: Vector2
 var _footstep_player: AudioStreamPlayer2D
 var _color_index: int = 0
+var _base_sprite_offset_y: float = 0.0
 var _state_animations: Dictionary = {}
+var _edge_animations: Dictionary = {}
 
 @onready var _sprite: AnimatedSprite2D = $Sprite
 @onready var _name_label: Label = $NameLabel
@@ -29,21 +37,20 @@ func initialize(db: GameStateDB, eid: int) -> void:
 	_db = db
 	entity_id = eid
 	var pos: Dictionary = _db.get_component(entity_id, &"position")
-	_target_pos = Vector2(
-		Constants.to_world(pos[&"x"]),
-		float(Constants.FLOOR_Y - 1)
-	)
+	_target_pos = Vector2(float(pos[&"x"]), float(pos[&"y"]))
 	_prev_pos = _target_pos
 	global_position = _target_pos
 	_setup_sprite()
 	_cache_state_animations()
 	_setup_name_label(_db.get_component(entity_id, &"species"))
 	_setup_footstep_audio()
+	_setup_purr_ring()
 
 
 func _cache_state_animations() -> void:
 	var config: Dictionary = _db.get_component(entity_id, &"sprite_config")
 	_state_animations = config.get("animations", {})
+	_edge_animations = config.get("edge_animations", {})
 
 
 func _setup_sprite() -> void:
@@ -52,7 +59,8 @@ func _setup_sprite() -> void:
 	var variant: String = String(species.get(&"variant", &""))
 	var base_path: String = String(config.get("base_path", "")).replace("{variant}", variant)
 	_sprite.scale = Vector2(1.0, 1.0)
-	_sprite.offset.y = float(config.get("offset_y", 0))
+	_base_sprite_offset_y = float(config.get("offset_y", 0))
+	_sprite.offset.y = _base_sprite_offset_y
 
 	var frames := SpriteFrames.new()
 	if frames.has_animation(&"default"):
@@ -91,6 +99,7 @@ func _setup_name_label(species: Dictionary) -> void:
 	_color_index = _next_color % _NAME_COLORS.size()
 	_next_color += 1
 	_name_label.add_theme_color_override("font_color", _NAME_COLORS[_color_index])
+	_name_label.add_theme_font_size_override("font_size", 4)
 
 
 func _setup_footstep_audio() -> void:
@@ -104,6 +113,15 @@ func _setup_footstep_audio() -> void:
 	_footstep_player.volume_db = -15.0
 	_footstep_player.max_distance = 500.0
 	add_child(_footstep_player)
+
+
+func _setup_purr_ring() -> void:
+	var scene: PackedScene = load("res://nodes/effects/purr_ring.tscn")
+	if scene == null:
+		return
+	var ring: Node2D = scene.instantiate()
+	add_child(ring)
+	ring.bind(_db, entity_id)
 
 
 func _add_strip_animation(
@@ -132,19 +150,14 @@ func _physics_process(_delta: float) -> void:
 	if _db == null or not _db.has_entity(entity_id):
 		return
 	_prev_pos = _target_pos
-	var pos: Dictionary = _db.get_component(
-		entity_id, &"position"
-	)
-	_target_pos = Vector2(
-		Constants.to_world(pos[&"x"]),
-		float(Constants.FLOOR_Y - 1)
-	)
+	var pos: Dictionary = _db.get_component(entity_id, &"position")
+	_target_pos = Vector2(float(pos[&"x"]), float(pos[&"y"]))
 
 	# Update animation based on AI state
 	if _db.has_component(entity_id, &"ai_state"):
 		var ai: Dictionary = _db.get_component(entity_id, &"ai_state")
 		var state: StringName = ai[&"state"]
-		var anim: StringName = _state_to_animation(state)
+		var anim: StringName = _resolve_animation(state)
 		if _sprite.sprite_frames and _sprite.sprite_frames.has_animation(anim):
 			if _sprite.animation != anim:
 				_sprite.play(anim)
@@ -184,7 +197,90 @@ func _state_to_animation(state: StringName) -> StringName:
 	return StringName(entry.get("animation", "idle"))
 
 
+# During movement states, the per-step delta_y picks an edge animation
+# (jump / fall / walk). Falls back to the state-based animation if the
+# species recipe has no edge_animations block or the step is purely
+# horizontal.
+func _resolve_animation(state: StringName) -> StringName:
+	var is_moving: bool = (
+		state == &"MOVING_TO"
+		or state == &"SEEKING"
+		or state == &"WANDERING"
+	)
+	if is_moving and not _edge_animations.is_empty():
+		var dy: float = _target_pos.y - _prev_pos.y
+		var jump_threshold: float = float(Constants.SLOT_HEIGHT_PX) / 2.0
+		var edge_key: String = "WALK"
+		if dy < -jump_threshold:
+			edge_key = "JUMP_UP"
+		elif dy > jump_threshold:
+			edge_key = "JUMP_DOWN"
+		var entry: Dictionary = _edge_animations.get(edge_key, {})
+		if entry.has("animation"):
+			return StringName(entry["animation"])
+	return _state_to_animation(state)
+
+
 func _process(_delta: float) -> void:
 	var t: float = Engine.get_physics_interpolation_fraction()
 	global_position = _prev_pos.lerp(_target_pos, t)
-	z_index = 200 + int(global_position.y / 2.0)
+	# Animals normally render in $World/Animals (a higher canvas z than
+	# $World/PlacedObjects), so per-sprite z_index inside Animals can't
+	# duck behind a box sprite by one. When settled_in, switch to
+	# absolute z and pin the cat to PlacedObjects' band so the host
+	# (box) occludes the cat's body — the visible cat is whatever pokes
+	# above the box's top edge. True lip-occlusion (cat body inside box
+	# but ears in front of box's lip) needs the box sprite split into
+	# back+lip layers; for now this is the cleanest 2D approximation.
+	var settled: bool = (
+		_db != null
+		and _db.has_entity(entity_id)
+		and _db.has_component(entity_id, &"settled_in")
+	)
+	if settled:
+		z_as_relative = false
+		z_index = Constants.Z_PLACED_OBJECTS_TUCKED
+		# Empirical +8 y / +2 x to lift the 40×40 cat sprite halfway
+		# between "fully above the box" and "centered in the box" so the
+		# ears poke above the box lip while the body sits inside, and
+		# nudge right so the tail doesn't poke out the left wall. Box is
+		# 2 slots / 16px tall, anchored at slot_origin top-left.
+		# TODO: derive this from the host's body_geometry / sprite extent
+		# instead of hardcoding once a second tuck-host (clothes pile, etc.)
+		# arrives — different hosts will need different biases.
+		_sprite.offset.y = _base_sprite_offset_y + 8.0
+		_sprite.offset.x = 2.0
+	else:
+		z_as_relative = true
+		z_index = 200 + int(global_position.y / 2.0)
+		_sprite.offset.y = _base_sprite_offset_y
+		_sprite.offset.x = 0.0
+	queue_redraw()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if key.pressed and not key.echo and key.keycode == KEY_C:
+			_debug_outlines = not _debug_outlines
+			get_viewport().set_input_as_handled()
+
+
+func _draw() -> void:
+	if not _debug_outlines:
+		return
+	# Debug markers: yellow 40x40 outline at the entity's data position
+	# (the AnimalNode origin); orange 40x40 outline at the sprite's
+	# rendered position (origin + sprite_config.offset_y). Both 1px wide.
+	# Surface the gap between data and visuals empirically.
+	var size: float = 40.0
+	draw_rect(
+		Rect2(-size / 2.0, -size / 2.0, size, size),
+		Color.YELLOW, false, 1.0,
+	)
+	if _sprite != null:
+		var off_y: float = _sprite.offset.y
+		draw_rect(
+			Rect2(-size / 2.0, off_y - size / 2.0, size, size),
+			Color.ORANGE, false, 1.0,
+		)

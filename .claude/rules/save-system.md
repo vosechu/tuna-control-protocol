@@ -1,3 +1,12 @@
+---
+paths:
+  - "engine/**/save*"
+  - "engine/**/snapshot*"
+  - "engine/**/serialize*"
+  - "engine/**/migrat*"
+  - "tests/snapshots/saves/**"
+---
+
 # TCP Save System
 
 ## GameStateDB

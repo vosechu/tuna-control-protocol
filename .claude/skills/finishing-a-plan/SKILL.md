@@ -43,7 +43,49 @@ Before deleting anything, confirm the plan's claims match reality.
 
 If any step fails, the plan is not done. Stop and address the gaps before extraction.
 
-## Step 2: Enumerate the plan's permanent knowledge
+## Step 2: Audit testing discipline
+
+Before extracting permanent knowledge, audit what happened to the test surface
+during the plan. Test deletion and stamp shortcuts are the most common silent
+regressions, and they compound plan-over-plan. This step catches the
+LLM-shaped shortcuts that `script/validate` cannot.
+
+Walk every commit in this plan that touched `tests/**`. For each change, answer
+the question in plain prose. Vague or absent answers mean the shortcut wasn't
+caught — go back and fix it before completing the audit.
+
+| Change | Question to answer |
+|---|---|
+| **Deleted test function** | Name a specific integration/scenario/scene test (path + test_name) whose assertion pins the same invariant, and quote the matching assertion. `.claude/rules/test-philosophy.md` explicitly rejects "integration covers this" as a catch-all — integrations are spot-checks, not a safety net for unit coverage. If you cannot produce a specific citation that names the same invariant, the deletion was wrong; restoration is required. |
+| **Merged test pair** | Does the merged body contain every assertion from both originals? List any dropped assertion. A dropped assertion is a silent coverage loss — add it back, or file a TODO comment + follow-up task. |
+| **Stamped tests (any new or modified test file)** | Cross-check against the bug hypotheses in the plan doc (see `/spec-first` Phase 1). For each new test, does its body actually pin the bug class the hypothesis names? A hypothesis that says "forgot the SLOTS_PER_RACK - 1 - inversion" should be paired with a test that fails if that exact mutation is applied. If the hypothesis is vague or the test doesn't match, the pair isn't earning its keep. |
+| **Restamped via `tdd_verify restamp`** | Confirm from the commit body (or `git log -p`) that the reason describes a cosmetic-class change: whitespace, lint-forced wrapping, comment edits, renames of unused locals. An assertion-logic change slipped in via restamp is an abuse — re-run `tdd_verify stamp` after a proper red-green cycle instead. |
+| **`# TODO` comments added to test files** | List them. Each is documented coverage debt. Confirm each has an owner or follow-up task. |
+
+Emit the audit findings as a block in the closeout commit body:
+
+```
+## Testing audit
+Deleted tests: N — coverage verified in: <paths> (or restored in <commits>).
+Merged pairs: M — dropped assertions: <list or "none">.
+Bug hypotheses cross-checked: <N tests> — mismatches: <list or "none">.
+Restamped cosmetically: <list with reasons, or "none">.
+Open TODOs: <list or "none">.
+```
+
+If any row produces a gap — missing citation, dropped assertion, test
+body that doesn't match its bug hypothesis — resolve the gap before
+proceeding to Step 3. The gap is the point of the audit; don't paper
+over it.
+
+> **Note on legacy `.audit.yaml` files.** Older plans generated
+> `.audit.yaml` sidecars recording per-test mutation hashes. Those are
+> historical now — the mutation cycle was removed (see the tdd_verify
+> refactor commit). New stamps don't produce audit files. Existing ones
+> can stay in tree as historical record or be cleaned up; they don't
+> affect verification.
+
+## Step 3: Enumerate the plan's permanent knowledge
 
 Walk through the spec + plan and classify every meaningful paragraph into one of:
 
@@ -61,7 +103,7 @@ Walk through the spec + plan and classify every meaningful paragraph into one of
 
 Be ruthless. If a reader of the permanent doc wouldn't need it to rebuild the system, drop it.
 
-## Step 3: Choose destinations
+## Step 4: Choose destinations
 
 For each item in the "keep" pile:
 
@@ -71,7 +113,7 @@ For each item in the "keep" pile:
 
 Map each kept paragraph to its destination file + section. Write the map down before editing — if the map feels forced, re-classify.
 
-## Step 4: Write the permanent docs
+## Step 5: Write the permanent docs
 
 For each destination:
 
@@ -83,7 +125,7 @@ For each destination:
 
 After writing, run `script/validate` to catch any broken references (if the project lints markdown links).
 
-## Step 5: The one-shot reproducibility test
+## Step 6: The one-shot reproducibility test
 
 Pretend you're a developer reimplementing this system in a different language with only the permanent docs. For each mechanic the plan covered:
 
@@ -93,9 +135,9 @@ Pretend you're a developer reimplementing this system in a different language wi
 - [ ] Do I know what to test and what the invariants are?
 - [ ] Is the "why" obvious enough that I won't re-derive a worse design?
 
-If any answer is "no," loop back to Step 4 and fill the gap. Do not proceed to deletion with holes.
+If any answer is "no," loop back to Step 5 and fill the gap. Do not proceed to deletion with holes.
 
-## Step 6: Delete the plan and spec
+## Step 7: Delete the plan and spec
 
 Only after Step 5 passes:
 
@@ -104,7 +146,7 @@ Only after Step 5 passes:
 - Grep for cross-references to those paths and update them to point at the new permanent docs.
 - If other specs reference this one via "See spec X", either inline the specific fact into the referring doc or point at the new rule.
 
-## Step 7: Commit
+## Step 8: Commit
 
 One commit: `docs: fold <plan-name> into permanent rules; remove transient plan/spec`
 

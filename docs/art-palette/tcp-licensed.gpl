@@ -1,0 +1,78 @@
+GIMP Palette
+Name: TCP Licensed Pack Union
+Columns: 5
+#
+# Licensed sprite pack palette for Tuna Control Protocol.
+# Derived from mods/tcp_cats/sprites/ (21 colors) and mods/tcp_ferrets/sprites/ (8 colors).
+# Union = 25 unique colors; 4 are shared between both packs.
+#
+# Grouped by material (highlight / base / shadow). Material numbers (M1..M11)
+# match section 2 of .claude/rules/art-direction.md.
+#
+# Artist technique (SeethingSwarm, cross-pack analysis):
+#   - Ramp is primarily V: each rung drops value by ~20-25%.
+#   - Saturation creeps UP ~5% per rung as it darkens (shadows stay chromatic).
+#   - Hue mostly static. Exceptions: M4 cool gray shifts toward purple in shadow;
+#     M6 ferret pink shifts toward red in shadow.
+#   - Low-S materials (below ~25% S base) keep S flat across the ramp.
+#
+# Aseprite: File > Palette > Load Palette > tcp-licensed.gpl
+#
+#
+# Outline ramp (6) -- line work, not a surface material
+#
+  0   0   0	transparent (index 0)
+ 44  44  44	outline hi
+ 31  31  36	outline cool-dark
+ 22  22  22	outline mid
+ 19  19  24	outline shared (ferret)
+ 11  11  11	outline near-black
+  0   0   0	outline base
+#
+# M1 Tabby tan -- saturated orange cat fur
+# highlight shared with M2 and M5 (cream)
+#
+244 204 161	M1 hi cream
+178 115  56	M1 base tan
+103  68  35	M1 shadow
+ 60  41  26	M1 deep shadow
+#
+# M2 Muted warm brown -- neutral tabby body
+# hi shares M1 cream
+#
+150 125 103	M2 base
+109  75  57	M2 shadow
+#
+# M3 Cool gray fur -- gray or blue-point cat
+#
+203 219 252	M3 hi specular (also M9 lone)
+143 155 169	M3 base
+ 84  93 103	M3 shadow
+#
+# M4 Cool structural gray -- body shadow / infrastructure metal
+# shadow shares outline #131318
+#
+117 127 139	M4 hi
+ 73  76  84	M4 base
+#
+# M6 Ferret fur body -- pink-brown
+#
+190 175 167	M6 hi
+148 122 117	M6 base (also M7 cross-pack mid)
+ 99  69  69	M6 shadow (also M7 cross-pack shadow)
+ 47  30  32	M6 deep shadow
+#
+# M7 Pink accent -- nose / inner ear / paw (cat only)
+# mid and shadow borrow M6 ferret colors
+#
+189 136 121	M7 lone pink
+#
+# M8 Gold eye iris
+# shadow shares M1 tan
+#
+255 211  79	M8 gold
+#
+# M10 Blood / crimson accent -- shared effect palette
+#
+169   0   0	M10 crimson
+ 87  37  59	M10 wine

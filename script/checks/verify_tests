@@ -1,250 +1,146 @@
-#!/bin/bash
+#!/usr/bin/env ruby
 # Verifies tamper-evident .gd.stamp sidecar files for test files.
-# This is the READ operation — it checks that stamps exist, no orphans,
-# and all hashes match. Used by CI and pre-commit.
+# Read-side of the TDD verification system. Run by CI + pre-commit.
 #
 # Three checks:
 #   1. Every test file has a .gd.stamp sidecar
-#   2. No orphan .gd.stamp files without a corresponding test
-#   3. All stamps match their current test file contents
+#   2. No orphan .gd.stamp files without a matching test file
+#   3. Every stamp's setup_hash and per-test hash matches current content
 #
-# Usage: verify_tests              (check everything)
+# Share hashing logic with script/tdd_verify via script/lib/test_stamp.rb so
+# writer and reader agree by construction.
 
-set -uo pipefail
-# Note: NOT using set -e because grep returns non-zero on no-match,
-# which is expected in many checks below.
+SCRIPT_DIR = File.expand_path('..', __dir__)
+require_relative File.join(SCRIPT_DIR, 'lib/test_stamp')
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
-TESTS_DIR="$REPO_ROOT/tests"
+# Parse a stamp file via regex (not YAML). Hex hashes starting with 0 get
+# misinterpreted as octal by Psych, so we pull them out as raw strings.
+#
+# tdd_verify's YAML serializer sometimes quotes hex values (single or double
+# quotes). Strip surrounding quotes so `setup_hash: 08970b19` and
+# `setup_hash: '08970b19'` parse identically.
+def unquote(str)
+  return str if str.nil?
+  if (str.start_with?("'") && str.end_with?("'")) ||
+     (str.start_with?('"') && str.end_with?('"'))
+    str[1..-2]
+  else
+    str
+  end
+end
 
-if [ ! -d "$TESTS_DIR" ]; then
-    echo "No tests directory at $TESTS_DIR" >&2
-    exit 1
-fi
+def parse_stamp(path)
+  content = File.read(path)
+  setup_match = unquote(content[/^setup_hash:\s*(\S+)/, 1])
+  tests = {}
+  content.each_line do |line|
+    next unless line =~ /^\s{2,}(test_\w+):\s*(\S+)/
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+    tests[Regexp.last_match(1)] = unquote(Regexp.last_match(2))
+  end
+  { 'setup_hash' => setup_match, 'tests' => tests }
+end
 
-get_test_functions() {
-    local file="$1"
-    grep -n '^func test_' "$file" | sed 's/(.*//' | sed 's/^.*func //'
-}
+REPO_ROOT = `git rev-parse --show-toplevel`.strip
+# Stamping + mutation verification is scoped to tests/unit/ only.
+# Integration, scenario, scene, soak, and perf suites compose well-covered
+# systems; no single surgical mutation isolates a composition test to a
+# single failing suite, so they don't fit the tdd_verify cycle. They still
+# run in CI (gut_tests) — they just aren't stamp-gated.
+STAMPED_DIR = File.join(REPO_ROOT, 'tests', 'unit')
 
-get_function_body() {
-    local file="$1"
-    local func_name="$2"
+unless Dir.exist?(STAMPED_DIR)
+  warn "No unit tests directory at #{STAMPED_DIR}"
+  exit 1
+end
 
-    local start_line
-    start_line=$(grep -n "^func ${func_name}(" "$file" | head -1 | cut -d: -f1)
+def strip_ansi(str)
+  str.gsub(/\e\[[0-9;]*m/, '')
+end
 
-    if [ -z "$start_line" ]; then
-        echo ""
-        return
-    fi
+test_files = Dir.glob(File.join(STAMPED_DIR, '**/test_*.gd')).reject { |f| f.include?('/.godot/') }.sort
+stamp_files = Dir.glob(File.join(STAMPED_DIR, '**/*.gd.stamp')).reject { |f| f.include?('/.godot/') }.sort
 
-    local total_lines
-    total_lines=$(wc -l < "$file")
+missing_stamps = []
+orphan_stamps = []
+stale_setup = []
+stale_tests = []
+missing_tests = []
+orphan_tests = []
 
-    local end_line
-    end_line=$(tail -n +"$((start_line + 1))" "$file" | grep -n '^func \|^class \|^var \|^const \|^signal \|^enum \|^# ──' | head -1 | cut -d: -f1)
+# Check 1: every test file has a stamp
+test_files.each do |tf|
+  missing_stamps << tf unless File.exist?("#{tf}.stamp")
+end
 
-    if [ -z "$end_line" ]; then
-        end_line=$((total_lines - start_line + 1))
-    else
-        end_line=$((end_line - 1))
-    fi
+# Check 2: no orphan stamps
+stamp_files.each do |sf|
+  orphan_stamps << sf unless File.exist?(sf.sub(/\.stamp\z/, ''))
+end
 
-    sed -n "${start_line},$((start_line + end_line - 1))p" "$file" \
-        | grep -v '# AI-DEV:' \
-        | sed 's/[[:space:]]*$//'
-}
+# Check 3: hashes match
+test_files.each do |tf|
+  stamp_path = "#{tf}.stamp"
+  next unless File.exist?(stamp_path)
 
-hash_string() {
-    echo -n "$1" | shasum -a 256 | cut -c1-8
-}
+  stamp = parse_stamp(stamp_path)
 
-hash_file() {
-    shasum -a 256 "$1" | cut -c1-8
-}
+  units = TestStamp.parse_units(tf)
+  test_names = units.select { |u| u[:kind] == :func && u[:name].start_with?('test_') }.map { |u| u[:name] }
 
-# Read a value from the stamp YAML (simple key: value parsing)
-stamp_get() {
-    local stamp_file="$1"
-    local key="$2"
-    grep "^${key}:" "$stamp_file" 2>/dev/null | sed "s/^${key}: *//"
-}
+  expected_setup = stamp['setup_hash']
+  if expected_setup
+    actual_setup = TestStamp.hash_setup(units, test_names)
+    # Coerce to String: unquoted numeric-looking hashes in legacy bash
+    # stamps parse as Integers via Psych.
+    stale_setup << "#{tf} (stamp: #{expected_setup}, actual: #{actual_setup})" if actual_setup.to_s != expected_setup.to_s
+  end
 
-# Read a test hash from the stamp YAML (indented key: value)
-stamp_get_test() {
-    local stamp_file="$1"
-    local test_name="$2"
-    grep "^  ${test_name}:" "$stamp_file" 2>/dev/null | sed "s/^  ${test_name}: *//"
-}
+  stamp_tests = stamp['tests'] || {}
 
-# ── Check 1: Every test file has a stamp ─────────────────────────────────────
+  test_names.each do |name|
+    expected_hash = stamp_tests[name]
+    if expected_hash.nil?
+      missing_tests << "#{tf}::#{name} (no stamp entry)"
+      next
+    end
+    actual_hash = TestStamp.hash_test(units, name)
+    stale_tests << "#{tf}::#{name} (stamp: #{expected_hash}, actual: #{actual_hash})" if actual_hash.to_s != expected_hash.to_s
+  end
 
-MISSING_STAMPS=()
-while IFS= read -r test_file; do
-    stamp_file="${test_file}.stamp"
-    if [ ! -f "$stamp_file" ]; then
-        MISSING_STAMPS+=("$test_file")
-    fi
-done < <(find "$TESTS_DIR" -name 'test_*.gd' -not -path '*/.godot/*' | sort)
+  stamp_tests.each_key do |stamped_name|
+    orphan_tests << "#{tf}::#{stamped_name} (in stamp but not in file)" unless test_names.include?(stamped_name)
+  end
+end
 
-# ── Check 2: No orphan stamps ────────────────────────────────────────────────
+errors = 0
 
-ORPHAN_STAMPS=()
-while IFS= read -r stamp_file; do
-    test_file="${stamp_file%.stamp}"
-    if [ ! -f "$test_file" ]; then
-        ORPHAN_STAMPS+=("$stamp_file")
-    fi
-done < <(find "$TESTS_DIR" -name '*.gd.stamp' -not -path '*/.godot/*' | sort)
+{
+  'Test files with no stamp sidecar (test was never verified):' => missing_stamps,
+  'Stamp sidecars with no matching test file:' => orphan_stamps,
+  'Test setup modified (before_each/helpers changed — all tests invalidated):' => stale_setup,
+  'Individual test functions modified since last verification:' => stale_tests,
+  'Test functions added without verification (no stamp entry):' => missing_tests,
+  'Removed test functions still present in stamp:' => orphan_tests
+}.each do |label, list|
+  next if list.empty?
 
-# ── Helpers (setup hash) ─────────────────────────────────────────────────────
+  warn label
+  list.each { |f| warn "  #{f}" }
+  errors += list.size
+end
 
-get_setup_body() {
-    local file="$1"
-    local setup_body=""
-    local setup_funcs
-    setup_funcs=$(grep -n '^func ' "$file" | grep -v '^.*:func test_' | sed 's/(.*//' | sed 's/^.*func //')
-
-    if [ -z "$setup_funcs" ]; then
-        grep '^var ' "$file" | sed 's/[[:space:]]*$//'
-        return
-    fi
-
-    setup_body=$(grep '^var ' "$file" | sed 's/[[:space:]]*$//')
-
-    while IFS= read -r func_name; do
-        [ -z "$func_name" ] && continue
-        local body
-        body=$(get_function_body "$file" "$func_name")
-        setup_body="${setup_body}${body}"
-    done <<< "$setup_funcs"
-
-    echo -n "$setup_body"
-}
-
-# ── Check 3: All stamps match ────────────────────────────────────────────────
-
-STALE_SETUP=()
-STALE_TESTS=()
-ORPHAN_TESTS=()
-MISSING_TESTS=()
-
-while IFS= read -r test_file; do
-    stamp_file="${test_file}.stamp"
-
-    # Skip files without stamps (already caught in check 1)
-    if [ ! -f "$stamp_file" ]; then
-        continue
-    fi
-
-    # Check setup hash (before_each, helpers, fixtures)
-    EXPECTED_SETUP_HASH=$(stamp_get "$stamp_file" "setup_hash")
-    if [ -n "$EXPECTED_SETUP_HASH" ]; then
-        SETUP_BODY=$(get_setup_body "$test_file")
-        ACTUAL_SETUP_HASH=$(hash_string "$SETUP_BODY")
-        if [ "$EXPECTED_SETUP_HASH" != "$ACTUAL_SETUP_HASH" ]; then
-            STALE_SETUP+=("$test_file (stamp: $EXPECTED_SETUP_HASH, actual: $ACTUAL_SETUP_HASH)")
-        fi
-    fi
-
-    # Check per-test hashes
-    FUNCS=$(get_test_functions "$test_file")
-
-    # Check each function in the file has a stamp entry and matches
-    while IFS= read -r func_name; do
-        [ -z "$func_name" ] && continue
-        EXPECTED_HASH=$(stamp_get_test "$stamp_file" "$func_name")
-
-        if [ -z "$EXPECTED_HASH" ]; then
-            MISSING_TESTS+=("$test_file::$func_name (no stamp entry)")
-            continue
-        fi
-
-        BODY=$(get_function_body "$test_file" "$func_name")
-        ACTUAL_HASH=$(hash_string "$BODY")
-
-        if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
-            STALE_TESTS+=("$test_file::$func_name (stamp: $EXPECTED_HASH, actual: $ACTUAL_HASH)")
-        fi
-    done <<< "$FUNCS"
-
-    # Check for orphaned test entries in the stamp (test removed from file)
-    while IFS= read -r stamp_entry; do
-        [ -z "$stamp_entry" ] && continue
-        ENTRY_NAME=$(echo "$stamp_entry" | sed 's/:.*//' | sed 's/^  //')
-        if ! echo "$FUNCS" | grep -q "^${ENTRY_NAME}$"; then
-            ORPHAN_TESTS+=("$test_file::$ENTRY_NAME (in stamp but not in file)")
-        fi
-    done < <(grep '^  test_' "$stamp_file" 2>/dev/null)
-
-done < <(find "$TESTS_DIR" -name 'test_*.gd' -not -path '*/.godot/*' | sort)
-
-# ── Report ───────────────────────────────────────────────────────────────────
-
-ERRORS=0
-
-if [ ${#MISSING_STAMPS[@]} -gt 0 ]; then
-    echo "Test files with no stamp sidecar (test was never verified):" >&2
-    for f in "${MISSING_STAMPS[@]}"; do
-        echo "  $f" >&2
-    done
-    ERRORS=$((ERRORS + ${#MISSING_STAMPS[@]}))
-fi
-
-if [ ${#ORPHAN_STAMPS[@]} -gt 0 ]; then
-    echo "Stamp sidecars with no matching test file:" >&2
-    for f in "${ORPHAN_STAMPS[@]}"; do
-        echo "  $f" >&2
-    done
-    ERRORS=$((ERRORS + ${#ORPHAN_STAMPS[@]}))
-fi
-
-if [ ${#STALE_SETUP[@]} -gt 0 ]; then
-    echo "Test setup modified (before_each/helpers changed — all tests invalidated):" >&2
-    for f in "${STALE_SETUP[@]}"; do
-        echo "  $f" >&2
-    done
-    ERRORS=$((ERRORS + ${#STALE_SETUP[@]}))
-fi
-
-if [ ${#STALE_TESTS[@]} -gt 0 ]; then
-    echo "Individual test functions modified since last verification:" >&2
-    for f in "${STALE_TESTS[@]}"; do
-        echo "  $f" >&2
-    done
-    ERRORS=$((ERRORS + ${#STALE_TESTS[@]}))
-fi
-
-if [ ${#MISSING_TESTS[@]} -gt 0 ]; then
-    echo "Test functions added without verification (no stamp entry):" >&2
-    for f in "${MISSING_TESTS[@]}"; do
-        echo "  $f" >&2
-    done
-    ERRORS=$((ERRORS + ${#MISSING_TESTS[@]}))
-fi
-
-if [ ${#ORPHAN_TESTS[@]} -gt 0 ]; then
-    echo "Removed test functions still present in stamp:" >&2
-    for f in "${ORPHAN_TESTS[@]}"; do
-        echo "  $f" >&2
-    done
-    ERRORS=$((ERRORS + ${#ORPHAN_TESTS[@]}))
-fi
-
-if [ $ERRORS -gt 0 ]; then
-    echo "" >&2
-    echo "$ERRORS verification issue(s) found." >&2
-    echo "" >&2
-    echo "These tests are no longer in a verified state. To restore verification you" >&2
-    echo "MUST follow the full red-green-refactor process in:" >&2
-    echo "  .claude/rules/llm-test-verification.md" >&2
-    echo "" >&2
-    echo "DO NOT skip the process by stamping directly. The stamp is the seal at the" >&2
-    echo "end of verification, not a fix for verification failures." >&2
-    exit 1
-fi
+if errors > 0
+  warn ''
+  warn "#{errors} verification issue(s) found."
+  warn ''
+  warn 'These tests are no longer in a verified state. Re-stamp after'
+  warn 'confirming the tests pass:'
+  warn '  script/tdd_verify stamp <test_file>'
+  warn ''
+  warn 'Cosmetic-only changes (lint-forced whitespace, comment edits) can use:'
+  warn "  script/tdd_verify restamp <test_file> '<one-sentence reason>'"
+  exit 1
+end
 
 exit 0

@@ -46,34 +46,40 @@ func _make_cat(x: int, y: int, desires: Dictionary) -> int:
 		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
-	# Purr components so ContentmentPurrBridge can set intensity
-	_db.set_component(id, &"purr", {&"intensity": 0})
-	_db.set_component(id, &"purr_config", {&"rate_when_satisfied": 10})
+	# Purr components so ContentmentPurrBridge can set intensity + radius_px
+	_db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
+	_db.set_component(id, &"purr_config", {
+		&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6,
+	})
 	_db.update_spatial(id, x, y)
 	return id
 
 
-func _make_server_with_receiver(rack: int, slot: int, receiver_radius_ru: int) -> int:
+func _make_server_with_receiver(rack: int, slot: int, size_ru: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var x: int = rack * Constants.RACK_WIDTH_PX
+	var y: int = slot * Constants.SLOT_HEIGHT_PX
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
-	_db.set_component(id, &"heat_source", {&"value": 1000, &"radius_ru": 5})
-	_db.set_component(id, &"hum_receiver", {&"radius_ru": receiver_radius_ru})
+	_db.set_component(id, &"heat_source", {
+		&"value": 1000, &"radius_px": 5 * Constants.SLOT_HEIGHT_PX,
+	})
+	_db.set_component(id, &"hum_receiver", {})
+	_db.set_component(id, &"physical", {&"mass": 20000, &"size_ru": size_ru})
 	_db.update_spatial(id, x, y)
 	return id
 
 
-func _make_hum_device(rack: int, slot: int, radius_ru: int) -> int:
+func _make_hum_device(rack: int, slot: int, size_ru: int) -> int:
 	var id: int = _db.create_entity()
-	var x: int = rack * Constants.RACK_WIDTH_PU
-	var y: int = slot * Constants.SLOT_HEIGHT_PU
+	var x: int = rack * Constants.RACK_WIDTH_PX
+	var y: int = slot * Constants.SLOT_HEIGHT_PX
 	_db.set_component(id, &"position", {&"x": x, &"y": y})
 	_db.set_component(id, &"hum", {
 		&"reserve": HumSystem.DEFAULT_CAPACITY,
 		&"capacity": HumSystem.DEFAULT_CAPACITY,
 	})
-	_db.set_component(id, &"hum_receiver", {&"radius_ru": radius_ru})
+	_db.set_component(id, &"hum_receiver", {})
+	_db.set_component(id, &"physical", {&"mass": 20000, &"size_ru": size_ru})
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -111,7 +117,7 @@ func test_contented_cat_near_hum_device_charges_hum() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	var hum_id: int = _make_hum_device(0, 5, 5)
 	_make_cat(
-		0, 5 * Constants.SLOT_HEIGHT_PU,
+		0, 5 * Constants.SLOT_HEIGHT_PX,
 		{&"warmth": 800, &"comfort": 800, &"hunger": 800, &"attention": 800},
 	)
 	# Drain reserve to a known value so we can measure charge
@@ -129,7 +135,7 @@ func test_discontented_cat_does_not_charge_hum() -> void:
 	var hum_id: int = _make_hum_device(0, 5, 5)
 	# Cat with LOW desires — not contented, should not purr
 	_make_cat(
-		0, 5 * Constants.SLOT_HEIGHT_PU,
+		0, 5 * Constants.SLOT_HEIGHT_PX,
 		{&"warmth": 100, &"comfort": 100, &"hunger": 100, &"attention": 100},
 	)
 	_db.set_field(hum_id, &"hum", &"reserve", 500)
@@ -143,7 +149,7 @@ func test_100_ticks_with_hum_no_crash() -> void:
 	# AI-DEV: AI **MUST NOT** touch this test. If it fails, fix the production code.
 	_make_hum_device(1, 8, 5)
 	_make_cat(
-		Constants.RACK_WIDTH_PU, 8 * Constants.SLOT_HEIGHT_PU,
+		Constants.RACK_WIDTH_PX, 8 * Constants.SLOT_HEIGHT_PX,
 		{&"warmth": 600, &"comfort": 700, &"hunger": 500, &"attention": 600},
 	)
 	for _tick: int in 100:
