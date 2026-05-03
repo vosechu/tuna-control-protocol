@@ -99,11 +99,11 @@ Rack sprite top-anchors at `RACK_TOP_Y = 16`. The sprite has 8px transparent pad
 
 ### Shared "glue" colors (4)
 
-`#000000`, `#131318`, `#A90000`, `#57253B` — these are the cross-pack common ground. Any new art that has to sit next to **both** cats and ferrets in the same frame (HUD icons, particles, UI glyphs) should lean on these four plus neutral cream `#F4CCA1` for the minimum-friction palette.
+`#0B0E10`, `#0E151C`, `#A90000`, `#57253B` — the cross-pack common ground. Any new art that has to sit next to **both** cats and ferrets in the same frame (HUD icons, particles, UI glyphs) should lean on these four plus neutral cream `#F4CCA1` for the minimum-friction palette.
 
 ### Environment / infrastructure layer
 
-`mods/tcp_base/sprites/` currently contains **~640 unique colors** — a mix of the original 12-color "cold/warm datacenter" spec (some of which still lives in tile art: `#3B4157`, `#5B6B8A`, `#4A9B9B`, `#C4A24E`, `#1A1E2E`) and drift from imported/tweaked environment assets. This is too broad to be a palette; treat it as the drift zone. When painting or editing environment art:
+`mods/tcp_base/sprites/` currently contains **60 unique colors** across env/infra/object art (boxes 7, servers 7, dustball 5, rack 15, tileset 25, tunacan 9). The earlier "~640" figure was inflated by a single anti-aliased asset (`hum_device_static_strip1.png` — 10 design colors but 577 AA-blend variants from down-scaling). The 60 is a mix of the original 12-color "cold/warm datacenter" spec (some of which still lives in tile art: `#3B4157`, `#5B6B8A`, `#4A9B9B`, `#C4A24E`, `#1A1E2E`) and drift from imported/tweaked environment assets. The canonical 89-color unified palette (59 reference + 30 net-new) lives in the asset archive at `../game_assets/palette/` — import `tcp_palette.gpl` into Aseprite (the GPL preserves row dividers; PNG import dedupes them). See `../game_assets/palette/CLAUDE.md` for layout, regeneration, and tier-boundary rationale. When painting or editing environment art:
 
 1. **Prefer the cat/ferret palette first.** If a cat-pack color fits the role (outline, warm brown, cool gray, cream), use it.
 2. **Cool structural colors** (rack metal, cable, pipe) that don't have a cat-pack equivalent: keep the `#3B4157` / `#5B6B8A` / `#4A9B9B` family from the old spec — they're already in use and don't fight the packs.
