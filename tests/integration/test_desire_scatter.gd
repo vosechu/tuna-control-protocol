@@ -127,10 +127,11 @@ func test_cat_moves_toward_target_over_ticks() -> void:
 	var start_pos: Dictionary = _db.get_component(cat, &"position")
 	var start_y: int = start_pos[&"y"]
 
-	# NOTE: Inlines movement logic from game_server._move_animals because
+	# NOTE: Inlines movement logic equivalent to MovementSystem.tick because
 	# GameServer requires a scene tree we cannot instantiate in integration
-	# tests. If _move_animals changes, this must be updated to match.
-	var speed: int = 2  # ANIMAL_SPEED_PX
+	# tests. If the per-tick stepper in MovementSystem changes, this must
+	# be updated to match.
+	var speed: int = 2  # cat recipe walks.speed_px_per_tick
 	for tick: int in 200:
 		var pos: Dictionary = _db.get_component(cat, &"position")
 		var target: Dictionary = _db.get_component(

@@ -1,7 +1,5 @@
 extends Node
 
-const ANIMAL_SPEED_PX: int = 2  # pixels per tick (20 pixels/sec at 10Hz)
-
 var db: GameStateDB
 var heat_grid: HeatGrid
 var desire_resolver: DesireResolver
@@ -13,6 +11,7 @@ var hum_system: HumSystem
 var contentment: Contentment
 var contentment_purr_bridge: ContentmentPurrBridge
 var food_system: FoodSystem
+var movement_system: MovementSystem
 var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
 var settled_lifecycle: SettledLifecycle
@@ -22,21 +21,13 @@ var world_init: WorldInitSystem
 var settings: Settings
 var _mod_loader := ModLoader.new()
 var _verb_resolver := VerbResolver.new()
+var _behavior_timers: BehaviorTimers
 # AI-DEV: Phase 0 in-memory guard — prevents re-applying the starter
 # scenario mid-session. A save-aware flag (save meta) is Phase 1+ scope.
 var _starter_applied: bool = false
 var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
 var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
 var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
-# Sticky path waypoints: once an entity commits to a navgraph step, it
-# walks straight to that waypoint before asking for the next one.
-# Without stickiness, an entity midway between two nav nodes ping-pongs
-# because `astar.get_closest_point` flips between the two anchors on
-# each tick and each anchor produces a different next-step. Cleared
-# when the target changes, when the entity reaches the stored waypoint,
-# or when the entity despawns. Shape: entity_id -> Dictionary
-# {&"waypoint": Vector2i, &"target_eid": int, &"target_pos": Vector2i}
-var _movement_waypoints: Dictionary = {}
 var _min_durations: Dictionary = {
 	&"IDLE": 3.0,
 	&"GROOMING": 10.0,
@@ -76,6 +67,19 @@ func _ready() -> void:
 	_register_species_nav()
 	nav_builder.build()
 	desire_resolver.set_nav_builder(nav_builder)
+	_behavior_timers = BehaviorTimers.new()
+	# Alias the shared state-timer dicts onto the same underlying tables
+	# the MovementSystem reads via _behavior_timers. Dictionary is a
+	# reference type, so writes via either name land in one place. Once
+	# AiStateSystem extracts (Task 5.2), these aliases drop and only
+	# _behavior_timers remains.
+	_state_timers = _behavior_timers.state_timers
+	_min_durations_override = _behavior_timers.min_durations_override
+	_curiosity_trackers = _behavior_timers.curiosity_trackers
+	movement_system = MovementSystem.new(
+		db, nav_builder, object_state_manager,
+		Events, _behavior_timers, food_system,
+	)
 	_spawn_starter_entities()
 	_build_nav_for_objects()
 
@@ -111,7 +115,7 @@ func _physics_process(_delta: float) -> void:
 	#   - contentment before contentment_purr_bridge (bridge reads is_satisfied)
 	#   - contentment_purr_bridge before hum_system (maps purr.intensity before charge)
 	#   - hum_system before desire_resolver (HUM reserve affects arm actions)
-	#   - _move_animals before reclamation (reads fresh positions)
+	#   - movement_system before reclamation (reads fresh positions)
 	#   - food_system before reclamation (food state resolves before presence)
 	#   - reclamation before plant_growth (reads fresh presence)
 	#   - plant_growth before _update_ambient_states (transitions
@@ -126,7 +130,7 @@ func _physics_process(_delta: float) -> void:
 	_decay_commitment()                                     # 8
 	desire_resolver.mark_all_dirty()                        # 9
 	desire_resolver.evaluate_budget(_curiosity_trackers)    # 10
-	_move_animals()                                         # 11
+	movement_system.tick()                                  # 11
 	food_system.tick_arms()                                 # 12
 	food_system.tick_cleanup()                              # 13
 	reclamation_system.tick()                               # 14
@@ -190,170 +194,6 @@ func _scatter_desires() -> void:
 	db.clamp_all(&"desires", &"quiet", 0, 1000)
 	db.clamp_all(&"desires", &"peace", 0, 1000)
 
-
-
-func _move_animals() -> void:
-	var animals: Array[int] = db.get_entities_with(&"ai_state")
-	for entity_id: int in animals:
-		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
-		var state: StringName = ai[&"state"]
-		if state != &"SEEKING" and state != &"MOVING_TO" \
-				and state != &"WANDERING" \
-				and state != &"HUNGRY" \
-				and state != &"RETURNING":
-			continue
-
-		var pos: Dictionary = db.get_component(entity_id, &"position")
-		var target: Dictionary = db.get_component(entity_id, &"target")
-		# SEEKING/MOVING_TO require an entity target; WANDERING just needs a position
-		if state != &"WANDERING" and target[&"entity_id"] == Constants.INVALID_ID:
-			continue
-
-		# Transition SEEKING -> MOVING_TO unconditionally. The nav layer
-		# (next_waypoint_or_stay) decides whether movement happens; an
-		# unreachable target produces zero forward progress this tick and
-		# the AI layer notices via the desire resolver's next pass.
-		if state == &"SEEKING":
-			db.set_component(entity_id, &"ai_state", {
-				&"state": &"MOVING_TO",
-				&"meta_state": &"GOAL_DIRECTED",
-				&"commitment_score": ai[&"commitment_score"],
-			})
-
-		# Pick next waypoint. The navgraph owns reachability: if from->target
-		# has no path, next_waypoint_or_stay returns from_px and the entity
-		# stays put. WANDERING uses target_px directly because random floor
-		# positions are always reachable without a graph query.
-		# Sticky waypoints: once a waypoint is chosen we walk straight to
-		# it before recomputing. This kills the 2-px ping-pong that
-		# happens when from_px is exactly between two nav nodes (e.g.
-		# floor and slot_0) — astar.get_closest_point flips and each
-		# anchor produces a different next-step.
-		var from_px: Vector2i = Vector2i(pos[&"x"], pos[&"y"])
-		var target_px: Vector2i = Vector2i(target[&"x"], target[&"y"])
-		var current_target_eid: int = target[&"entity_id"]
-		var waypoint: Vector2i = target_px
-		if state == &"WANDERING":
-			# Wander targets aren't navgraph nodes; walk straight, no
-			# stickiness needed.
-			_movement_waypoints.erase(entity_id)
-		elif db.has_component(entity_id, &"species"):
-			var species_comp: Dictionary = db.get_component(entity_id, &"species")
-			var stored: Variant = _movement_waypoints.get(entity_id)
-			var keep_stored: bool = false
-			if stored != null:
-				var stored_dict: Dictionary = stored
-				keep_stored = (
-					stored_dict[&"target_eid"] == current_target_eid
-					and stored_dict[&"target_pos"] == target_px
-					and stored_dict[&"waypoint"] != from_px
-				)
-			if keep_stored:
-				waypoint = (stored as Dictionary)[&"waypoint"]
-			else:
-				waypoint = nav_builder.next_waypoint_or_stay(
-					species_comp[&"id"], from_px, target_px,
-				)
-				_movement_waypoints[entity_id] = {
-					&"waypoint": waypoint,
-					&"target_eid": current_target_eid,
-					&"target_pos": target_px,
-				}
-
-		var step_result: Dictionary = NavPathStepper.step(
-			from_px, waypoint, ANIMAL_SPEED_PX,
-		)
-		var new_pos: Vector2i = step_result[&"pos"]
-		db.set_component(entity_id, &"position", {&"x": new_pos.x, &"y": new_pos.y})
-		db.update_spatial(entity_id, new_pos.x, new_pos.y)
-
-		# Arrival is determined by reaching the FINAL target, not intermediate
-		# waypoints. A step snapping onto an intermediate nav point just ticks
-		# the path forward on the next tick — clearing the sticky waypoint
-		# so the next pass requests a fresh one from the navgraph.
-		if new_pos == waypoint and waypoint != target_px:
-			_movement_waypoints.erase(entity_id)
-		if new_pos != target_px:
-			continue
-		# Final-target arrival; clear the sticky waypoint.
-		_movement_waypoints.erase(entity_id)
-
-		# Food state arrivals
-		if state == &"HUNGRY":
-			var food_id: int = food_system.find_nearby_food(entity_id)
-			if food_id != Constants.INVALID_ID:
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"EATING",
-					&"meta_state": &"GOAL_DIRECTED",
-					&"commitment_score": 300,
-				})
-			else:
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"PACING",
-					&"meta_state": &"GOAL_DIRECTED",
-					&"commitment_score": 100,
-				})
-				Events.creature_started_pacing.emit(
-					entity_id,
-				)
-			_state_timers[entity_id] = 0.0
-			continue
-		if state == &"RETURNING":
-			db.set_component(entity_id, &"ai_state", {
-				&"state": &"SETTLING",
-				&"meta_state": &"GOAL_DIRECTED",
-				&"commitment_score": 50,
-			})
-			_state_timers[entity_id] = 0.0
-			continue
-
-		# Determine arrival state based on what drew the animal here.
-		# If the target is an enterable host (box) the cat fits in, route
-		# through SETTLING — the settle handler in _update_ambient_states
-		# writes settled_in so the cat tucks visually. Otherwise fall back
-		# to SNIFFING (curiosity ad) or IDLE.
-		if target[&"entity_id"] != Constants.INVALID_ID \
-				and _can_settle_in(entity_id, target[&"entity_id"]):
-			db.set_component(entity_id, &"ai_state", {
-				&"state": &"SETTLING",
-				&"meta_state": &"GOAL_DIRECTED",
-				&"commitment_score": 50,
-			})
-			_state_timers[entity_id] = 0.0
-			continue
-
-		var arrival_state: StringName = &"IDLE"
-		var arrival_duration: float = -1.0
-		if _curiosity_trackers.has(entity_id) and target[&"entity_id"] != Constants.INVALID_ID:
-			var target_id: int = target[&"entity_id"]
-			if db.has_component(target_id, &"advertisements"):
-				var ads: Dictionary = db.get_component(target_id, &"advertisements")
-				for ad: Dictionary in ads[&"list"]:
-					var ad_channel: StringName = ad.get(
-						&"channel", ad.get(&"desire_type", &""),
-					)
-					if ad_channel == &"curiosity":
-						arrival_state = &"SNIFFING"
-						arrival_duration = float(ad.get(&"novelty_duration", 100)) / 10.0
-						_curiosity_trackers[entity_id].visit(
-							target_id, db.get_tick()
-						)
-						break
-
-		db.set_component(entity_id, &"ai_state", {
-			&"state": arrival_state,
-			&"meta_state": &"AMBIENT",
-			&"commitment_score": 0,
-		})
-		db.set_component(entity_id, &"target", {
-			&"x": Constants.INVALID_ID,
-			&"y": Constants.INVALID_ID,
-			&"entity_id": Constants.INVALID_ID,
-		})
-		# Override min duration for this SNIFFING session if set
-		if arrival_duration > 0.0:
-			_state_timers[entity_id] = 0.0
-			_min_durations_override[entity_id] = arrival_duration
 
 
 func _update_ambient_states() -> void:
@@ -899,31 +739,3 @@ func _find_dispenser_in_rack(
 		if dq.rack == rack:
 			return disp_id
 	return Constants.INVALID_ID
-
-
-func _can_settle_in(entity_id: int, host_id: int) -> bool:
-	# A cat can settle in a host if the host's current state publishes a
-	# `contained` join, the cat's species carries the `settles_in_containers`
-	# capability, and the cat's body fits the join's inner_size_ru.
-	if not db.has_entity(host_id):
-		return false
-	if not db.has_component(host_id, &"object_type"):
-		return false
-	if not db.has_component(entity_id, &"species"):
-		return false
-	var otype: Dictionary = db.get_component(host_id, &"object_type")
-	var state: StringName = &"new"
-	if db.has_component(host_id, &"object_state"):
-		var st: Dictionary = db.get_component(host_id, &"object_state")
-		state = st.get(&"state", &"new")
-	var join: Dictionary = object_state_manager.get_join_for_state(
-		otype[&"type"], state,
-	)
-	if join.get(&"type", &"") != &"contained":
-		return false
-	var species_id: StringName = db.get_component(entity_id, &"species")[&"id"]
-	if not nav_builder.has_capability(species_id, &"settles_in_containers"):
-		return false
-	var inner: int = join.get(&"inner_size_ru", 0)
-	var body: int = nav_builder.get_body_size_ru(species_id)
-	return body <= inner

@@ -13,7 +13,7 @@ const EXPECTED_ORDER: Array[String] = [
 	"_decay_commitment",
 	"desire_resolver.mark_all_dirty",
 	"desire_resolver.evaluate_budget",
-	"_move_animals",
+	"movement_system.tick",
 	"food_system.tick_arms",
 	"food_system.tick_cleanup",
 	"reclamation_system.tick",
