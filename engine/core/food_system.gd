@@ -153,6 +153,69 @@ func tick_cleanup() -> void:
 		_db.destroy_entity(can_id)
 
 
+# ── Food-finders ─────────────────────────────────────────────────────────────
+# Promoted from GameServer private helpers so AiStateSystem can call them
+# without a GameServer reference.
+
+func find_nearby_food(entity_id: int) -> int:
+	# Returns the nearest entity carrying an `opened` tuna_can within ~3
+	# slot heights, or INVALID_ID. Sealed cans are deliberately excluded:
+	# hungry cats must wait for the arm to open them, otherwise they'd
+	# crowd a can the arm hasn't processed yet.
+	var pos: Dictionary = _db.get_component(entity_id, &"position")
+	var nearby: Array[int] = _db.query_radius(
+		pos[&"x"], pos[&"y"], 3 * Constants.SLOT_HEIGHT_PX,
+	)
+	for other_id: int in nearby:
+		if _db.has_component(other_id, &"tuna_can"):
+			var can: Dictionary = _db.get_component(other_id, &"tuna_can")
+			if can[&"state"] == &"opened":
+				return other_id
+	return Constants.INVALID_ID
+
+
+func find_nearest_box(entity_id: int) -> int:
+	# Returns the nearest cardboard_box anywhere in the world, by Manhattan
+	# distance. No radius cap — RETURNING after EATING walks across a bay.
+	var pos: Dictionary = _db.get_component(entity_id, &"position")
+	var objects: Array[int] = _db.get_entities_with(&"object_type")
+	var best_id: int = Constants.INVALID_ID
+	var best_dist: int = 999999
+	for obj_id: int in objects:
+		var otype: Dictionary = _db.get_component(obj_id, &"object_type")
+		if otype[&"type"] != &"cardboard_box":
+			continue
+		var opos: Dictionary = _db.get_component(obj_id, &"position")
+		var dist: int = (
+			absi(opos[&"x"] - pos[&"x"])
+			+ absi(opos[&"y"] - pos[&"y"])
+		)
+		if dist < best_dist:
+			best_dist = dist
+			best_id = obj_id
+	return best_id
+
+
+func find_nearest_dispenser(entity_id: int, nav: NavGraphBuilder) -> int:
+	# Thin wrapper over CatFoodStates so EATING completion has a single
+	# canonical lookup. Takes nav as a param because AiStateSystem doesn't
+	# hold a reference and the existing helper signature requires it.
+	return CatFoodStates.find_nearest_dispenser(_db, entity_id, nav)
+
+
+func mark_nearest_can_eaten(entity_id: int) -> void:
+	# Called by EATING completion. Finds the nearest opened can and marks
+	# it `eaten` (which kills its advertisements so other cats stop
+	# routing toward it). No-op when there's no food in range — losing a
+	# race to another cat is normal.
+	var food_id: int = find_nearby_food(entity_id)
+	if food_id != Constants.INVALID_ID:
+		var can: Dictionary = _db.get_component(food_id, &"tuna_can")
+		can[&"state"] = &"eaten"
+		_db.set_component(food_id, &"tuna_can", can)
+		_db.remove_component(food_id, &"advertisements")
+
+
 func _rack_of(pos: Dictionary) -> int:
 	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
 	var bay: int = Constants.world_to_bay(world_pos)

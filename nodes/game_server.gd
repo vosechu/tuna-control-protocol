@@ -280,9 +280,7 @@ func _move_animals() -> void:
 
 		# Food state arrivals
 		if state == &"HUNGRY":
-			var food_id: int = _find_nearby_food(
-				entity_id,
-			)
+			var food_id: int = food_system.find_nearby_food(entity_id)
 			if food_id != Constants.INVALID_ID:
 				db.set_component(entity_id, &"ai_state", {
 					&"state": &"EATING",
@@ -393,7 +391,7 @@ func _update_ambient_states() -> void:
 			_state_timers[entity_id] = (
 				_state_timers.get(entity_id, 0.0) + tick_delta
 			)
-			var food_id: int = _find_nearby_food(entity_id)
+			var food_id: int = food_system.find_nearby_food(entity_id)
 			if food_id != Constants.INVALID_ID:
 				db.set_component(entity_id, &"ai_state", {
 					&"state": &"EATING",
@@ -412,8 +410,8 @@ func _update_ambient_states() -> void:
 				entity_id, &"desires", &"hunger", 0, 1000,
 			)
 			if _state_timers[entity_id] >= 3.0:
-				_mark_nearest_can_eaten(entity_id)
-				var box_id: int = _find_nearest_box(entity_id)
+				food_system.mark_nearest_can_eaten(entity_id)
+				var box_id: int = food_system.find_nearest_box(entity_id)
 				if box_id != Constants.INVALID_ID:
 					var bpos: Dictionary = db.get_component(
 						box_id, &"position",
@@ -474,8 +472,8 @@ func _update_ambient_states() -> void:
 			)
 			if desires.has(&"hunger") \
 					and CatFoodStates.should_become_hungry(db, entity_id):
-				var target_id: int = _find_nearest_dispenser(
-					entity_id,
+				var target_id: int = food_system.find_nearest_dispenser(
+					entity_id, nav_builder,
 				)
 				if target_id != Constants.INVALID_ID:
 					var tpos: Dictionary = db.get_component(
@@ -903,10 +901,6 @@ func _find_dispenser_in_rack(
 	return Constants.INVALID_ID
 
 
-func _find_nearest_dispenser(entity_id: int) -> int:
-	return CatFoodStates.find_nearest_dispenser(db, entity_id, nav_builder)
-
-
 func _can_settle_in(entity_id: int, host_id: int) -> bool:
 	# A cat can settle in a host if the host's current state publishes a
 	# `contained` join, the cat's species carries the `settles_in_containers`
@@ -933,59 +927,3 @@ func _can_settle_in(entity_id: int, host_id: int) -> bool:
 	var inner: int = join.get(&"inner_size_ru", 0)
 	var body: int = nav_builder.get_body_size_ru(species_id)
 	return body <= inner
-
-
-func _find_nearby_food(entity_id: int) -> int:
-	var pos: Dictionary = db.get_component(
-		entity_id, &"position",
-	)
-	var nearby: Array[int] = db.query_radius(
-		pos[&"x"], pos[&"y"], 3 * Constants.SLOT_HEIGHT_PX,
-	)
-	for other_id: int in nearby:
-		if db.has_component(other_id, &"tuna_can"):
-			var can: Dictionary = db.get_component(
-				other_id, &"tuna_can",
-			)
-			if can[&"state"] == &"opened":
-				return other_id
-	return Constants.INVALID_ID
-
-
-func _find_nearest_box(entity_id: int) -> int:
-	var pos: Dictionary = db.get_component(
-		entity_id, &"position",
-	)
-	var objects: Array[int] = db.get_entities_with(
-		&"object_type",
-	)
-	var best_id: int = Constants.INVALID_ID
-	var best_dist: int = 999999
-	for obj_id: int in objects:
-		var otype: Dictionary = db.get_component(
-			obj_id, &"object_type",
-		)
-		if otype[&"type"] != &"cardboard_box":
-			continue
-		var opos: Dictionary = db.get_component(
-			obj_id, &"position",
-		)
-		var dist: int = (
-			absi(opos[&"x"] - pos[&"x"])
-			+ absi(opos[&"y"] - pos[&"y"])
-		)
-		if dist < best_dist:
-			best_dist = dist
-			best_id = obj_id
-	return best_id
-
-
-func _mark_nearest_can_eaten(entity_id: int) -> void:
-	var food_id: int = _find_nearby_food(entity_id)
-	if food_id != Constants.INVALID_ID:
-		var can: Dictionary = db.get_component(
-			food_id, &"tuna_can",
-		)
-		can[&"state"] = &"eaten"
-		db.set_component(food_id, &"tuna_can", can)
-		db.remove_component(food_id, &"advertisements")
