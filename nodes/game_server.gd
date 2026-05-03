@@ -12,6 +12,7 @@ var contentment: Contentment
 var contentment_purr_bridge: ContentmentPurrBridge
 var food_system: FoodSystem
 var movement_system: MovementSystem
+var ai_state_system: AiStateSystem
 var reclamation_system: ReclamationSystem
 var plant_growth_system: PlantGrowthSystem
 var settled_lifecycle: SettledLifecycle
@@ -25,17 +26,6 @@ var _behavior_timers: BehaviorTimers
 # AI-DEV: Phase 0 in-memory guard — prevents re-applying the starter
 # scenario mid-session. A save-aware flag (save meta) is Phase 1+ scope.
 var _starter_applied: bool = false
-var _state_timers: Dictionary = {}  # entity_id -> float (seconds in current state)
-var _min_durations_override: Dictionary = {}  # entity_id -> float (per-session override)
-var _curiosity_trackers: Dictionary = {}  # entity_id -> CuriosityTracker
-var _min_durations: Dictionary = {
-	&"IDLE": 3.0,
-	&"GROOMING": 10.0,
-	&"LOAFING": 15.0,
-	&"SLEEPING": 30.0,
-	&"SNIFFING": 10.0,
-	&"SPEED_BUMP": 15.0,
-}
 
 
 func _ready() -> void:
@@ -68,17 +58,13 @@ func _ready() -> void:
 	nav_builder.build()
 	desire_resolver.set_nav_builder(nav_builder)
 	_behavior_timers = BehaviorTimers.new()
-	# Alias the shared state-timer dicts onto the same underlying tables
-	# the MovementSystem reads via _behavior_timers. Dictionary is a
-	# reference type, so writes via either name land in one place. Once
-	# AiStateSystem extracts (Task 5.2), these aliases drop and only
-	# _behavior_timers remains.
-	_state_timers = _behavior_timers.state_timers
-	_min_durations_override = _behavior_timers.min_durations_override
-	_curiosity_trackers = _behavior_timers.curiosity_trackers
 	movement_system = MovementSystem.new(
 		db, nav_builder, object_state_manager,
 		Events, _behavior_timers, food_system,
+	)
+	ai_state_system = AiStateSystem.new(
+		db, food_system, Events, settled_lifecycle, nav_builder,
+		_behavior_timers,
 	)
 	_spawn_starter_entities()
 	_build_nav_for_objects()
@@ -118,7 +104,7 @@ func _physics_process(_delta: float) -> void:
 	#   - movement_system before reclamation (reads fresh positions)
 	#   - food_system before reclamation (food state resolves before presence)
 	#   - reclamation before plant_growth (reads fresh presence)
-	#   - plant_growth before _update_ambient_states (transitions
+	#   - plant_growth before ai_state_system (transitions
 	#     influence next tick's ambient state selection)
 	db.advance_tick()                                       # 1
 	heat_grid.propagate()                                   # 2
@@ -129,13 +115,13 @@ func _physics_process(_delta: float) -> void:
 	hum_system.tick_idle_drain()                            # 7
 	_decay_commitment()                                     # 8
 	desire_resolver.mark_all_dirty()                        # 9
-	desire_resolver.evaluate_budget(_curiosity_trackers)    # 10
+	desire_resolver.evaluate_budget(_behavior_timers.curiosity_trackers)  # 10
 	movement_system.tick()                                  # 11
 	food_system.tick_arms()                                 # 12
 	food_system.tick_cleanup()                              # 13
 	reclamation_system.tick()                               # 14
 	plant_growth_system.tick()                              # 15
-	_update_ambient_states()                                # 16
+	ai_state_system.tick()                                  # 16
 	db.flush_notifications()                                # 17
 
 
@@ -196,204 +182,6 @@ func _scatter_desires() -> void:
 
 
 
-func _update_ambient_states() -> void:
-	var tick_delta: float = 0.1  # 1/10Hz
-	var animals: Array[int] = db.get_entities_with(&"ai_state")
-	for entity_id: int in animals:
-		if not db.has_component(entity_id, &"species"):
-			continue
-		# Settled entities are deliberately resting at a host. Mirror the
-		# desire_resolver guard from commit 33be244 — without this skip the
-		# hunger-block at the bottom of this loop converts a SLEEPING
-		# settled cat into PACING the moment its hunger crosses 400, even
-		# though `settled_in` should mean "stay put."
-		if db.has_component(entity_id, &"settled_in"):
-			continue
-		var ai: Dictionary = db.get_component(entity_id, &"ai_state")
-
-		# Recover from STARTLED after min duration expires
-		if ai[&"state"] == &"STARTLED":
-			if not _state_timers.has(entity_id):
-				_state_timers[entity_id] = 0.0
-			_state_timers[entity_id] += tick_delta
-			var startled_dur: float = _min_durations.get(&"STARTLED", 1.0)
-			if _state_timers[entity_id] >= startled_dur:
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"IDLE",
-					&"meta_state": &"AMBIENT",
-					&"commitment_score": 0,
-				})
-				_state_timers[entity_id] = 0.0
-			continue
-
-		# Food state machine (GOAL_DIRECTED states)
-		if ai[&"state"] == &"PACING":
-			_state_timers[entity_id] = (
-				_state_timers.get(entity_id, 0.0) + tick_delta
-			)
-			var food_id: int = food_system.find_nearby_food(entity_id)
-			if food_id != Constants.INVALID_ID:
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"EATING",
-					&"meta_state": &"GOAL_DIRECTED",
-					&"commitment_score": 300,
-				})
-				_state_timers[entity_id] = 0.0
-			continue
-
-		if ai[&"state"] == &"EATING":
-			_state_timers[entity_id] = (
-				_state_timers.get(entity_id, 0.0) + tick_delta
-			)
-			db.add_field(entity_id, &"desires", &"hunger", 30)
-			db.clamp_field(
-				entity_id, &"desires", &"hunger", 0, 1000,
-			)
-			if _state_timers[entity_id] >= 3.0:
-				food_system.mark_nearest_can_eaten(entity_id)
-				var box_id: int = food_system.find_nearest_box(entity_id)
-				if box_id != Constants.INVALID_ID:
-					var bpos: Dictionary = db.get_component(
-						box_id, &"position",
-					)
-					db.set_component(entity_id, &"ai_state", {
-						&"state": &"RETURNING",
-						&"meta_state": &"GOAL_DIRECTED",
-						&"commitment_score": 150,
-					})
-					db.set_component(entity_id, &"target", {
-						&"x": bpos[&"x"],
-						&"y": bpos[&"y"],
-						&"entity_id": box_id,
-					})
-				else:
-					db.set_component(entity_id, &"ai_state", {
-						&"state": &"IDLE",
-						&"meta_state": &"AMBIENT",
-						&"commitment_score": 0,
-					})
-				_state_timers[entity_id] = 0.0
-			continue
-
-		if ai[&"state"] == &"SETTLING":
-			_state_timers[entity_id] = (
-				_state_timers.get(entity_id, 0.0) + tick_delta
-			)
-			if _state_timers[entity_id] >= 2.0:
-				# Tuck into the host (box) the cat walked to. The target
-				# entity_id was preserved through arrival so SETTLING knows
-				# its host. Without settled_in the cat would fall through to
-				# AMBIENT and immediately re-target the same box on the
-				# resolver's next pass.
-				var t: Dictionary = db.get_component(entity_id, &"target")
-				var host_id: int = t[&"entity_id"]
-				if host_id != Constants.INVALID_ID and db.has_entity(host_id):
-					settled_lifecycle.enter(entity_id, host_id)
-				db.set_component(entity_id, &"ai_state", {
-					&"state": &"SLEEPING",
-					&"meta_state": &"AMBIENT",
-					&"commitment_score": 0,
-				})
-				db.set_component(entity_id, &"target", {
-					&"x": Constants.INVALID_ID,
-					&"y": Constants.INVALID_ID,
-					&"entity_id": Constants.INVALID_ID,
-				})
-				_state_timers[entity_id] = 0.0
-			continue
-
-		if ai[&"meta_state"] != &"AMBIENT":
-			continue
-
-		# Check hunger for AMBIENT cats
-		if db.has_component(entity_id, &"desires"):
-			var desires: Dictionary = db.get_component(
-				entity_id, &"desires",
-			)
-			if desires.has(&"hunger") \
-					and CatFoodStates.should_become_hungry(db, entity_id):
-				var target_id: int = food_system.find_nearest_dispenser(
-					entity_id, nav_builder,
-				)
-				if target_id != Constants.INVALID_ID:
-					var tpos: Dictionary = db.get_component(
-						target_id, &"position",
-					)
-					# Reachability is enforced at movement time by
-					# nav_builder.next_waypoint_or_stay; an unreachable
-					# dispenser target just means the cat won't move toward
-					# it. PACING below remains the fallback when no dispenser
-					# exists at all.
-					db.set_component(entity_id, &"ai_state", {
-						&"state": &"HUNGRY",
-						&"meta_state": &"GOAL_DIRECTED",
-						&"commitment_score": 200,
-					})
-					db.set_component(entity_id, &"target", {
-						&"x": tpos[&"x"],
-						&"y": tpos[&"y"],
-						&"entity_id": target_id,
-					})
-					_state_timers[entity_id] = 0.0
-					continue
-				else:
-					db.set_component(entity_id, &"ai_state", {
-						&"state": &"PACING",
-						&"meta_state": &"GOAL_DIRECTED",
-						&"commitment_score": 200,
-					})
-					Events.creature_started_pacing.emit(
-						entity_id,
-					)
-					_state_timers[entity_id] = 0.0
-					continue
-
-		# Update timer
-		if not _state_timers.has(entity_id):
-			_state_timers[entity_id] = 0.0
-		_state_timers[entity_id] += tick_delta
-
-		# Check if min duration elapsed
-		var current_state: StringName = ai[&"state"]
-		var min_dur: float = _min_durations_override.get(
-			entity_id, _min_durations.get(current_state, 3.0)
-		)
-		if _state_timers[entity_id] < min_dur:
-			continue
-
-		# Pick new ambient state — species recipe supplies the pool.
-		var desires: Dictionary = db.get_component(entity_id, &"desires")
-		var is_warm: bool = desires[&"warmth"] < 400
-		if not db.has_component(entity_id, &"ambient_states"):
-			continue
-		var pools: Dictionary = db.get_component(entity_id, &"ambient_states")
-		var pool: Array = pools.get("warm" if is_warm else "cold", [])
-		var new_state: StringName = _pick_ambient_state(pool)
-		if new_state != current_state:
-			db.set_component(entity_id, &"ai_state", {
-				&"state": new_state,
-				&"meta_state": &"AMBIENT",
-				&"commitment_score": ai[&"commitment_score"],
-			})
-			_state_timers[entity_id] = 0.0
-			_min_durations_override.erase(entity_id)
-
-
-func _pick_ambient_state(pool: Array) -> StringName:
-	if pool.is_empty():
-		return &"IDLE"
-	var total_weight: int = 0
-	for entry: Dictionary in pool:
-		total_weight += int(entry.get("weight", 0))
-	if total_weight <= 0:
-		return &"IDLE"
-	var roll: int = randi_range(0, total_weight - 1)
-	var cumulative: int = 0
-	for entry: Dictionary in pool:
-		cumulative += int(entry.get("weight", 0))
-		if roll < cumulative:
-			return StringName(entry.get("state", "IDLE"))
-	return &"IDLE"
 
 
 func place_object(
@@ -543,7 +331,7 @@ func remove_object(entity_id: int) -> void:
 			&"meta_state": &"SPECIAL",
 			&"commitment_score": 0,
 		})
-		_state_timers[other_id] = 0.0
+		_behavior_timers.state_timers[other_id] = 0
 	var world_pos := Vector2i(pos[&"x"], pos[&"y"])
 	var bay: int = Constants.world_to_bay(world_pos)
 	var rack: int = Constants.INVALID_ID
@@ -630,11 +418,11 @@ func _spawn_rack_entities() -> void:
 func _create_curiosity_trackers() -> void:
 	var entities: Array[int] = db.get_entities_with(&"desires")
 	for entity_id: int in entities:
-		if _curiosity_trackers.has(entity_id):
+		if _behavior_timers.curiosity_trackers.has(entity_id):
 			continue
 		var desires: Dictionary = db.get_component(entity_id, &"desires")
 		if desires.has(&"curiosity"):
-			_curiosity_trackers[entity_id] = CuriosityTracker.new()
+			_behavior_timers.curiosity_trackers[entity_id] = CuriosityTracker.new()
 
 
 # Engine-side completion of the starter scenario. The JSONC scenario format

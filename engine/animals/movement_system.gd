@@ -144,7 +144,7 @@ func tick() -> void:
 					&"commitment_score": 100,
 				})
 				_events.creature_started_pacing.emit(entity_id)
-			_timers.state_timers[entity_id] = 0.0
+			_timers.state_timers[entity_id] = 0
 			continue
 		if state == &"RETURNING":
 			_db.set_component(entity_id, &"ai_state", {
@@ -152,7 +152,7 @@ func tick() -> void:
 				&"meta_state": &"GOAL_DIRECTED",
 				&"commitment_score": 50,
 			})
-			_timers.state_timers[entity_id] = 0.0
+			_timers.state_timers[entity_id] = 0
 			continue
 
 		# Determine arrival state based on what drew the animal here.
@@ -167,11 +167,11 @@ func tick() -> void:
 				&"meta_state": &"GOAL_DIRECTED",
 				&"commitment_score": 50,
 			})
-			_timers.state_timers[entity_id] = 0.0
+			_timers.state_timers[entity_id] = 0
 			continue
 
 		var arrival_state: StringName = &"IDLE"
-		var arrival_duration: float = -1.0
+		var arrival_duration_ticks: int = -1
 		if _timers.curiosity_trackers.has(entity_id) and target[&"entity_id"] != Constants.INVALID_ID:
 			var target_id: int = target[&"entity_id"]
 			if _db.has_component(target_id, &"advertisements"):
@@ -182,7 +182,10 @@ func tick() -> void:
 					)
 					if ad_channel == &"curiosity":
 						arrival_state = &"SNIFFING"
-						arrival_duration = float(ad.get(&"novelty_duration", 100)) / 10.0
+						# novelty_duration is already in ticks per the
+						# advertisement schema; AiStateSystem timers are
+						# in ticks, so pass through directly.
+						arrival_duration_ticks = int(ad.get(&"novelty_duration", 100))
 						_timers.curiosity_trackers[entity_id].visit(
 							target_id, _db.get_tick()
 						)
@@ -198,10 +201,10 @@ func tick() -> void:
 			&"y": Constants.INVALID_ID,
 			&"entity_id": Constants.INVALID_ID,
 		})
-		# Override min duration for this SNIFFING session if set
-		if arrival_duration > 0.0:
-			_timers.state_timers[entity_id] = 0.0
-			_timers.min_durations_override[entity_id] = arrival_duration
+		# Override min duration for this SNIFFING session if set.
+		if arrival_duration_ticks > 0:
+			_timers.state_timers[entity_id] = 0
+			_timers.min_durations_override[entity_id] = arrival_duration_ticks
 
 
 func _can_settle_in(entity_id: int, host_id: int) -> bool:
