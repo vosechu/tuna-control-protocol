@@ -6,6 +6,11 @@ class_name DesireScatter extends RefCounted
 # Ads tagged with `action` are skipped — those satisfaction channels
 # require an active consumer (PACING/EATING state loop, arm tick, etc.)
 # rather than passive proximity. See .claude/rules/objects.md.
+#
+# Audit (2026-05-03): API is channel-agnostic. New channels extend
+# Constants.CHANNELS; no new methods required. Per-channel names like
+# scatter_warmth and per-channel match arms are forbidden — see
+# 2026-04-06-game-server-extraction-design.md lesson 2.
 
 var _db: GameStateDB
 
