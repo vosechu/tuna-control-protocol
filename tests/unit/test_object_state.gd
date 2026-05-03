@@ -42,11 +42,11 @@ func test_sealed_tuna_advertises_openable():
 	var ads: Dictionary = _db.get_component(id, &"advertisements")
 	assert_eq(ads[&"list"].size(), 1,
 		"Sealed tuna must have exactly one advertisement")
-	assert_eq(ads[&"list"][0][&"desire_type"], &"openable",
+	assert_eq(ads[&"list"][0][&"channel"], &"openable",
 		"Sealed tuna must advertise openable")
 	assert_eq(ads[&"list"][0][&"strength"], 800,
 		"Sealed tuna openable strength must be 800")
-	assert_eq(ads[&"list"][0][&"radius_px"], 24,
+	assert_eq(ads[&"list"][0][&"effect_radius_px"], 24,
 		"Sealed tuna openable radius must be 24")
 
 
@@ -61,11 +61,11 @@ func test_sealed_to_open_transitions_to_food_ad_with_eat_action():
 	assert_eq(state[&"state"], &"open",
 		"State must be open after transition")
 	var ads: Dictionary = _db.get_component(id, &"advertisements")
-	assert_eq(ads[&"list"][0][&"desire_type"], &"food",
+	assert_eq(ads[&"list"][0][&"channel"], &"food",
 		"Open tuna must advertise food")
 	assert_eq(ads[&"list"][0][&"strength"], 800,
 		"Open tuna food strength must be 800")
-	assert_eq(ads[&"list"][0][&"radius_px"], 40,
+	assert_eq(ads[&"list"][0][&"effect_radius_px"], 40,
 		"Open tuna food radius must be 40")
 	assert_eq(ads[&"list"][0][&"action"], &"eat",
 		"Open tuna action must be eat")
@@ -115,13 +115,13 @@ func test_new_box_state_and_ads():
 	var ads: Dictionary = _db.get_component(id, &"advertisements")
 	assert_eq(ads[&"list"].size(), 2,
 		"New box must have two advertisements")
-	assert_eq(ads[&"list"][0][&"desire_type"], &"comfort",
+	assert_eq(ads[&"list"][0][&"channel"], &"comfort",
 		"New box first ad must be comfort")
 	assert_eq(ads[&"list"][0][&"strength"], 700,
 		"New box comfort strength must be 700")
-	assert_eq(ads[&"list"][0][&"radius_px"], 32,
-		"New box comfort radius must be 32")
-	assert_eq(ads[&"list"][1][&"desire_type"], &"curiosity",
+	assert_true(ads[&"list"][0].get(&"effect_slot", false),
+		"New box comfort must be slot-delivered (effect_slot: true)")
+	assert_eq(ads[&"list"][1][&"channel"], &"curiosity",
 		"New box second ad must be curiosity")
 	assert_eq(ads[&"list"][1][&"strength"], 500,
 		"New box curiosity strength must be 500")
@@ -139,8 +139,8 @@ func test_damage_box_to_worn_changes_ads():
 	var ads: Dictionary = _db.get_component(id, &"advertisements")
 	assert_eq(ads[&"list"][0][&"strength"], 400,
 		"Worn box comfort strength must be 400")
-	assert_eq(ads[&"list"][0][&"radius_px"], 24,
-		"Worn box comfort radius must be 24")
+	assert_true(ads[&"list"][0].get(&"effect_slot", false),
+		"Worn box comfort must be slot-delivered (effect_slot: true)")
 	assert_eq(ads[&"list"][1][&"strength"], 300,
 		"Worn box curiosity strength must be 300")
 
@@ -157,7 +157,7 @@ func test_damage_box_to_scraps_removes_curiosity():
 	var ads: Dictionary = _db.get_component(id, &"advertisements")
 	assert_eq(ads[&"list"].size(), 1,
 		"Scraps must have only one advertisement")
-	assert_eq(ads[&"list"][0][&"desire_type"], &"comfort",
+	assert_eq(ads[&"list"][0][&"channel"], &"comfort",
 		"Scraps must only advertise comfort")
 	assert_eq(ads[&"list"][0][&"strength"], 600,
 		"Scraps comfort strength must be 600")

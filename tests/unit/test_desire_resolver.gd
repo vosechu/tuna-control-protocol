@@ -349,6 +349,37 @@ func test_score_ad_passes_when_within_sense_range():
 		"Cat with sight=186 must score the box at 80px (legacy radius=24 is no longer the gate)")
 
 
+func test_score_ad_returns_negative_for_deplete_channel():
+	# Deplete-channel proof. Surgical mutation: drop the `-1 *` on the
+	# deplete branch — the score becomes positive, this assertion fires.
+	# Existing satisfy-channel tests still pass because they never hit
+	# the deplete branch.
+	var cat_id: int = _make_cat(0, 0, 800, 500)
+	_db.set_component(cat_id, &"senses", {
+		&"sight": 186, &"hearing": 186, &"smell": 186, &"touch": 64,
+	})
+	# Add `quiet` desire and weight (not in default _make_cat).
+	var desires: Dictionary = _db.get_component(cat_id, &"desires")
+	desires[&"quiet"] = 600
+	_db.set_component(cat_id, &"desires", desires)
+	var personality: Dictionary = _db.get_component(cat_id, &"personality")
+	personality[&"quiet_weight"] = 700
+	_db.set_component(cat_id, &"personality", personality)
+
+	# Buzzer at 60 px emitting noise (deplete on quiet)
+	var buzzer_id: int = _db.create_entity()
+	_db.set_component(buzzer_id, &"position", {&"x": 60, &"y": 0})
+	_db.set_component(buzzer_id, &"advertisements", {&"list": [
+		{&"channel": &"noise", &"strength": 700, &"effect_radius_px": 186},
+	]})
+	_db.update_spatial(buzzer_id, 60, 0)
+
+	var ad: Dictionary = _db.get_component(buzzer_id, &"advertisements")[&"list"][0]
+	var score: int = _resolver.score_ad(cat_id, buzzer_id, ad)
+	assert_lt(score, 0,
+		"Deplete-channel ad must contribute negative score (cat avoids the buzzer), got %d" % score)
+
+
 func test_score_ad_zeroes_when_outside_sense_range():
 	# Near-sighted cat (sight=32) cannot see comfort source at 80px.
 	var cat_id: int = _make_cat(0, 0, 200, 800)

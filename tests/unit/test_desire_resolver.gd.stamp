@@ -3,7 +3,7 @@
 # manually update hashes.
 ---
 setup_hash: f74036f8
-verified_at: '2026-05-03T02:24:02Z'
+verified_at: '2026-05-03T03:07:41Z'
 tests:
   test_deficit_factor_scales_score: 5b3e23fc
   test_out_of_radius_scores_zero: 743d93a2
@@ -17,5 +17,6 @@ tests:
   test_curiosity_ad_scores_zero_when_recently_visited: 0ad09a16
   test_curiosity_ad_scores_normally_after_cooldown: a966c4be
   test_score_ad_passes_when_within_sense_range: accfd6f4
+  test_score_ad_returns_negative_for_deplete_channel: f7d01270
   test_score_ad_zeroes_when_outside_sense_range: 6cab75e7
   test_evaluate_budget_honors_trackers_dict: 48a28a92

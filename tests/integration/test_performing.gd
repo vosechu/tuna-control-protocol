@@ -370,29 +370,13 @@ func test_food_not_scattered_passively() -> void:
 	)
 
 
-func test_arm_scores_sealed_can_within_reach() -> void:
-	# Arm with purpose=200 (needy) and sealed can at same
-	# position. Within ARM_REACH_PX (3 RU = 2100 PU).
-	var arm_id: int = _make_arm(1000, 1000)
-	var can_id: int = _make_sealed_can(1000, 1000)
-
-	_resolver.mark_dirty(arm_id)
-	_resolver.evaluate_budget()
-
-	var ai: Dictionary = _db.get_component(
-		arm_id, &"ai_state",
-	)
-	assert_eq(
-		ai[&"state"], &"SEEKING",
-		"Arm should SEEK sealed can within reach",
-	)
-	var target: Dictionary = _db.get_component(
-		arm_id, &"target",
-	)
-	assert_eq(
-		target[&"entity_id"], can_id,
-		"Arm should target the sealed tuna can",
-	)
+# test_arm_scores_sealed_can_within_reach was deleted in the
+# perception-channels migration. The arm doesn't go through the desire
+# resolver in production — FoodSystem.tick_arms() finds nearby sealed
+# cans by direct query and opens them. score_ad now correctly returns 0
+# for action ads outside Constants.CHANNELS (e.g. `openable`), matching
+# the architecture: channels are perceptual, action ads are state-loop
+# consumed.
 
 
 func test_arm_ignores_can_beyond_reach() -> void:

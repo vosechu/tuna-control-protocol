@@ -3,7 +3,7 @@
   // Mochi: warmth 800, comfort 600, curiosity 100
   // Biscuit: warmth 500, comfort 900, curiosity 100
   // Noodle: warmth 700, comfort 700, curiosity 200
-  "schema_version": 2,
+  "schema_version": 3,
   "id": "tcp_cats:cat",
   "name": "Cat",
   "senses": {
@@ -18,22 +18,24 @@
     "base_radius_ru": 6
   },
   "desires": {
-    "warmth": 700,
-    "comfort": 700,
+    "warmth":    700,
+    "comfort":   700,
     "curiosity": 150,
-    "hunger": 700,
-    "attention": 500,
-    "noise": -600,
-    "chased": -900
+    "hunger":    700,
+    "social":    500,
+    "quiet":     600,
+    "peace":     500,
+    "safety":    800
   },
   "personality_ranges": {
-    "warmth": [500, 800],
-    "comfort": [600, 900],
+    "warmth":    [500, 800],
+    "comfort":   [600, 900],
     "curiosity": [100, 200],
-    "hunger": [600, 800],
-    "attention": [400, 600],
-    "noise": [-840, -360],
-    "chased": [-1000, -800]
+    "hunger":    [600, 800],
+    "social":    [400, 600],
+    "quiet":     [400, 800],
+    "peace":     [350, 650],
+    "safety":    [700, 900]
   },
   "physical": { "mass": 4000, "size_ru": 2 },
   "strength": 3000,
@@ -99,21 +101,21 @@
   "states": {
     "idle": {
       "advertisements": [
-        { "desire_type": "warmth", "strength": 300, "radius_px": 16 },
-        { "desire_type": "curiosity", "strength": 400, "radius_px": 24, "novelty_duration": 150, "novelty_cooldown": 50 }
+        { "channel": "warmth", "strength": 300, "effect_radius_px": 16 },
+        { "channel": "curiosity", "strength": 400, "effect_radius_px": 24, "novelty_duration": 150, "novelty_cooldown": 50 }
       ]
     },
     "sleeping": {
       "advertisements": [
-        { "desire_type": "warmth", "strength": 400, "radius_px": 8 },
-        { "desire_type": "comfort", "strength": 300, "radius_px": 16 }
+        { "channel": "warmth", "strength": 400, "effect_radius_px": 8 },
+        { "channel": "comfort", "strength": 300, "effect_slot": true }
       ]
     },
     "grooming": { "advertisements": [] },
     "seeking": { "advertisements": [] },
     "startled": {
       "advertisements": [
-        { "desire_type": "noise", "strength": 200, "radius_px": 24 }
+        { "channel": "noise", "strength": 200, "effect_radius_px": 24 }
       ]
     }
   },

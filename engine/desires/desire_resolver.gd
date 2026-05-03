@@ -61,25 +61,33 @@ func score_ad(
 	tracker: CuriosityTracker = null,
 	current_tick: int = 0,
 ) -> int:
-	var desire_type: StringName = ad[&"desire_type"]
+	# `channel` is the new (PR2) ad field name; `desire_type` is legacy
+	# and supported during the rollover for any out-of-tree mod still on
+	# the old shape.
+	var channel: StringName = ad.get(&"channel", ad.get(&"desire_type", &""))
 
-	# Curiosity novelty check: if tracker provided and target was recently visited, score 0.
-	if tracker != null and desire_type == &"curiosity":
+	# Curiosity novelty check: if tracker provided and target was
+	# recently visited, score 0. Runs before the CHANNELS lookup so a
+	# new `curiosity_action` channel wouldn't break the gate.
+	if tracker != null and channel == &"curiosity":
 		var cooldown: int = ad.get(&"novelty_cooldown", 100)
 		if not tracker.is_novel(object_id, current_tick, cooldown):
 			return 0
 
+	# Action ads outside the channel registry (e.g. `openable` consumed
+	# by the food system) score 0 in the regular AI scoring loop. They
+	# get consumed by their own state-loop ticker.
+	if not Constants.CHANNELS.has(channel):
+		return 0
+
+	var meta: Dictionary = Constants.CHANNELS[channel]
+	var target_desire: StringName = meta[&"desire"]
+	var effect: StringName = meta[&"effect"]
+	var sense_key: StringName = meta[&"sense"]
+
 	var personality: Dictionary = _db.get_component(animal_id, &"personality")
-	var desires: Dictionary = _db.get_component(animal_id, &"desires")
-
-	# Weight key derived from desire type, e.g. &"warmth" -> &"warmth_weight"
-	var weight_key: StringName = StringName(String(desire_type) + "_weight")
+	var weight_key: StringName = StringName(String(target_desire) + "_weight")
 	var desire_weight: int = personality.get(weight_key, 500)
-
-	# Desire value is satisfaction: 0 = desperate (cold/hungry/lonely),
-	# 1000 = fully satisfied. Deficit is the complement.
-	var deficit: int = 1000 - desires.get(desire_type, 500)
-	var strength: int = ad[&"strength"]
 
 	var animal_pos: Dictionary = _db.get_component(animal_id, &"position")
 	var object_pos: Dictionary = _db.get_component(object_id, &"position")
@@ -88,13 +96,6 @@ func score_ad(
 		+ absi(animal_pos[&"y"] - object_pos[&"y"])
 	)
 
-	# Sense gate: look up the channel's carrier sense in Constants.CHANNELS,
-	# then read the receiver's acuity for that sense. Animals without a
-	# senses component fall back to BAY_WIDTH_PX — bootstrap path only;
-	# SpeciesSchemaValidator enforces the senses block at mod load.
-	# `desire_type` is the legacy ad field name; PR2 renames it to `channel`.
-	var channel_meta: Dictionary = Constants.CHANNELS.get(desire_type, {})
-	var sense_key: StringName = channel_meta.get(&"sense", &"sight")
 	var senses: Dictionary = (
 		_db.get_component(animal_id, &"senses")
 		if _db.has_component(animal_id, &"senses")
@@ -106,14 +107,20 @@ func score_ad(
 		return 0
 
 	# Distance falloff scales over sense range (travel-cost preference) —
-	# NOT over the ad's radius_px. Scoring answers "how far must I walk?";
-	# the ad's effect_radius_px (PR2 rename of radius_px) is a scatter
-	# concern, not a scoring concern.
+	# NOT over the ad's effect_radius_px. Scoring answers "how far must
+	# I walk?"; emitter physics is a scatter concern, not a scoring concern.
 	var dist_factor: int = (
 		1000 - (dist_px * 1000 / sense_range) if sense_range > 0 else 1000
 	)
+	var strength: int = ad[&"strength"]
 
-	return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
+	if effect == &"satisfy":
+		var desires: Dictionary = _db.get_component(animal_id, &"desires")
+		var deficit: int = 1000 - desires.get(target_desire, 500)
+		return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
+
+	# deplete: no deficit term — a cat is not "deficit-hungry for quiet".
+	return -1 * desire_weight * strength / 1000 * dist_factor / 1000
 
 
 # ── Private ───────────────────────────────────────────────────────────────────

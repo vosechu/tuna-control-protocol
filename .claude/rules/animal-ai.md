@@ -63,23 +63,32 @@ Weighted random pool filtered by context: warm → grooming/kneading eligible, n
 ```gdscript
 class_name ObjectAdvertisement extends Resource
 
-@export var desire_type: StringName    # "warmth", "food", "comfort", "quiet", etc. ("influence channel")
-@export var strength: int = 500        # signed: positive = attractor (desire), negative = aversion. See Aversions section.
-@export var radius_px: int = 3         # Rack units
-@export var falloff_curve: Curve       # Linear by default (samples 0.0-1.0 for rendering)
+@export var channel: StringName            # must exist in Constants.CHANNELS — see perception-channels spec
+@export var strength: int = 500            # 0-1000, always positive. Effect direction comes from CHANNELS[channel].effect.
+@export var effect_radius_px: int = 16     # Hard cutoff for radius-delivery scatter. Cap: BAY_WIDTH_PX. Mutually exclusive with effect_slot.
+@export var effect_slot: bool = false      # Slot-delivery: full strength to slot occupants, zero elsewhere. Mutually exclusive with effect_radius_px.
+@export var falloff: StringName = &"quadratic"   # step | linear | quadratic | inverse_square — radius delivery only.
 @export var required_traversal: StringName = ""
 @export var max_occupants: int = 1
 var current_occupants: int = 0
 
-func score_for(animal: AnimalAgent, distance_ru: int) -> int:
-    if distance_ru > radius_px: return 0
+func score_for(animal: AnimalAgent, distance_px: int) -> int:
     if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
-    if not is_available(): return 0
-    var desire_weight: int = animal.get_desire_weight(desire_type)
-    var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
-    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_px) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_px)) * 1000)
-    return desire_weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
+    var meta: Dictionary = Constants.CHANNELS[channel]
+    var sense: StringName = meta[&"sense"]
+    var sense_range: int = animal.senses.get(sense, Constants.BAY_WIDTH_PX)
+    if distance_px > sense_range: return 0
+    var target: StringName = meta[&"desire"]
+    var weight: int = animal.get_desire_weight(target)             # always positive
+    var dist_factor: int = 1000 - (distance_px * 1000 / sense_range)
+    if meta[&"effect"] == &"satisfy":
+        var deficit: int = 1000 - animal.get_desire(target)
+        return weight * strength / 1000 * deficit / 1000 * dist_factor / 1000
+    else:  # deplete
+        return -1 * weight * strength / 1000 * dist_factor / 1000
 ```
+
+`is_available()` is **not** checked in scoring. Cats cannot see whether a box is full at distance — that would be omniscient. Capacity dynamics are handled on arrival via soft-occupancy (cap reduces comfort proportionally as occupants accumulate). Distance falloff in scoring scales over sense range, not `effect_radius_px` — scoring answers "how far must I walk?", scatter answers "is the effect reaching me right now?"
 
 ### PlacedObject Advertisement Config
 
@@ -87,8 +96,8 @@ func score_for(animal: AnimalAgent, distance_ru: int) -> int:
 {
   "clothes_pile": {
     "advertisements": [
-      {"desire_type": "comfort", "strength": 800, "radius_px": 1, "max_occupants": 3},
-      {"desire_type": "stimulation", "strength": 400, "radius_px": 1, "max_occupants": 1}
+      {"channel": "comfort", "strength": 800, "effect_slot": true, "max_occupants": 3},
+      {"channel": "warmth",  "strength": 300, "effect_radius_px": 16, "max_occupants": 3}
     ]
   }
 }
@@ -116,7 +125,7 @@ func evaluate_budget() -> void:
 func _evaluate_one(entity_id: int) -> void:
     var x: int = db.get_field(entity_id, &"position", &"x")
     var y: int = db.get_field(entity_id, &"position", &"y")
-    var ads: Array[int] = db.query_radius_with(x, y, 8_00, &"advertisements")
+    var ads: Array[int] = db.query_radius_with(x, y, Constants.BAY_WIDTH_PX, &"advertisements")
     var best_score: int = 0
     var best_ad_id: int = GameStateDB.INVALID_ID
     for ad_id in ads:
@@ -129,57 +138,53 @@ func _evaluate_one(entity_id: int) -> void:
         _transition(entity_id, best_ad_id, best_score)
 ```
 
+The spatial query bound is `BAY_WIDTH_PX = 186` (one bay). Per-sense gating happens inside `score_for` after the query returns the candidate set. Single best ad wins — sum-with-aversion is a future spec, not the current shape.
+
 **Dirty marking:** The scatter system (see `tick-architecture.md`) marks entities dirty when a desire value crosses a threshold band (multiples of 100). Entities are also marked dirty on: cell movement, nearby entity arrival/departure, object placement/removal within perception radius.
 
 **Priority:** `_pop_highest_deficit` returns the dirty entity with the largest gap between any desire's current value and its satisfaction level. Most-uncomfortable entities react first.
 
 ---
 
-## Aversions (Signed Advertisements)
+## Aversions (Channel Effect Direction)
 
-Animals have **desires** (attractors — warmth, food, comfort) and **aversions** (repulsors — noise, being sat on by big animals, being chased). Both live in the same scoring pass, using a single `advertisements` concept with **signed strength**. There is no separate "avoid list," no second scoring pipeline.
+Animals have a single `desires` dict of **positive weights**. Aversion is encoded by the **channel registry's effect direction**, not by signing a weight. There is no signed-strength concept anywhere — the previous shipped encoding (`desires.noise: -600`) is retired.
 
 ### Terminology
 
-- **Desire** — a channel expressed as a weight on the entity's `desires` component. Positive weight = attractor (the animal is pulled toward ads on this channel). Negative weight = repulsor (aversion). No separate `aversions` component exists; aversions are just negative entries in the same dict.
-- **Signed advertisement** — objects emit ads with positive strength (attracting) or negative strength (repelling). A loud PDU advertises `{desire_type: &"noise", strength: -700, radius_px: 4}`. The word "desire_type" is retained for schema continuity; read it as "influence channel."
-- **Satisfaction/deficit** — tracked for positive-weight channels only. An entity can be "hungry for warmth" (low satisfaction, high deficit) but not "hungry for silence." Aversions are simply avoided while present, never "met."
+- **Channel** — emitter-side name (`warmth`, `noise`, `chaos`, `startle`, etc.). What's being emitted.
+- **Desire** — receiver-side name (`warmth`, `quiet`, `peace`, `safety`, etc.). What's being affected on the cat. Always tracked as a positive value (0–1000).
+- **Effect** — `satisfy` or `deplete`. Lives in the channel registry, not on the ad. A `warmth` ad always satisfies; a `noise` ad always depletes.
 
-### Scoring formula (extended)
+The registry in `Constants.CHANNELS` maps each channel to its `{sense, desire, effect}` triple. See `docs/superpowers/specs/2026-05-02-perception-channels-design.md` for the full schema. Six attractors (`warmth`, `comfort`, `safety`, `food`, `social`, `curiosity`) and six aversions (`chill`, `chaos`, `startle`, `stench`, `hostility`, `noise`).
 
-The advertisement score function branches on sign, but lives in one function:
+Two aversion channels target dedicated rest desires: `noise → quiet (deplete)`, `chaos → peace (deplete)`. The other four deplete an attractor desire directly: `chill → warmth`, `startle → safety`, `stench → food`, `hostility → social`.
 
-```gdscript
-func score_for(animal: AnimalAgent, distance_ru: int) -> int:
-    if distance_ru > radius_px: return 0
-    if required_traversal != "" and required_traversal not in animal.traversal_capabilities: return 0
+### Scoring formula
 
-    var dist_factor: int = 1000 - (distance_ru * 1000 / radius_px) if not falloff_curve else int(falloff_curve.sample(float(distance_ru) / float(radius_px)) * 1000)
+`ObjectAdvertisement.score_for()` branches on `effect`, not on a sign bit. See the §"Object Advertisement Schema" section above for the full code. Summary:
 
-    var weight: int = animal.get_desire_weight(desire_type)  # signed: positive = attractor, negative = aversion
-    if strength >= 0 and weight >= 0:
-        # Desire path: weighted by deficit so an entity with full warmth ignores warmth ads
-        if not is_available(): return 0
-        var deficit: int = 1000 - animal.get_desire_satisfaction(desire_type)
-        return weight * deficit / 1000 * strength / 1000 * dist_factor / 1000
-    else:
-        # Aversion path: NO deficit term. An entity is not "deficit-hungry for quiet."
-        # Either the ad is negative, the weight is negative, or both — in any case, no satisfaction to track.
-        return weight * strength / 1000 * dist_factor / 1000
-```
+- `satisfy` → `weight * strength / 1000 * deficit / 1000 * dist_factor / 1000` (positive contribution; weighted by how unmet the desire is).
+- `deplete` → `-1 * weight * strength / 1000 * dist_factor / 1000` (negative contribution; **no deficit term** — a cat is not "deficit-hungry for quiet").
 
-**Candidate scoring (`_evaluate_one`)** sums *all* ads in the radius rather than picking the single-best ad. A candidate location's utility is the sum of its attractors and repulsors. Clamp the *total*, not per-ad.
+`_evaluate_one` picks the highest single score (best_score). Sum-with-aversion across multiple ads is a future spec, not the current shape — the previous draft of this rule said sums were the rule, but shipped behavior is best-score.
 
 ### Pitfalls (do not skip)
 
-1. **Do not multiply aversion strength by deficit.** There is no "how hungry am I for silence." Aversion weight × strength × distance only.
-2. **Clamp total score, not per-ad.** A strong nearby attractor should be able to pull an entity *into* a moderately noisy area if the warmth is compelling enough. Per-ad clamping prevents this and feels wrong.
-3. **Distance falloff on negatives.** The `1000 - distance_factor` curve produces full strength at distance 0 and zero strength at the radius edge. This is correct for aversions: the PDU is maximally annoying when you're sitting on it and imperceptible from across the room. Do not invert the curve "because it's a negative."
-4. **Hysteresis is free.** `SWITCH_THRESHOLD=150` and commitment_score decay already prevent entities from twitching away from transient loud noises. Aversions don't need their own hysteresis — the existing transition logic is sign-agnostic.
+1. **No deficit term on deplete channels.** A cat is not "deficit-hungry for quiet." `weight × strength × dist_factor` only.
+2. **All weights are positive.** If you're writing `desires.noise: -600`, stop. The cat wants `desires.quiet: 600`; `noise` is an emitter-side channel that depletes that desire via the registry.
+3. **Distance falloff scales over sense range, not effect_radius.** Scoring's distance term answers "how far must I walk?" — relative to the cat's sense, not the ad's emitter physics. `effect_radius_px` is for scatter only.
+4. **Hysteresis is free.** `SWITCH_THRESHOLD=150` and commitment_score decay prevent twitching away from transient depleters. Negative best_score is handled by the existing transition logic (a strongly depleting candidate only "wins" if no positive candidate scores higher).
 
-### Scatter pattern integration
+### Scatter pipeline
 
-Ambient aversions that radiate from a source (noise, heat-as-discomfort, crowding) follow the same scatter pattern as heat in `tick-architecture.md`. Example for noise: grid cells accumulate noise intensity from sources, and each tick the scatter phase projects cell-level noise into the receiving entity's `desires` satisfaction for the matching channel. Dirty-flagging works identically: when a value crosses a 100-band, mark the entity dirty.
+Scoring picks goals to walk toward; **scatter applies effects** to entities physically reached by an ad. They're separate passes — scatter runs *before* scoring within each tick (see perception spec §"Tick discipline") so that scoring's deficit term reflects the current scatter contribution.
+
+Scatter writes to `desires` via `CHANNELS[channel].effect`:
+- `satisfy` → `desires[target] += strength × falloff`, clamped to 1000.
+- `deplete` → `desires[target] -= strength × falloff`, clamped at 0.
+
+Slot-delivery ads (`effect_slot: true`) land at full strength on every entity in the ad owner's slot; radius-delivery ads scatter with the ad's `falloff` curve, gated additionally by the receiver's `senses` block. Ambient depleters (a buzzing PDU emits `noise`) follow the same scatter pattern as warmth — see `tick-architecture.md`.
 
 ### Warmth: heat grid + warm objects
 
@@ -192,21 +197,28 @@ The heat grid doesn't know about warm objects, and object ads don't reach the gr
 
 ### Species configuration
 
-Species recipes declare one `desires` dict with signed weights. Negative entries are aversions:
+Species recipes declare a `senses` block (perception acuity) and a `desires` dict (motivation weights). All weights are positive — effect direction comes from the registry.
 
 ```jsonc
+"senses": {
+  "sight":   186,   // bay-wide visual acuity
+  "hearing": 186,
+  "smell":   186,
+  "touch":    64    // cats sense ambient temperature gradients out to ~64 px
+},
 "desires": {
-  "warmth": 700,
-  "comfort": 700,
+  "warmth":    700,
+  "comfort":   700,
+  "safety":    800,
+  "food":      700,
+  "social":    500,
   "curiosity": 150,
-  "hunger": 700,
-  "attention": 500,
-  "noise": -600,      // aversion: cat is repelled by noise ads
-  "chased": -900      // aversion: cat is repelled by being chased
+  "quiet":     600,   // weight on the auditory-rest desire (depleted by noise ads)
+  "peace":     500    // weight on the visual-rest desire (depleted by chaos ads)
 }
 ```
 
-**Naming convention:** aversions are named by the *thing being avoided* with a negative weight (the shipped choice). A loud PDU advertises `{desire_type: "noise", strength: 700}` (positive strength describing the thing); the cat's `"noise": -600` negative weight inverts the sign in scoring. Channel names are shared — the cat's `-600` weight on `noise` pairs with anyone emitting positive-strength `noise` ads. All thresholds, curves, and hysteresis bands go in `config/balance/desire_thresholds.json`.
+The desire dict has at most 8 entries: 6 attractor desires + `quiet` + `peace`. Aversion channels that target attractor desires (`chill → warmth`, `startle → safety`, etc.) use the same weight as the attractor — the `safety: 800` weight applies to both incoming `safety` ads (satisfy) and `startle` ads (deplete). All thresholds, curves, and hysteresis bands stay in `config/balance/desire_thresholds.json`.
 
 ---
 

@@ -81,35 +81,11 @@ func _make_open_can(x: int, y: int) -> int:
 
 # ── Tests ────────────────────────────────────────────────────
 
-func test_arm_scores_sealed_can() -> void:
-	# Arm with purpose=200 (needy) and a sealed can at same spot.
-	# score_ad uses ad's desire_type (openable) for deficit lookup,
-	# which defaults to 500 when missing. Zero distance maximizes
-	# the dist_factor so the score exceeds SWITCH_THRESHOLD.
-	var arm_x: int = 1000
-	var arm_y: int = 1000
-	var can_x: int = arm_x
-	var can_y: int = arm_y
-	var arm_id: int = _make_arm(arm_x, arm_y)
-	var can_id: int = _make_sealed_can(can_x, can_y)
-
-	_resolver.mark_dirty(arm_id)
-	_resolver.evaluate_budget()
-
-	var ai: Dictionary = _db.get_component(
-		arm_id, &"ai_state",
-	)
-	assert_eq(
-		ai[&"state"], &"SEEKING",
-		"Arm should SEEK sealed can within reach",
-	)
-	var target: Dictionary = _db.get_component(
-		arm_id, &"target",
-	)
-	assert_eq(
-		target[&"entity_id"], can_id,
-		"Arm should target the sealed tuna can",
-	)
+# test_arm_scores_sealed_can was deleted in the perception-channels
+# migration. The arm doesn't use the desire resolver in production —
+# FoodSystem.tick_arms() handles sealed-can detection. score_ad now
+# returns 0 for action ads outside Constants.CHANNELS (`openable`),
+# enforcing channels-as-perception / actions-as-state-loops.
 
 
 func test_arm_ignores_can_beyond_reach() -> void:

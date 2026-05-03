@@ -331,7 +331,10 @@ func _move_animals() -> void:
 			if db.has_component(target_id, &"advertisements"):
 				var ads: Dictionary = db.get_component(target_id, &"advertisements")
 				for ad: Dictionary in ads[&"list"]:
-					if ad[&"desire_type"] == &"curiosity":
+					var ad_channel: StringName = ad.get(
+						&"channel", ad.get(&"desire_type", &""),
+					)
+					if ad_channel == &"curiosity":
 						arrival_state = &"SNIFFING"
 						arrival_duration = float(ad.get(&"novelty_duration", 100)) / 10.0
 						_curiosity_trackers[entity_id].visit(

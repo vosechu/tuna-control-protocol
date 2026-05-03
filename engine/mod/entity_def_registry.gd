@@ -17,6 +17,32 @@ const _DEFAULT_INITIAL_SATISFACTION_BY_KEY: Dictionary = {
 var _definitions: Dictionary = {}  # StringName -> Dictionary
 
 
+# AI-DEV: One-shot migrator for the desire_type→channel and
+# radius_px→effect_radius_px rename shipped in PR2 of the
+# perception-channels migration. Called wherever an ad dict is
+# materialized onto an entity so out-of-tree mods on the legacy shape
+# still load. Stays in place after in-tree migration completes —
+# rename is a breaking change (see CHANNELS namespace policy in
+# docs/superpowers/specs/2026-05-02-perception-channels-design.md).
+static func migrate_ad(ad: Dictionary) -> Dictionary:
+	var out: Dictionary = ad.duplicate()
+	if out.has(&"desire_type") and not out.has(&"channel"):
+		out[&"channel"] = out[&"desire_type"]
+		out.erase(&"desire_type")
+	if out.has(&"radius_px") and not out.has(&"effect_radius_px"):
+		out[&"effect_radius_px"] = out[&"radius_px"]
+		out.erase(&"radius_px")
+	# Same shape with String keys (out-of-tree mods loading from JSONC
+	# may still have String-keyed dicts before _to_stringname_keys runs).
+	if out.has("desire_type") and not out.has("channel") and not out.has(&"channel"):
+		out["channel"] = out["desire_type"]
+		out.erase("desire_type")
+	if out.has("radius_px") and not out.has("effect_radius_px") and not out.has(&"effect_radius_px"):
+		out["effect_radius_px"] = out["radius_px"]
+		out.erase("radius_px")
+	return out
+
+
 func register(entity_id: StringName, definition: Dictionary) -> void:
 	assert(
 		not _definitions.has(entity_id),
@@ -251,7 +277,14 @@ func spawn(
 			var data: Dictionary = def[comp_str]
 			db.set_component(id, comp_name, _to_stringname_keys(data))
 
-	# State-driven advertisements (set for initial state)
+	# State-driven advertisements (set for initial state).
+	#
+	# Note: migrate_ad is intentionally NOT wired here. In-tree mods are
+	# rewritten on the new shape (Tasks 12, 13 of perception-channels);
+	# out-of-tree mods on the legacy shape will need migrate_ad at a
+	# higher injection point — to be designed alongside score_ad's
+	# channel-aware read (Task 14). Wiring migrate_ad here today would
+	# break consumers that still read the legacy `desire_type` key.
 	var state_ads_set: bool = false
 	if def.has("states"):
 		var initial: StringName = get_initial_state(entity_id)

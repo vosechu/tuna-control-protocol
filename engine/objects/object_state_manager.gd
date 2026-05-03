@@ -9,14 +9,14 @@ const OBJECT_CONFIG: Dictionary = {
 		&"state_ads": {
 			&"sealed": {
 				&"ads": [{
-					&"desire_type": &"openable", &"strength": 800,
-					&"radius_px": 24, &"action": &"open",
+					&"channel": &"openable", &"strength": 800,
+					&"effect_radius_px": 24, &"action": &"open",
 				}],
 			},
 			&"open": {
 				&"ads": [{
-					&"desire_type": &"food", &"strength": 800,
-					&"radius_px": 40, &"action": &"eat",
+					&"channel": &"food", &"strength": 800,
+					&"effect_radius_px": 40, &"action": &"eat",
 				}],
 			},
 			&"empty": {&"ads": []},
@@ -26,10 +26,10 @@ const OBJECT_CONFIG: Dictionary = {
 		&"state_ads": {
 			&"new": {
 				&"ads": [
-					{&"desire_type": &"comfort", &"strength": 700,
-						&"radius_px": 32, &"action": &"settle"},
-					{&"desire_type": &"curiosity", &"strength": 500,
-						&"radius_px": 40, &"action": &"shred"},
+					{&"channel": &"comfort", &"strength": 700,
+						&"effect_slot": true, &"action": &"settle"},
+					{&"channel": &"curiosity", &"strength": 500,
+						&"effect_radius_px": 40, &"action": &"shred"},
 				],
 				&"join": {
 					&"type": &"contained",
@@ -43,10 +43,10 @@ const OBJECT_CONFIG: Dictionary = {
 			},
 			&"worn": {
 				&"ads": [
-					{&"desire_type": &"comfort", &"strength": 400,
-						&"radius_px": 24, &"action": &"settle"},
-					{&"desire_type": &"curiosity", &"strength": 300,
-						&"radius_px": 32, &"action": &"shred"},
+					{&"channel": &"comfort", &"strength": 400,
+						&"effect_slot": true, &"action": &"settle"},
+					{&"channel": &"curiosity", &"strength": 300,
+						&"effect_radius_px": 32, &"action": &"shred"},
 				],
 				&"join": {
 					&"type": &"contained",
@@ -60,7 +60,7 @@ const OBJECT_CONFIG: Dictionary = {
 			},
 			&"scraps": {
 				&"ads": [
-					{&"desire_type": &"comfort", &"strength": 600, &"radius_px": 24},
+					{&"channel": &"comfort", &"strength": 600, &"effect_slot": true},
 				],
 			},
 		},

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Verifies every entry in Constants.CHANNELS has sense+desire+effect.
+# Reference: docs/superpowers/specs/2026-05-02-perception-channels-design.md
+#
+# Belt-and-suspenders with tests/unit/test_constants_channels.gd: this
+# check fails fast at validate time, the test catches the same issue at
+# GUT time. Either is sufficient on its own; keep both.
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+CONST="engine/core/constants.gd"
+[ -f "$CONST" ] || { echo "FAIL: $CONST not found"; exit 1; }
+
+# Extract the body of the CHANNELS dict (everything between the opening
+# `const CHANNELS: Dictionary = {` and the closing `}`).
+awk '
+/^const CHANNELS: Dictionary = \{/ { in_block=1; next }
+in_block && /^\}/                  { in_block=0; next }
+in_block                           { print }
+' "$CONST" > /tmp/channels.txt
+
+FAIL=0
+while IFS= read -r entry; do
+  # Match channel-entry lines: `  &"name": {&"sense": ..., &"desire": ..., &"effect": ...}`.
+  case "$entry" in
+    *"&\""*"\":"*"{"*)
+      for key in '&"sense":' '&"desire":' '&"effect":'; do
+        if ! printf '%s' "$entry" | grep -qF "$key"; then
+          echo "FAIL: channel entry missing $key — $entry"
+          FAIL=1
+        fi
+      done
+      ;;
+  esac
+done < /tmp/channels.txt
+rm -f /tmp/channels.txt
+
+if [ $FAIL -eq 0 ]; then
+  echo "channels_complete: clean"
+fi
+exit $FAIL

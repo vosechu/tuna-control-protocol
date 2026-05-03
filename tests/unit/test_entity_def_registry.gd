@@ -208,6 +208,40 @@ func test_spawn_object_has_no_desires_component():
 	assert_true(db.has_component(id, &"object_state"))
 
 
+func test_migrate_ad_renames_legacy_desire_type_to_channel():
+	var ad: Dictionary = {
+		&"desire_type": &"warmth", &"strength": 500, &"radius_px": 16,
+	}
+	var migrated: Dictionary = EntityDefRegistry.migrate_ad(ad)
+	assert_true(
+		migrated.has(&"channel"),
+		"Legacy desire_type must migrate to channel",
+	)
+	assert_eq(migrated[&"channel"], &"warmth")
+	assert_true(
+		migrated.has(&"effect_radius_px"),
+		"Legacy radius_px must migrate to effect_radius_px",
+	)
+	assert_eq(migrated[&"effect_radius_px"], 16)
+	assert_false(
+		migrated.has(&"desire_type"),
+		"desire_type must be removed after migration",
+	)
+	assert_false(
+		migrated.has(&"radius_px"),
+		"radius_px must be removed after migration",
+	)
+
+
+func test_migrate_ad_passes_through_already_new_shape():
+	var ad: Dictionary = {
+		&"channel": &"warmth", &"strength": 500, &"effect_radius_px": 16,
+	}
+	var migrated: Dictionary = EntityDefRegistry.migrate_ad(ad)
+	assert_eq(migrated[&"channel"], &"warmth")
+	assert_eq(migrated[&"effect_radius_px"], 16)
+
+
 func test_spawn_writes_senses_component():
 	_registry.register(&"tcp_cats:cat", _make_cat_def())
 	var db := GameStateDB.new()
