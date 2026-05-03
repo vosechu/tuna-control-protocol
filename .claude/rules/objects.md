@@ -99,6 +99,8 @@ Bonds gate **action-ad consumption only** — passive scatter never reads them. 
 
 Per-type specifics live next to the mod — `mods/tcp_tuna/objects/tuna_can.jsonc` and `OBJECT_CONFIG[&"cardboard_box"]` in `object_state_manager.gd`. Two sources today; future work moves everything into mod recipes.
 
+To add a new object type today, extend `OBJECT_CONFIG` in `engine/objects/object_state_manager.gd`. JSON-recipe path is planned but not wired.
+
 ## Mod-side object recipes
 
 Objects shipped as mod recipes follow this layout (see `mods/tcp_base/objects/`):

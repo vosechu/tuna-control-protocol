@@ -3,6 +3,15 @@ class_name ObjectStateManager extends RefCounted
 # Generic object state management: state transitions, damage, and
 # state-driven advertisement updates.  Config data lives here as a
 # Dictionary constant for now — will move to JSON via ConfigRegistry later.
+#
+# Audit (2026-05-03): API is generic. New object types extend OBJECT_CONFIG;
+# no new methods required. Per-type names like update_ads_for_tuna are
+# forbidden — see 2026-04-06-game-server-extraction-design.md lesson 2.
+#
+# Mod-extension caveat: OBJECT_CONFIG is a hardcoded const today. Mods
+# cannot add object types without forking the engine. JSON-recipe path
+# for objects is planned but not wired — tracked in objects.md
+# future-work.
 
 const OBJECT_CONFIG: Dictionary = {
 	&"tuna_can": {
