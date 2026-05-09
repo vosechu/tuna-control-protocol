@@ -14,14 +14,34 @@ const EventsScript: GDScript = preload("res://nodes/events.gd")
 
 var _db: GameStateDB
 var _events: Object
-var _bridge: ContentmentPurrBridge
+var _sensory: SensoryEmissionSystem
 var _hum: HumSystem
+
+
+func _output_config() -> Dictionary:
+	return {
+		&"channels": {&"acoustic": {&"falloff": &"quadratic"}},
+		&"outputs": {&"purr": {&"channel": &"acoustic"}},
+	}
+
+
+func _make_purr_emission(rate: int, radius_ru: int) -> Dictionary:
+	return {&"purr": {
+		&"trigger": {
+			&"component": &"contentment",
+			&"field": &"is_satisfied",
+			&"equals": 1,
+		},
+		&"base_intensity": {&"kind": &"literal", &"value": rate},
+		&"modifiers": [] as Array[Dictionary],
+		&"base_radius_ru": {&"kind": &"literal", &"value": radius_ru},
+	}}
 
 
 func before_each() -> void:
 	_db = GameStateDB.new()
 	_events = EventsScript.new()
-	_bridge = ContentmentPurrBridge.new(_db)
+	_sensory = SensoryEmissionSystem.new(_db, _output_config())
 	_hum = HumSystem.new(_db, _events)
 
 
@@ -50,15 +70,15 @@ func test_cat_in_box_one_rack_over_charges_hum_via_disk_intersection() -> void:
 		cat_id, &"purr", {&"intensity": 0, &"radius_px": 0},
 	)
 	_db.set_component(
-		cat_id, &"purr_config",
-		{&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6},
+		cat_id, &"sensory_emissions",
+		_make_purr_emission(Constants.UNIT, 6),
 	)
 
-	# Tick the bridge once to materialize purr.intensity + purr.radius_px,
-	# then run the charge pass.
-	_bridge.tick()
+	# Tick once to materialize purr.intensity + purr.radius_px, then run
+	# the charge pass.
+	_sensory.tick()
 
-	# Bridge wrote the per-tick purr fields.
+	# Runner wrote the per-tick purr fields.
 	assert_eq(
 		_db.get_field(cat_id, &"purr", &"intensity"), Constants.UNIT,
 		"satisfied cat intensity should be UNIT (full bliss)",
@@ -96,11 +116,11 @@ func test_unsatisfied_cat_does_not_charge_hum() -> void:
 	_db.set_component(cat_id, &"contentment", {&"is_satisfied": 0, &"value": 200})
 	_db.set_component(cat_id, &"purr", {&"intensity": 0, &"radius_px": 0})
 	_db.set_component(
-		cat_id, &"purr_config",
-		{&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6},
+		cat_id, &"sensory_emissions",
+		_make_purr_emission(Constants.UNIT, 6),
 	)
 
-	_bridge.tick()
+	_sensory.tick()
 	_hum.tick_charge()
 	assert_eq(
 		_hum.get_reserve(hum_id), 0,

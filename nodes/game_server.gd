@@ -472,7 +472,7 @@ func _seed_starter_box_stacks() -> void:
 	# the rack-1 box. Two effects: bridge writes non-zero intensity from
 	# tick 0 (HUM has something to charge against) and the demo literally
 	# shows "a cat in a box."
-	var purrers: Array[int] = db.get_entities_with(&"purr_config")
+	var purrers: Array[int] = db.get_entities_with(&"sensory_emissions")
 	if not purrers.is_empty() and rack1_box_id != Constants.INVALID_ID:
 		var demo_cat: int = purrers[0]
 		db.set_component(

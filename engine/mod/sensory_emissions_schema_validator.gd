@@ -122,7 +122,9 @@ func _validate_entry(
 
 
 func _is_valid_value_source(source: Variant, ctx: String) -> bool:
-	if source is int:
+	# Godot's JSON.parse() returns numbers as float; accept both so
+	# JSONC-loaded recipes and code-built test recipes both validate.
+	if source is int or source is float:
 		return true
 	if source is Dictionary:
 		var d: Dictionary = source
@@ -167,7 +169,8 @@ func _is_valid_trigger(trigger: Variant, ctx: Variant) -> bool:
 			"SensoryEmissions[%s]: trigger missing 'equals'" % ctx
 		)
 		ok = false
-	elif not (t["equals"] is int):
+	elif not (t["equals"] is int or t["equals"] is float):
+		# JSON.parse() returns numbers as float; accept both.
 		push_error(
 			"SensoryEmissions[%s]: trigger 'equals' must be int" % ctx
 		)
@@ -219,7 +222,8 @@ func _is_valid_modifier(
 			)
 			ok = false
 
-	if m.has("priority") and not (m["priority"] is int):
+	if m.has("priority") and not (m["priority"] is int or m["priority"] is float):
+		# JSON.parse() returns numbers as float; accept both.
 		push_error(
 			"SensoryEmissions[%s]: modifier 'priority' must be int"
 			% emission_name

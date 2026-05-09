@@ -406,8 +406,10 @@ func _materialize_emission_entry(raw: Dictionary) -> Dictionary:
 
 
 func _canonicalize_value_source(raw: Variant) -> Dictionary:
-	if raw is int:
-		return {&"kind": &"literal", &"value": raw}
+	# JSON.parse() returns numbers as float; recipes built in code use int.
+	# Coerce both to int for the canonical form.
+	if raw is int or raw is float:
+		return {&"kind": &"literal", &"value": int(raw)}
 	if raw is Dictionary:
 		var d: Dictionary = raw
 		return {

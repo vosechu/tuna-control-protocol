@@ -13,9 +13,13 @@
     "touch":    64
   },
   "tends_servers": true,
-  "purr": {
-    "rate_when_satisfied": 1000,
-    "base_radius_ru": 6
+  "sensory_emissions": {
+    "purr": {
+      "trigger":         { "component": "contentment", "field": "is_satisfied", "equals": 1 },
+      "base_intensity":  1000,
+      "modifiers":       [],
+      "base_radius_ru":  6
+    }
   },
   // Each desires entry is {weight, decay} (v4 co-located shape).
   // weight: personality strength (0-1000). decay: per-tick passive decay (must be <= 0).

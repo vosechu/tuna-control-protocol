@@ -7,7 +7,7 @@ extends GutTest
 #
 # Scenario tests live outside tests/unit/ and are not stamped — see
 # script/checks/verify_tests. The integration layer is covered here; the
-# individual hops (Contentment, ContentmentPurrBridge, HumSystem,
+# individual hops (Contentment, SensoryEmissionSystem, HumSystem,
 # DesireScatter) have their own stamped unit tests under tests/unit/.
 #
 # Two tests — one per phase of the chain:
@@ -26,8 +26,15 @@ var _db: GameStateDB
 var _resolver: DesireResolver
 var _scatter: DesireScatter
 var _contentment: Contentment
-var _purr_bridge: ContentmentPurrBridge
+var _sensory: SensoryEmissionSystem
 var _hum: HumSystem
+
+
+func _output_config() -> Dictionary:
+	return {
+		&"channels": {&"acoustic": {&"falloff": &"quadratic"}},
+		&"outputs": {&"purr": {&"channel": &"acoustic"}},
+	}
 
 
 func before_each() -> void:
@@ -35,7 +42,7 @@ func before_each() -> void:
 	_resolver = DesireResolver.new(_db)
 	_scatter = DesireScatter.new(_db)
 	_contentment = Contentment.new(_db)
-	_purr_bridge = ContentmentPurrBridge.new(_db)
+	_sensory = SensoryEmissionSystem.new(_db, _output_config())
 	_hum = HumSystem.new(_db, null)
 
 
@@ -113,9 +120,16 @@ func _spawn_cat(x: int, y: int) -> int:
 		&"entity_id": Constants.INVALID_ID,
 	})
 	_db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
-	_db.set_component(id, &"purr_config", {
-		&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6,
-	})
+	_db.set_component(id, &"sensory_emissions", {&"purr": {
+		&"trigger": {
+			&"component": &"contentment",
+			&"field": &"is_satisfied",
+			&"equals": 1,
+		},
+		&"base_intensity": {&"kind": &"literal", &"value": Constants.UNIT},
+		&"modifiers": [] as Array[Dictionary],
+		&"base_radius_ru": {&"kind": &"literal", &"value": 6},
+	}})
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -125,7 +139,7 @@ func _tick_satisfaction_chain() -> void:
 	_db.clamp_all(&"desires", &"warmth", 0, 1000)
 	_db.clamp_all(&"desires", &"comfort", 0, 1000)
 	_contentment.evaluate_all()
-	_purr_bridge.tick()
+	_sensory.tick()
 	_hum.tick_charge()
 
 
@@ -190,7 +204,7 @@ func test_satisfied_cat_purrs_and_charges_hum() -> void:
 		"HOP B (contentment): is_satisfied should be 1 with 3/4 bars met",
 	)
 
-	# Hop C: contentment_purr_bridge writes rate_when_satisfied.
+	# Hop C: SensoryEmissionSystem writes the purr.intensity per recipe.
 	var purr: Dictionary = _db.get_component(cat_id, &"purr")
 	assert_gt(
 		purr[&"intensity"], 0,

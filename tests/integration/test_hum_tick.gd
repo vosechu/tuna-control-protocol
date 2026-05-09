@@ -2,18 +2,25 @@ extends GutTest
 
 # Integration test: verifies contentment + HUM system wired into the tick loop.
 # Mirrors game_server._physics_process order without requiring a scene tree.
-# Uses ContentmentPurrBridge (option b) so purr.intensity is set realistically.
+# Uses SensoryEmissionSystem so purr.intensity is set realistically.
 
 const EventsScript: GDScript = preload("res://nodes/events.gd")
 
 var _db: GameStateDB
 var _heat_grid: HeatGrid
 var _contentment: Contentment
-var _bridge: ContentmentPurrBridge
+var _sensory: SensoryEmissionSystem
 var _hum: HumSystem
 var _events: Object
 var _resolver: DesireResolver
 var _desire_scatter: DesireScatter
+
+
+func _output_config() -> Dictionary:
+	return {
+		&"channels": {&"acoustic": {&"falloff": &"quadratic"}},
+		&"outputs": {&"purr": {&"channel": &"acoustic"}},
+	}
 
 
 func before_each() -> void:
@@ -21,7 +28,7 @@ func before_each() -> void:
 	_events = EventsScript.new()
 	_heat_grid = HeatGrid.new(_db)
 	_contentment = Contentment.new(_db)
-	_bridge = ContentmentPurrBridge.new(_db)
+	_sensory = SensoryEmissionSystem.new(_db, _output_config())
 	_hum = HumSystem.new(_db, _events)
 	_resolver = DesireResolver.new(_db)
 	_desire_scatter = DesireScatter.new(_db)
@@ -46,11 +53,18 @@ func _make_cat(x: int, y: int, desires: Dictionary) -> int:
 		&"x": Constants.INVALID_ID, &"y": Constants.INVALID_ID,
 		&"entity_id": Constants.INVALID_ID,
 	})
-	# Purr components so ContentmentPurrBridge can set intensity + radius_px
+	# Purr components so SensoryEmissionSystem can set intensity + radius_px
 	_db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
-	_db.set_component(id, &"purr_config", {
-		&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6,
-	})
+	_db.set_component(id, &"sensory_emissions", {&"purr": {
+		&"trigger": {
+			&"component": &"contentment",
+			&"field": &"is_satisfied",
+			&"equals": 1,
+		},
+		&"base_intensity": {&"kind": &"literal", &"value": Constants.UNIT},
+		&"modifiers": [] as Array[Dictionary],
+		&"base_radius_ru": {&"kind": &"literal", &"value": 6},
+	}})
 	_db.update_spatial(id, x, y)
 	return id
 
@@ -93,7 +107,7 @@ func _run_tick() -> void:
 	_db.clamp_all(&"desires", &"hunger", 0, 1000)
 	_db.clamp_all(&"desires", &"attention", 0, 1000)
 	_contentment.evaluate_all()
-	_bridge.tick()
+	_sensory.tick()
 	_hum.tick_charge()
 	_hum.tick_idle_drain()
 	_db.flush_notifications()

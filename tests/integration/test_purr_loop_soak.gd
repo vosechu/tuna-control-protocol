@@ -2,8 +2,9 @@ extends GutTest
 
 # AI-DEV: Soak test — guards three pathologies that 1-shot unit tests
 # can't catch because they only emerge across many ticks:
-#   1. Bridge or HUM charge accidentally toggling a satisfied cat's
-#      intensity off (single-tick checks don't see "off again at tick 50")
+#   1. SensoryEmissionSystem or HUM charge accidentally toggling a
+#      satisfied cat's intensity off (single-tick checks don't see "off
+#      again at tick 50")
 #   2. HUM reserve briefly going negative or overshooting capacity
 #      mid-tick (only visible if you sample every tick)
 #   3. Unsatisfied short-circuit failing after the cat WAS satisfied
@@ -14,10 +15,17 @@ extends GutTest
 const EventsScript: GDScript = preload("res://nodes/events.gd")
 
 
+func _output_config() -> Dictionary:
+	return {
+		&"channels": {&"acoustic": {&"falloff": &"quadratic"}},
+		&"outputs": {&"purr": {&"channel": &"acoustic"}},
+	}
+
+
 func _make_world() -> Dictionary:
 	var db := GameStateDB.new()
 	var events: Object = EventsScript.new()
-	var bridge := ContentmentPurrBridge.new(db)
+	var sensory := SensoryEmissionSystem.new(db, _output_config())
 	var hum := HumSystem.new(db, events)
 
 	var hum_slot: Rect2i = Constants.slot_rect_world(0, 0, 9)
@@ -38,24 +46,33 @@ func _make_world() -> Dictionary:
 	})
 	db.set_component(cat_id, &"contentment", {&"is_satisfied": 1, &"value": 800})
 	db.set_component(cat_id, &"purr", {&"intensity": 0, &"radius_px": 0})
-	db.set_component(
-		cat_id, &"purr_config",
-		{&"rate_when_satisfied": Constants.UNIT, &"base_radius_ru": 6},
-	)
-	return {&"db": db, &"bridge": bridge, &"hum": hum, &"hum_id": hum_id, &"cat_id": cat_id}
+	db.set_component(cat_id, &"sensory_emissions", {&"purr": {
+		&"trigger": {
+			&"component": &"contentment",
+			&"field": &"is_satisfied",
+			&"equals": 1,
+		},
+		&"base_intensity": {&"kind": &"literal", &"value": Constants.UNIT},
+		&"modifiers": [] as Array[Dictionary],
+		&"base_radius_ru": {&"kind": &"literal", &"value": 6},
+	}})
+	return {
+		&"db": db, &"sensory": sensory, &"hum": hum,
+		&"hum_id": hum_id, &"cat_id": cat_id,
+	}
 
 
 func test_loop_stays_stable_over_500_ticks() -> void:
 	var w: Dictionary = _make_world()
 	var hum_sys: HumSystem = w[&"hum"]
-	var bridge: ContentmentPurrBridge = w[&"bridge"]
+	var sensory: SensoryEmissionSystem = w[&"sensory"]
 	var db: GameStateDB = w[&"db"]
 	var hum_id: int = w[&"hum_id"]
 	var cat_id: int = w[&"cat_id"]
 	var capacity: int = db.get_field(hum_id, &"hum", &"capacity")
 
 	for _i: int in 500:
-		bridge.tick()
+		sensory.tick()
 		hum_sys.tick_charge()
 		hum_sys.tick_idle_drain()
 
@@ -86,15 +103,15 @@ func test_loop_stays_stable_over_500_ticks() -> void:
 func test_unsatisfied_cat_never_creeps_charge_into_hum() -> void:
 	var w: Dictionary = _make_world()
 	var hum_sys: HumSystem = w[&"hum"]
-	var bridge: ContentmentPurrBridge = w[&"bridge"]
+	var sensory: SensoryEmissionSystem = w[&"sensory"]
 	var db: GameStateDB = w[&"db"]
 	var hum_id: int = w[&"hum_id"]
 	var cat_id: int = w[&"cat_id"]
-	# Flip cat to unsatisfied; bridge should write 0/0 each tick.
+	# Flip cat to unsatisfied; runner should write 0/0 each tick.
 	db.set_component(cat_id, &"contentment", {&"is_satisfied": 0, &"value": 100})
 
 	for _i: int in 200:
-		bridge.tick()
+		sensory.tick()
 		hum_sys.tick_charge()
 		# Skip idle drain — we want to assert charge() is never called, not
 		# that drain dominates.
