@@ -350,6 +350,17 @@ func spawn(
 # Convert a Dictionary with String keys to the same Dictionary with
 # StringName keys. Values passed through unchanged. Needed because JSONC
 # parsing produces String keys but the component hot paths use StringName.
+#
+# AI-DEV: Two key-conversion helpers coexist intentionally. This one
+# (`_to_stringname_keys`) is **shallow** — only top-level String keys
+# become StringName, nested dicts pass through with their original
+# String keys. `_to_stringname_keys_recursive` (below) walks every
+# nesting level. Do not "DRY" them into one — flat object-component
+# projections (advertisements, hum_receiver, arm) only need the shallow
+# pass and pay nothing for it; sensory_emissions has nested dicts
+# (trigger, value-source refs, modifier entries) where shallow conversion
+# would silently leave inner keys as String, breaking hot-path
+# `def[&"trigger"]` lookups at runtime. Keep both, named after their depth.
 func _to_stringname_keys(d: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key in d:

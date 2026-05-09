@@ -3,6 +3,7 @@ paths:
   - "engine/core/hum_*"
   - "engine/core/contentment*"
   - "engine/core/food_system.gd"
+  - "engine/core/sensory_emission*"
   - "nodes/hud/hum_bar.gd"
 ---
 
@@ -140,6 +141,9 @@ HUM internals (`DEFAULT_CAPACITY`, `IDLE_DRAIN_BASE`, `BROWNOUT_THRESHOLD`) live
 - Per-device `cable_max_length_ru` overrides.
 - HUM output-port caps.
 - Non-purr emission channels (chime, ring, electrical, thermal, kinetic) — each ships its own capability + receiver chain when the feature lands. Don't generalize the `purr` channel or the `hum_receiver` component to cover them.
+- **Unifying `sensory_emissions` with `advertisements`.** Animals' dynamic emissions and objects' static ads are shaped similarly but stay separate surfaces. Ads carry occupant capacity, channel-effect direction, and slot-vs-radius delivery; emissions carry trigger gating, recipe-declared modifiers, and per-output components. Premature unification erases both surfaces' specific affordances.
+- **Independent radius modifiers.** `radius_px` scales linearly with intensity (`base_radius_ru × SLOT_HEIGHT_PX × intensity / UNIT`) and only via that path. A future "muffler" component that reduces reach without reducing intensity is its own spec — do not add a separate `radius` modifier list inline.
+- **dB or physically-correct acoustic units.** TCP doesn't simulate acoustic propagation; `radius_px` is a hard cutoff in rack-unit-derived pixels, not a dB-vs-distance computation. Linear thousandths (`UNIT = 1000`) stay the convention. Revisit only if real acoustic simulation (occlusion, Doppler, reverb) ships.
 
 ## Related
 

@@ -257,7 +257,7 @@ Each file's `paths:` frontmatter is authoritative; this table is the human index
 | `contentment.md` | `engine/core/contentment*`, `engine/core/player_verbs.gd` |
 | `objects.md` | `engine/core/object_state_manager.gd`, `engine/objects/**`, `mods/**/objects/**` |
 | `food-system.md` | `engine/core/food_system.gd`, `engine/core/object_state_manager.gd`, `mods/tcp_tuna/**` |
-| `hum-cable-system.md` | `engine/core/hum_*`, `engine/core/contentment*`, `engine/core/food_system.gd`, `nodes/hud/hum_bar.gd` |
+| `hum-cable-system.md` | `engine/core/hum_*`, `engine/core/contentment*`, `engine/core/food_system.gd`, `engine/core/sensory_emission*`, `nodes/hud/hum_bar.gd` |
 | `core-loop.md` | `engine/core/{hum_,food_system,contentment,wiring_}*`, `nodes/hud/hum_bar.gd`, `nodes/robot_narrator.gd` |
 | `growth-system.md` | `engine/growth/**`, `nodes/dynamic_plants.gd`, `mods/*/species/**` |
 | `navigation.md` | `engine/navigation/**`, `mods/*/species/**` |

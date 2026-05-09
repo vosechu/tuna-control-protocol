@@ -147,6 +147,29 @@ Each entry in the `modifiers` array:
 
 `config/balance/sensory_outputs.jsonc` declares `outputs` (output_name → channel) and `channels` (channel → falloff). Recipes can only reference output names registered there. Mods extend the registry through standard config-layering; the schema validator rejects recipes that reference unknown outputs or channels.
 
+### Validator rejection contract
+
+`SensoryEmissionsSchemaValidator` runs at mod load (after config layering completes — cross-mod patches must be visible before validation). Each rule below is a `push_error` that rejects the recipe; one assertion per rule lives in `tests/unit/test_sensory_emissions_schema_validator.gd`.
+
+**Per-emission entry rules:**
+
+1. `base_intensity` required; must be int OR `{component, field}` ref dict.
+2. `base_radius_ru` required; same forms as `base_intensity`.
+3. `trigger` is optional. If present, must be a dict with `component` (string), `field` (string), `equals` (int).
+4. `modifiers` required (may be `[]`); must be an Array.
+5. Each modifier dict must have `id` (mod-namespaced string), `component` (string), `field` (string), `op` (string).
+6. Each modifier's `op` must be in the engine's known set (today: `factor`, `inverse_factor`). Error message lists the known set so the modder can pick a valid one without grepping engine source.
+7. Each modifier's `priority` (if present) must be an int.
+8. Modifier `id`s must be unique within an emission. Cross-emission duplicates are allowed.
+9. Each emission's output_name (the dict key) must exist in the `outputs` global config.
+10. Ref-form value sources (`{component, field}`) must have string `component` and string `field`; non-string types are rejected.
+
+**Cross-referenced (against `sensory_outputs.jsonc`):**
+- Each `outputs.<name>.channel` must reference a name in `channels`.
+- Each `channels.<name>.falloff` must be in the engine's known set (today: `quadratic`, `linear`, `step`, `inverse_square`).
+
+**Warn-not-error: unresolved component refs.** If a `trigger.component`, modifier `component`, or value-source `component` doesn't resolve to any component declared by the recipe or known to the engine, the validator emits `push_warning` — not `push_error`. Conditionally-present components are a valid pattern (e.g. a stress modifier that only matters when another mod ships the stress writer); rejecting unresolved refs would break cross-mod composition. Typos still surface as warnings at load. Don't "tighten" this to an error without ripping out the cross-mod-composition affordance.
+
 ### Runtime failure semantics
 
 Recipe-author-facing behaviors of the runner. The validator catches malformed recipes at load; these rules cover what happens when a recipe is well-formed but references a component absent at *runtime* (a conditionally-present component, a forward reference to another mod's writer, a component the entity hasn't gained yet):
