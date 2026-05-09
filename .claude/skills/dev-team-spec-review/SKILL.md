@@ -8,6 +8,10 @@ description: Dispatch TCP's dev team agents in parallel to review a design spec 
 
 When a TCP design spec is drafted and ready for multi-perspective review. Run **before** committing the spec and **before** invoking writing-plans. Expect to run it 1-2 times on a spec — Round 1 surfaces blockers, Round 2 verifies fixes and catches second-order issues in new additions.
 
+### vs. `/load-<dev-team-role>` skills
+
+This skill spawns all 9 agents in parallel for a structured review of a finished artifact (the spec). The `/load-<dev-team-role>` skills (e.g. `/load-game-artist`) are for the inverse case — you're about to make a single-domain decision in the main thread and want one persona's principles loaded *without* spawning. Use this skill when you have something to review; use `/load-<role>` when you have something to decide.
+
 ## Prerequisites
 
 - Spec file exists at `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
