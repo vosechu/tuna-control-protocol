@@ -75,6 +75,21 @@ Conditions must be specific and task-shaped. Bad: `you are working on audio`. Go
 
 Rule files are append-mostly. Most updates should add a gotcha or slip-pattern row to the existing structure rather than rewrite a section. Rewriting risks invalidating institutional memory captured in the existing wording. When you do rewrite, preserve specific examples and the WHY behind constraints.
 
+## Dev-team agent callout
+
+When a rule file is the primary "home" for a dev-team agent's domain principles (e.g. `art-direction.md` for `game-artist`, `testing.md` for `game-qa`), add a two-line decision-criteria callout immediately after the H1 heading and the existing maintainer cross-reference (where present):
+
+```markdown
+> **Use `/load-<agent-role>`** when about to <domain action — e.g. "make an art decision (palette pick, sprite tweak, layout choice)"> and you want <Persona>'s principles in front of you first.
+> **Spawn the `<agent-role>` agent** when you have <domain artifact — e.g. "a finished sprite, scene, or design"> to review and want a structured pass against those principles with <Persona>'s voice.
+```
+
+Why this pattern: TCP exposes dev-team domain knowledge through three triggers — file-edit auto-load (this rule's `paths:`), on-demand `/load-<role>` skill, and full agent spawn. The callout teaches a contributor reading the rule when each surface applies, without making them consult a meta-doc. See CLAUDE.md → "Rules vs. skills — pick by trigger" for the matching rubric.
+
+`design-philosophy.md` carries two callouts (Mochi for game design, Bramble for engineering practice) because both agents anchor on it. That's fine — the rule is the home for both their principle sets.
+
+If you migrate principles from an agent body into a rule via this pattern, mirror the agent's section structure: a `## 0. Design Principles` (or `## QA Philosophy`, etc.) block with numbered items matching the original. Keeps traceability between agent and rule for future audits.
+
 ## When the rule should be a skill instead
 
 If the trigger is "when this kind of task is happening" rather than "when this file is edited," it's a skill. Examples:
