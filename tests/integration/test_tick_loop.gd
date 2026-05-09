@@ -7,7 +7,6 @@ const EXPECTED_ORDER: Array[String] = [
 	"heat_grid.propagate",
 	"_scatter_desires",
 	"contentment.evaluate_all",
-	"contentment_purr_bridge.tick",
 	"sensory_emission.tick",
 	"hum_system.tick_charge",
 	"hum_system.tick_idle_drain",
