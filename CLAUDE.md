@@ -213,6 +213,7 @@ Rules live in `.claude/rules/` as auto-loadable files.
 | Every conversation needs this | Inline in CLAUDE.md, kept tight — every byte is paid every turn |
 | File matching path X is edited | Path-gated rule in `.claude/rules/` with `paths:` frontmatter (mechanical routing) |
 | Task type X is happening | User-invokable skill in `.claude/skills/` (description routes the model) |
+| About to act inside a dev-team domain (art, sound, etc.) and want principles loaded on demand | `/load-<dev-team-role>` skill — thin wrapper that pulls the canonical rule(s) into the main thread without spawning the agent |
 | Heavy reference, only when deep in a domain | Skill body + `references/` accessories (progressive loading) |
 
 Both rules and skills are paid until compaction once loaded. Routing precision is the #1 failure mode — over-broad path globs or vague skill descriptions cause loading on cases that don't need the content. See `/edit-claude-md` and `/edit-rule-files` for per-mechanism standards.
