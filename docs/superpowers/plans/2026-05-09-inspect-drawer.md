@@ -1281,6 +1281,149 @@ EOF
 
 ---
 
+## Task 14: Full close-affordance set (ESC, `X` button, click-outside, controller `B`)
+
+**Files:**
+- Modify: `nodes/hud/inspect_drawer.gd` (add header `X` button + `_close_drawer()` helper)
+- Modify: `nodes/game_client.gd` (`ui_cancel` action handling + outside-click detection)
+
+Toggle-via-re-emit (already in Task 8) handled the trivial close; this task ships the four explicit affordances the spec lists. Godot's default `ui_cancel` action covers both `ESC` and the controller `B` button in one path, so we get controller parity with one branch.
+
+- [ ] **Step 1: Add a `_close_drawer()` helper to `InspectDrawer`**
+
+In `nodes/hud/inspect_drawer.gd`, near the existing `_on_entity_inspect_opened` handler, add:
+
+```gdscript
+# Single source of truth for closing — used by the X button, click-outside,
+# ESC, controller B, and entity-destroy auto-close.
+func _close_drawer() -> void:
+	if _state == null:
+		return
+	_state.close()
+	close()
+```
+
+Also update `_process` to call this helper instead of `close()` directly:
+
+```gdscript
+func _process(_delta: float) -> void:
+	if _db == null or _state == null:
+		return
+	if not _state.is_open():
+		return
+	_state.process(_db)
+	if not _state.is_open():
+		# process() may have auto-closed due to entity destruction.
+		close()  # Drawer's slide-out only — _state already cleared by process().
+		return
+	_render_view()
+```
+
+(That branch keeps `close()` because `_state.process` already cleared state internally; calling `_close_drawer` would `close()` the state twice — harmless but noisy.)
+
+- [ ] **Step 2: Add the `X` close button in the header**
+
+In `_build_ui` (in `nodes/hud/inspect_drawer.gd`), modify the header construction so the header row is an `HBoxContainer` containing the name label and a small `X` button. Replace the existing header creation:
+
+```gdscript
+	_header_label = _make_label(_FONT_SIZE, Color(0.9, 0.85, 0.7))
+	vbox.add_child(_header_label)
+```
+
+with:
+
+```gdscript
+	var header_row := HBoxContainer.new()
+	header_row.add_theme_constant_override("separation", 1)
+	_header_label = _make_label(_FONT_SIZE, Color(0.9, 0.85, 0.7))
+	_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.add_child(_header_label)
+
+	var close_btn := Button.new()
+	close_btn.text = "X"
+	close_btn.add_theme_font_size_override("font_size", _FONT_SIZE)
+	close_btn.custom_minimum_size = Vector2(6, 5)
+	close_btn.pressed.connect(_close_drawer)
+	header_row.add_child(close_btn)
+
+	vbox.add_child(header_row)
+```
+
+- [ ] **Step 3: Validate parse + visual smoke**
+
+```bash
+script/validate
+```
+
+Expected: 14/14 pass. The integration test from Task 12 still asserts the drawer opens; it doesn't depend on the X button.
+
+- [ ] **Step 4: Add `ui_cancel` (ESC + controller `B`) handling in `game_client.gd`**
+
+In `nodes/game_client.gd`'s `_unhandled_input`, **at the top** (before any other branch), add:
+
+```gdscript
+	if event.is_action_pressed("ui_cancel"):
+		var drawer: Control = null
+		if has_node("HUD"):
+			drawer = $HUD.get_node_or_null("InspectDrawer") as Control
+		if drawer != null and drawer.is_open():
+			drawer._close_drawer()
+			get_viewport().set_input_as_handled()
+			return
+```
+
+`ui_cancel` is a default Godot input action that maps `ESC` and controller `B` (Xbox) / `Circle` (PS) to the same handler — one branch, full controller parity.
+
+- [ ] **Step 5: Add click-outside handling in `game_client.gd`**
+
+Still in `_unhandled_input`, add this branch **after** the `ui_cancel` branch and **before** the existing left-click handler:
+
+```gdscript
+	if (
+		event is InputEventMouseButton
+		and event.pressed
+		and event.button_index == MOUSE_BUTTON_LEFT
+	):
+		var drawer_co: Control = null
+		if has_node("HUD"):
+			drawer_co = $HUD.get_node_or_null("InspectDrawer") as Control
+		if drawer_co != null and drawer_co.is_open():
+			# Controls auto-consume gui_input within their rect, so reaching
+			# here means the click was outside the drawer.
+			drawer_co._close_drawer()
+			get_viewport().set_input_as_handled()
+			return
+```
+
+The reasoning embedded in the comment matters: `Control` automatically consumes `_gui_input` events within its rect, so `_unhandled_input` only fires for clicks outside the drawer. We don't need to compute the drawer's rect manually.
+
+- [ ] **Step 6: Validate**
+
+```bash
+script/validate
+```
+
+Expected: 14/14 pass.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add nodes/hud/inspect_drawer.gd nodes/game_client.gd
+git commit -m "$(cat <<'EOF'
+feat(hud): full close-affordance set on InspectDrawer
+
+ESC + controller B via ui_cancel (one branch, full parity). X header
+button. Click-outside detected by relying on Control's auto-consumed
+_gui_input — _unhandled_input only fires for clicks outside the
+drawer's rect. _close_drawer() is now the single-source close path.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage (every In-v1 requirement → task):**
@@ -1291,7 +1434,7 @@ EOF
 - Single drawer, click-portrait re-targets → Task 8 (`_on_entity_inspect_opened` toggle / re-target).
 - Left-edge anchored, slides in/out → Task 7 (Drawer base), Task 8 (`anchor_edge`, `open_position`).
 - Triggers: portrait, right-click, `I`/`F1`, controller `X`, long-press → Task 10 (portrait), Task 11 (right-click + `I`/`F1`); controller `X` and long-press are out-of-scope-this-plan since focus tracking and touch input aren't yet wired (note in plan).
-- Closes on `ESC`, click outside, `X` button, toggle, controller `B` → Task 8 (toggle on same-id re-emit). `ESC` / `X` button / click-outside / controller `B` are deferred to a follow-up; the drawer is functional without them in v1 because emit toggles, but they should land before declaring v1 complete. Adding here as a known gap.
+- Closes on `ESC`, click outside, `X` button, toggle, controller `B` → Task 8 ships toggle-via-re-emit; Task 14 ships the explicit four (`ESC` + controller `B` via `ui_cancel`, `X` header button, click-outside).
 - Capability branch (no species labels) → Task 4 + Task 8.
 - Per-frame `_process` reads, never `_physics_process` → Task 8 `_process`.
 - Auto-close on entity destroy → Task 3 + Task 8 (`_state.process()` close cascade).
@@ -1301,9 +1444,8 @@ EOF
 - Doc updates (scene-tree, file-structure) → Task 13.
 - input-design.md `I`/`F1` documentation → already present in the existing keyboard map; no edit needed unless an audit pass shows drift.
 
-**Known gaps (documented, not blockers for v1 first cut):**
+**Known gaps (documented, not blockers for v1):**
 
-- **Close affordances**: `ESC`, `X` header button, click-outside, controller `B` — Task 8 ships toggle-via-re-emit, which is functional but not the full set. Add a follow-up task before declaring v1 done.
 - **Controller `X` trigger** and **touch long-press** — depend on controller focus tracking + touch input plumbing, neither of which exists today. Out of scope this plan.
 - **Reduce-motion hook** — explicitly deferred to v2 in the spec.
 - **§5 partial regression** — accepted; documented in spec's Out-of-v1.
