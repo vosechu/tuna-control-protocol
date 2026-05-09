@@ -4,7 +4,7 @@ extends GutTest
 # satisfied cat settled inside a box (interior_origin position) emits
 # purr each tick, and its emission disk intersects an adjacent-rack
 # HUM's body rect, so the HUM's reserve grows. The two components
-# tested in tandem here — ContentmentPurrBridge (intensity + radius_px)
+# tested in tandem here — SensoryEmissionSystem (intensity + radius_px)
 # and HumSystem.tick_charge (disk-vs-rect intersection) — have unit
 # tests that pass independently while the cross-rack chain still
 # fails; the geometry only emerges when both run together. Don't split
