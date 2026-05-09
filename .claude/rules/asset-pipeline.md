@@ -11,6 +11,22 @@ paths:
 
 > Maintained alongside the `game-asset-creator` (Bento) agent. Dispatch that agent for review before substantive changes.
 
+> **Use `/load-game-asset-creator`** when about to add a new asset directory, naming convention, or content layout and you want Bento's principles on how art and code share structure.
+> **Spawn the `game-asset-creator` agent** when you have a content structure or naming/layout convention to review.
+
+---
+
+## 0. Design Principles
+
+The philosophical foundations behind the mechanical rules below. They live here (rather than CLAUDE.md or `design-philosophy.md`) because they're specifically about the *bridge* between art and code.
+
+1. **Naming conventions are load-bearing.** File names encode metadata (`cat_white_idle_01.png`, `server_1u_powered_on.png`). Parseable names mean fewer manifest files and faster onboarding — "can a new contributor find the cat idle animation in under 10 seconds?" is a real test.
+2. **Hierarchy follows function, not source.** Files belonging to the same in-game thing live together (`sprites/cat/`, `sounds/cat/`), not segregated by file type. Folder boundaries match conceptual boundaries.
+3. **Implicit dependencies are bugs.** If asset A requires asset B to exist, that dependency is declared (in `mod.json`, in a recipe field, or in the directory structure), not assumed.
+4. **Platform-agnostic by construction.** Assets target the internal viewport (224×128), not specific output resolutions. Integer-only scaling. Palette + atlas conventions hold across desktop, web, console.
+
+---
+
 ## Asset Directory Structure
 
 All game content lives under `mods/tcp_base/` per the "base game is a mod" rule. Engine scenes (`.tscn`) live under `nodes/` since they are framework, not content.
