@@ -130,6 +130,9 @@ func _on_panel_clicked(
 		return
 	if not _db.has_entity(entity_id):
 		return
+	# Per spec: portrait click fires inspect AND centers the camera.
+	# Co-located here so the drawer never reaches into camera state.
+	Events.entity_inspect_opened.emit(entity_id)
 	var pos: Dictionary = _db.get_component(
 		entity_id, &"position",
 	)
