@@ -49,13 +49,13 @@ Full set:
 
 | Skill | Agent | Loads rule |
 |---|---|---|
-| `/load-game-designer` | `game-designer` | (TBD which rule file owns design principles — possibly `design-philosophy.md`) |
-| `/load-game-asset-creator` | `game-asset-creator` | `asset-pipeline.md` |
-| `/load-game-artist` | `game-artist` | `art-direction.md` |
-| `/load-sound-designer` | `sound-designer` | `sound-design.md` |
-| `/load-narrative-designer` | `narrative-designer` | `narrative.md` |
-| `/load-game-qa` | `game-qa` | (TBD — possibly `testing.md` + `test-philosophy.md`) |
-| `/load-game-programmer` | `game-programmer` | (TBD — possibly `code-style.md` + `design-philosophy.md`) |
+| `/load-game-designer` | `game-designer` | `design-philosophy.md` (Game Design Principles section) + modding, animal-ai, narrative |
+| `/load-game-asset-creator` | `game-asset-creator` | `asset-pipeline.md` + design-philosophy, modding, art-direction |
+| `/load-game-artist` | `game-artist` | `art-direction.md` + design-philosophy, asset-pipeline |
+| `/load-sound-designer` | `sound-designer` | `sound-design.md` + design-philosophy |
+| `/load-narrative-designer` | `narrative-designer` | `narrative.md` + design-philosophy |
+| `/load-game-qa` | `game-qa` | `testing.md` + design-philosophy, code-style, signals |
+| `/load-game-programmer` | `game-programmer` | `design-philosophy.md` (Technical Principles section) + 12 path-gated rules |
 | `/load-accessibility-advocate` | `accessibility-advocate` | `input-design.md` |
 | `/load-community-modder` | `community-modder` | `modding.md` |
 
@@ -91,7 +91,7 @@ Some rule files don't map 1:1 to a dev-team agent today (e.g. `code-style.md` co
 - Pick the closest agent and have that agent's `/load-` skill load multiple rules.
 - Or split the rule along agent boundaries.
 
-The TBD entries in the naming-convention table above flag this open question per-domain.
+**Resolution (2026-05-09):** All TBDs in the naming-convention table above are now resolved. The implementation chose option (a) for design/programmer/QA — pick the closest agent's primary rule and have its `/load-` skill load multiple rules. game-designer and game-programmer both load `design-philosophy.md` because both moved their TCP-specific principles into named subsections of that file (Game Design Principles, Technical Principles). game-qa loads `testing.md` as primary plus three supporting rules.
 
 ## Alternatives considered
 
