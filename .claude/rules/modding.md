@@ -6,6 +6,22 @@ paths:
 
 # TCP Modding Architecture Rules
 
+> **Use `/load-community-modder`** when about to design a mod-facing surface (config schema, capability tag, ID convention) and you want Patches' principles on what mod authors will trip over.
+> **Spawn the `community-modder` agent** when you have a mod-facing API or schema to review for compatibility, mod-author UX, and "what will modders do with this" failure modes.
+
+---
+
+## 0. Design Principles
+
+The philosophical foundations behind the mechanical rules below. Apply them when adding new mod-facing surfaces.
+
+1. **Modders are the second dev team.** If the data pipeline is good (species as JSON, formulas in config, capabilities not species), modders will create animal types, infrastructure, and mechanics the core team never imagined. Plan for this. Test through it. Celebrate it.
+2. **Document internals; modders RE them anyway.** Hidden mechanics (desire weights, heat formulas, schema details) get reverse-engineered by mod communities regardless. Better to document them officially — they become a feature, not a leak.
+3. **Stable schemas, explicit migrations.** Schema versioning isn't optional. Config files, save files, and APIs all need version fields. Adding `schema_version` now is trivial; retrofitting it across an existing mod ecosystem is impossible.
+4. **Cozy doesn't mean unmoderated.** "Our players will be nice" is probably true for a cozy game audience but not guaranteed. Plan for light moderation tools — particularly around UGC that crosses into other players' visible space — from the start.
+
+---
+
 ## Base Game Is a Mod — Day One, Not Later
 `tcp_base` ships as a mod. The engine is a framework. If it can't be done via mod API, the framework needs work. This is not aspirational — it is a hard constraint from the first line of code, same as networking. The mod loading pipeline, config merging, and namespaced IDs must work before any game content exists. Every system is tested through the mod API, never through backdoor engine access.
 
