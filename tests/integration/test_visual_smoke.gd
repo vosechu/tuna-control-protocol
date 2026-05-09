@@ -86,3 +86,34 @@ func test_inspect_drawer_opens_on_event() -> void:
 
 	assert_true(drawer.is_open(), "Drawer opens on emit")
 	assert_eq(drawer._state.inspected_id, animals[0])
+
+
+func test_three_drawers_default_visibility() -> void:
+	# Spec §"Drawer-system invariants this spec validates":
+	# "No persistent setting | Reload — inspect closed, placement closed,
+	# narrator open."
+	var client: Node = _MAIN_SCENE.instantiate()
+	add_child_autofree(client)
+	# Two frames: GameClient._ready() awaits one frame internally before
+	# setting up the HUD. NarratorDrawer.initialize() schedules an open()
+	# tween — the second frame lets the first tween step run.
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var inspect: PanelContainer = client.get_node(
+		"GameClient/HUD/InspectDrawer",
+	) as PanelContainer
+	assert_not_null(inspect, "InspectDrawer should exist under HUD")
+	assert_false(inspect.is_open(), "Inspect closed at boot")
+
+	var placement: PanelContainer = client.get_node(
+		"GameClient/HUD/PlacementDrawer",
+	) as PanelContainer
+	assert_not_null(placement, "PlacementDrawer should exist under HUD")
+	assert_false(placement.is_open(), "Placement closed at boot")
+
+	var narrator: PanelContainer = client.get_node(
+		"GameClient/HUD/NarratorDrawer",
+	) as PanelContainer
+	assert_not_null(narrator, "NarratorDrawer should exist under HUD")
+	assert_true(narrator.is_open(), "Narrator open at boot")
