@@ -150,7 +150,7 @@ Concrete rules:
 
 - **Don't generalize across physics.** Purr is acoustic; solar is electrical; heat is thermal. Each is its own channel with its own receiver. A single `power` channel that both cats and solar panels emit on is over-generalization that hides domain differences.
 - **Only things that genuinely produce the signal emit on its channel.** Tuning forks ring — they don't purr. When that feature ships, it gets `ring` as a separate capability with its own receiver.
-- **The emitter's domain system writes the emission via a small scoped bridge.** `ContentmentPurrBridge` reads `contentment` and writes `purr.intensity`. The bridge knows contentment and the purr channel; it never names HUM.
+- **The emitter's domain system writes the emission via a recipe-driven runner.** `SensoryEmissionSystem` reads each entity's `sensory_emissions` recipe (which may declare a `trigger` against any component, e.g. `contentment.is_satisfied`) and writes the per-output channel component (e.g. `purr.intensity`). The runner knows about emissions and per-output components; it never names HUM.
 - **Tests should assert the consumer doesn't read the emitter's domain state.** `HumSystem.tick_charge` reads only `hum_receiver`, `purr`, `position` — never `contentment`, never species labels.
 
 Discovered while designing the HUM cable system; it's why Ring 1's naming shipped as `purr` (the thing) rather than `hum_producer` (the coupling).

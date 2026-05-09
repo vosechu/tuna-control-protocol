@@ -25,7 +25,7 @@ func _physics_process(_delta: float) -> void:
                                                             #     desire_scatter.scatter_from_ads(),
                                                             #     clamp_all
     contentment.evaluate_all()                              # 4
-    contentment_purr_bridge.tick()                          # 5 — bridge reads is_satisfied
+    sensory_emission.tick()                                 # 5 — recipe-driven emission (trigger, base, modifiers, radius)
     hum_system.tick_charge()                                # 6 — emit/listen, per-entity batteries
     hum_system.tick_idle_drain()                            # 7
     _decay_commitment()                                     # 8
@@ -42,8 +42,8 @@ func _physics_process(_delta: float) -> void:
 
 Load-bearing constraints:
 - `heat_grid` before `_scatter_desires` (warmth feeds desire scatter)
-- `contentment` before `contentment_purr_bridge` (bridge reads `is_satisfied`)
-- `contentment_purr_bridge` before `hum_system.tick_charge` (writes `purr.intensity` before charge reads it)
+- `contentment` before `sensory_emission` (recipe trigger reads `is_satisfied`)
+- `sensory_emission` before `hum_system.tick_charge` (writes `purr.intensity` before charge reads it)
 - `hum_system` before `desire_resolver` (HUM reserve affects arm actions)
 - `movement_system` before `reclamation_system` (reads fresh positions)
 - `food_system` before `reclamation_system` (food state resolves before presence)

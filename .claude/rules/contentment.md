@@ -1,14 +1,14 @@
 ---
 paths:
   - "engine/core/contentment.gd"
-  - "engine/core/contentment_purr_bridge.gd"
+  - "engine/core/sensory_emission_system.gd"
 ---
 
 # TCP Contentment System
 
-The keystone between desires and the purr loop. Reads each entity's `desires` component, decides whether enough basic needs are met, and writes a single `contentment.is_satisfied` flag. The `ContentmentPurrBridge` reads that flag to gate `purr.intensity`. No other system writes `contentment`.
+The keystone between desires and the purr loop. Reads each entity's `desires` component, decides whether enough basic needs are met, and writes a single `contentment.is_satisfied` flag. The `SensoryEmissionSystem` reads that flag (via the recipe-declared trigger) to gate `purr.intensity`. No other system writes `contentment`.
 
-Tick step 4, between `_scatter_desires` (writes `desires`) and `contentment_purr_bridge.tick()` (reads `is_satisfied`). See `tick-architecture.md` for full ordering.
+Tick step 4, between `_scatter_desires` (writes `desires`) and `sensory_emission.tick()` (reads `is_satisfied` via the recipe's trigger). See `tick-architecture.md` for full ordering.
 
 ## Component shape
 
@@ -50,6 +50,6 @@ Boundary: exactly 400 counts (`>=`, not `>`). 399 does not. A bar missing from `
 ## Related
 
 - `animal-ai.md` — desire registry (the producer of `desires`)
-- `hum-cable-system.md` — `ContentmentPurrBridge` and downstream HUM charging (full bridge contract)
+- `hum-cable-system.md` — `SensoryEmissionSystem` and downstream HUM charging (recipe-driven emission)
 - `core-loop.md` — design intent: "contented cats purr, purring charges HUM"
 - `tick-architecture.md` — step ordering for the contentment → purr → charge chain

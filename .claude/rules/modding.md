@@ -84,10 +84,66 @@ The framework branches on components, not species labels. These are the capabili
 |---|---|---|
 | `&"tends_servers"` | `{}` | Entity contributes to reclamation when near a server. |
 | `&"hum_receiver"` | `{radius_px: int}` | Entity listens on the `&"purr"` channel within its radius. |
-| `&"purr"` | `{intensity: int}` | Entity emits on the purr channel at this per-tick strength. |
-| `&"purr_config"` | `{rate_when_satisfied: int, base_radius_ru: int}` | Recipe-level inputs to `ContentmentPurrBridge`. `rate_when_satisfied` is the per-tick intensity emitted while satisfied; `base_radius_ru` is the at-full-bliss emission radius in slot-heights (cat: 6 → 48 px, kitten: TBD lower). The bridge writes both `purr.intensity` and `purr.radius_px = base_radius_ru * SLOT_HEIGHT_PX * intensity / UNIT` each tick. |
+| `&"purr"` | `{intensity: int, radius_px: int}` | Entity emits on the purr channel — per-tick strength + reach written by `SensoryEmissionSystem`. |
+| `&"sensory_emissions"` | `{<output_name>: {trigger?, base_intensity, modifiers, base_radius_ru}}` | Recipe-declared emission inputs read by `SensoryEmissionSystem` each tick. See "Sensory Emission vocabulary" below. |
 
 Mechanics and invariants live in each subsystem's rule file (see `hum-cable-system.md`, `growth-system.md`). Adding a new capability is a narrow, first-use declaration; promote to a broader name only when a second system needs the same check. The cable subsystem (`hum_powered`, `hum_cable`, `cable_to` scenario field) is currently absent; the restoration design lives at `docs/superpowers/specs/2026-05-09-cables-restoration-design.md`.
+
+## Sensory Emission vocabulary
+
+The `SensoryEmissionSystem` reads recipe-declared emissions and writes per-output components (today: `purr`). Modders pick from a bounded engine-defined vocabulary; you cannot add new ops or falloff curves via JSON.
+
+### Modifier ops
+
+| Op | Effect on intensity |
+|---|---|
+| `factor` | `intensity * value / 1000` (multiplicative) |
+| `inverse_factor` | `intensity * (1000 - value) / 1000` (dampener) |
+
+Both ops are commutative against each other; order doesn't matter for mixed `factor`/`inverse_factor` modifiers. When non-commutative ops land (forecast: `additive`, `subtractive`), set explicit `priority` to control composition order.
+
+### Falloff curves (channel-level, forward-compat metadata today)
+
+| Falloff | Shape |
+|---|---|
+| `quadratic` | `(1 - dist/radius)²` |
+| `linear` | `1 - dist/radius` |
+| `step` | `1` inside radius, `0` outside |
+| `inverse_square` | `1 / (1 + (dist/radius)²)` |
+
+These match `DesireScatter._apply_falloff`. No consumer reads channel falloff for sensory emissions today; HUM reads `purr.intensity` directly.
+
+### Value-source forms
+
+`base_intensity` and `base_radius_ru` accept either form:
+
+```jsonc
+// Int literal (typical):
+"base_intensity": 1000
+
+// Component-field ref (forward-compat, for per-instance variation):
+"base_intensity": { "component": "purr_quality", "field": "rate" }
+```
+
+A "loud purr" trait mod would declare a `purr_quality: {rate: int}` component on its species recipe and use the ref form.
+
+### Modifier shape
+
+Each entry in the `modifiers` array:
+
+```jsonc
+{
+  "id":        "tcp_stress_writer:dampening",  // mod-namespaced; required for _remove targetability
+  "component": "stress",
+  "field":     "level",
+  "op":        "inverse_factor",
+  "priority":  0                                // optional; default 0; lower applies first
+}
+```
+
+### Channel registry
+
+`config/balance/sensory_outputs.jsonc` declares `outputs` (output_name → channel) and `channels` (channel → falloff). Recipes can only reference output names registered there. Mods extend the registry through standard config-layering; the schema validator rejects recipes that reference unknown outputs or channels.
 
 ---
 
@@ -120,7 +176,7 @@ Every species recipe (`mods/<mod_id>/species/<id>.jsonc`) must declare:
 | `special_states` | `{STATE_NAME: {min_duration_ticks: int}}` | Required when `ambient_states` is present. Declares non-pool states (e.g. `STARTLED`) that the AI can enter and how long they pin the entity. |
 | `hud_color` | `[r, g, b]` | Floats 0.0–1.0 for name labels |
 
-Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `tends_servers` (tag capability), `role_tags` (designer summary), `purr` / `purr_config` (capability components).
+Optional fields: `starters`, `personality_ranges`, `verbs`, `states`, `tends_servers` (tag capability), `role_tags` (designer summary), `sensory_emissions` (recipe-declared emission inputs — see vocabulary section above).
 
 ### v3 → v4 migration
 

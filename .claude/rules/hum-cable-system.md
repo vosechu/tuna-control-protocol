@@ -18,8 +18,8 @@ The cable layer between HUMs and HUM-powered actuators is not currently implemen
 |---|---|---|---|
 | `hum` | `{reserve: int, capacity: int}` | HUM entities | Server — saved |
 | `hum_receiver` | `{radius_px: int}` | HUM entities | Server — saved |
-| `purr` | `{intensity: int}` — per-tick broadcast strength | any "thing that purrs" (cats in Ring 1) | Server — saved, written by contentment→purr bridge |
-| `purr_config` | `{rate_when_satisfied: int}` | same recipe that declares `purr` | Server — materialized from recipe at spawn |
+| `purr` | `{intensity: int, radius_px: int}` — per-tick broadcast strength + reach | any "thing that purrs" (cats in Ring 1) | Server — saved, written by `SensoryEmissionSystem` |
+| `sensory_emissions` | `{<output_name>: {trigger?, base_intensity, modifiers, base_radius_ru}}` | recipe-declared emitters | Server — saved, materialized from recipe at spawn |
 
 ## Emit / Listen, Not Produce / Consume
 
@@ -30,18 +30,37 @@ Consequences:
 - New emission kinds (chimes, rings, electrical current, thermal) get their **own** channel (`&"chime"`, `&"ring"`, `&"electrical_emission"`, …) and their **own** receiver. What the receiver does with the signal — charge HUM, calm ferrets, drive lights, narrate — is a per-channel decision; not every emission feeds HUM. They are not added to the `purr` channel post-hoc, and the `purr` channel and `hum_receiver` component aren't generalized to cover them.
 - `HumSystem.tick_charge()` branches only on the `hum_receiver`, `purr`, and `position` capabilities. It never reads `contentment`, `is_satisfied`, or species labels.
 
-### Contentment → purr bridge
+### Contentment → purr via SensoryEmissionSystem
 
-A small system (`engine/core/contentment_purr_bridge.gd`) runs each tick **before** `tick_charge()`. For every entity carrying both `contentment` and `purr`:
+`engine/core/sensory_emission_system.gd` runs each tick **before** `tick_charge()`. For every entity carrying `sensory_emissions`, the runner evaluates each declared output:
 
 ```
-intensity = purr_config.rate_when_satisfied   if contentment.is_satisfied == 1
-intensity = 0                                  otherwise
+for output in sensory_emissions:                # e.g. "purr"
+    if trigger fails:                           # cat.contentment.is_satisfied != 1
+        intensity = 0
+    else:
+        intensity = base_intensity              # 1000 for cat
+        for mod in modifiers: intensity = mod(intensity)
+    radius_px = base_radius_ru * SLOT_HEIGHT_PX * intensity / UNIT
+    write {intensity, radius_px} to output's per-tick component
 ```
 
-The bridge knows `contentment` and `purr`. It does not know HUM exists. Entities that carry `purr` but not `contentment` are left alone — their intensity is whatever another system wrote, which is the correct shape for future non-contentment purr sources.
+The runner knows about `sensory_emissions` and the per-output component (`purr`). It does not know HUM exists. The recipe-declared trigger is what couples contentment to purr — `cat.jsonc` declares `trigger: {component: "contentment", field: "is_satisfied", equals: 1}`. Future emitters that don't gate on contentment simply omit the trigger or declare a different one.
 
-`rate_when_satisfied` lives in the species recipe (e.g. `mods/tcp_cats/species/cat.jsonc`), never as an engine constant. The recipe declares one `purr: {rate_when_satisfied: N}` block; spawn materializes it into two components — `purr {intensity: 0}` (per-tick scratch) and `purr_config {rate_when_satisfied: N}` (recipe value the bridge reads).
+Recipe shape lives in the species file (e.g. `mods/tcp_cats/species/cat.jsonc`):
+
+```jsonc
+"sensory_emissions": {
+  "purr": {
+    "trigger":         { "component": "contentment", "field": "is_satisfied", "equals": 1 },
+    "base_intensity":  1000,
+    "modifiers":       [],
+    "base_radius_ru":  6
+  }
+}
+```
+
+Spawn materializes the block into the `sensory_emissions` component (canonicalized: value sources become `{kind: literal|ref, ...}`, modifiers sort by `priority`) plus an empty per-output `purr {intensity: 0, radius_px: 0}` component. See `modding.md` §"Sensory Emission vocabulary" for the bounded modifier-op and falloff vocabularies modders draw from.
 
 ## Charging (tick_charge)
 
