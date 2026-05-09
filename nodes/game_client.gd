@@ -64,7 +64,7 @@ func _ready() -> void:
 	_spawn_animal_nodes()
 	_setup_heat_overlay()
 	_setup_sound_manager()
-	_setup_placement_ui()
+	_setup_placement_drawer()
 	_setup_lighting()
 	_setup_hum_bar()
 	_setup_stats_bar()
@@ -306,23 +306,22 @@ func _spawn_animal_nodes() -> void:
 		node.initialize(db, entity_id)
 
 
-func _setup_placement_ui() -> void:
-	var PlacementUIScript: GDScript = preload(
-		"res://nodes/hud/placement_ui.gd"
+func _setup_placement_drawer() -> void:
+	var PlacementDrawerScript: GDScript = preload(
+		"res://nodes/hud/placement_drawer.gd"
 	)
 	var old_ui: Control = $PlacementUI
 	old_ui.queue_free()
-	_placement_ui_node = Control.new()
-	_placement_ui_node.name = "PlacementUI"
-	_placement_ui_node.set_script(PlacementUIScript)
-	# Pin the buttons to the HUD CanvasLayer so they stay in screen space
-	# (a direct child of GameClient renders in world space and drifts with
-	# the camera). The placement buttons must live on the right edge of
-	# the viewport regardless of where the camera is looking.
+	# Pin to the HUD CanvasLayer so the drawer stays in screen space
+	# regardless of camera position. Default state is closed — drawer
+	# slides in on first 1-7 / R press.
 	if not has_node("HUD"):
 		var hud := CanvasLayer.new()
 		hud.name = "HUD"
 		add_child(hud)
+	_placement_ui_node = PanelContainer.new()
+	_placement_ui_node.name = "PlacementDrawer"
+	_placement_ui_node.set_script(PlacementDrawerScript)
 	$HUD.add_child(_placement_ui_node)
 
 
@@ -362,6 +361,13 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 			world_pos,
 			_placement_ui_node.get_selected_type(),
 		)
+	elif (
+		_placement_ui_node.has_method("is_open")
+		and _placement_ui_node.is_open()
+	):
+		# Drawer open with no active selection → outside-click closes it.
+		_placement_ui_node._close_drawer()
+		get_viewport().set_input_as_handled()
 	else:
 		_try_click_entity(world_pos)
 
