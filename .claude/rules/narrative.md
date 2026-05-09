@@ -9,6 +9,22 @@ paths:
 
 > Maintained alongside the `narrative-designer` (Parcel) agent. Dispatch that agent for review before substantive changes.
 
+> **Use `/load-narrative-designer`** when about to write a string, log line, robot announcement, or device name and you want Parcel's tone rules in front of you first.
+> **Spawn the `narrative-designer` agent** when you have a draft of narrative content to review for voice consistency, robot-vs-reality framing, and tone.
+
+---
+
+## Narrative Delivery Principles
+
+TCP-wide narrative rules. Every player-facing string, log line, or world-building artifact should pass them.
+
+1. **Mail is the world window.** The primary mechanism for delivering lore beyond the robot's logs is physical mail — letters, parcels, and messages from other datacenters or from the past. They arrive occasionally, feel tangible, and expand the world without interrupting play. Example fragment: *"Dear Datacenter 7: Have you seen a repair technician? It's been 14 months. — Datacenter 12"*
+2. **The world heals visually, not textually.** Plants growing, moss spreading, light shifting, halos warming — these are the primary "world is healing" channels. Text supports the visual; it never substitutes. If a story beat would land via a sprite change, prefer the sprite change.
+3. **Names carry narrative weight.** Cat names, datacenter addresses (`tuna://`), skill tower nodes, advertisement channels — every name is a narrative opportunity. Prefer evocative over descriptive: *"Warm Nap Protocol"* beats *"Heat Bonus Level 2."*
+4. **Story never gates gameplay.** A player who ignores every letter has the same mechanical experience as one who reads them all. Narrative is a reward layer, not a progression key.
+5. **Never break the cozy.** Wistfulness, mystery, gentle melancholy — fine. Dread, guilt, existential despair — never. If a narrative element makes the player feel bad without a clear path to feeling better, cut it. The animals are alive and thriving; that's the story.
+6. **No fourth-wall breaks.** The robot doesn't know it's in a game. The animals don't know they're being watched. The world is self-consistent — no winks at the audience.
+
 ---
 
 ## The Robot's Arc (LOCKED)
