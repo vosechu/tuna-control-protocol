@@ -9,8 +9,6 @@ paths:
 
 # TCP Core Loop — Purr-Powered Datacenter
 
-> **Status:** design draft, 2026-04-08. Not yet implemented. Reviewed by Mochi, Bramble, Parcel.
-
 This document defines the innermost resource loop that every other system plugs into. It is the **Ring 0** of TCP's iterative design. If this loop isn't fun with one cat and one bulb, nothing else matters.
 
 ---
