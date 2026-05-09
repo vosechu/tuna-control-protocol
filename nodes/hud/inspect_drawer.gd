@@ -40,14 +40,20 @@ var _action_label: Label
 var _personality_label: Label
 
 
-func initialize(db: GameStateDB) -> void:
-	_db = db
+func _ready() -> void:
 	_state = InspectDrawerState.new()
 	custom_minimum_size = Vector2(56, 72)
 	anchor_edge = Drawer.AnchorEdge.LEFT
 	open_position = Vector2(2, 54)
 	_build_ui()
 	Events.entity_inspect_opened.connect(_on_entity_inspect_opened)
+	# Drawer._ready() reads custom_minimum_size to compute the off-edge
+	# position, so size + open_position must be set before super._ready().
+	super._ready()
+
+
+func initialize(db: GameStateDB) -> void:
+	_db = db
 
 
 func _build_ui() -> void:
