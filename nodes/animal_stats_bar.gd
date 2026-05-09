@@ -1,11 +1,14 @@
 extends HBoxContainer
 
 const DESIRE_COLORS: Dictionary = {
-	&"warmth": Color(0.85, 0.35, 0.2),
-	&"comfort": Color(0.45, 0.65, 0.85),
-	&"curiosity": Color(0.6, 0.8, 0.3),
-	&"food": Color(0.9, 0.7, 0.2),
-	&"purpose": Color(0.4, 0.8, 0.8),
+	&"warmth":    Color(0.85, 0.35, 0.20),  # warm orange — heat
+	&"comfort":   Color(0.45, 0.65, 0.85),  # soft blue — softness
+	&"curiosity": Color(0.60, 0.80, 0.30),  # yellow-green — exploration
+	&"hunger":    Color(0.90, 0.55, 0.20),  # amber — appetite
+	&"social":    Color(0.95, 0.50, 0.65),  # pink — companionship
+	&"quiet":     Color(0.30, 0.45, 0.75),  # deep blue — auditory rest
+	&"peace":     Color(0.65, 0.50, 0.85),  # lavender — visual rest
+	&"safety":    Color(0.40, 0.75, 0.45),  # forest green — security
 }
 const _BAR_BG := Color(0.15, 0.15, 0.2)
 const BAR_WIDTH: int = 14

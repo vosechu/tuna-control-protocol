@@ -1,10 +1,16 @@
-extends Node2D
+class_name PurrRing extends Node2D
 
 # Renders pixel-note glyphs orbiting at purr.radius_px around the parent's
 # global position. Density and alpha scale with intensity. Pure visual; reads
 # the entity's purr component each display frame, never writes.
 
 const NOTE_COUNT_MAX: int = 12
+
+# Shared toggle so one keypress (N in game_client) flips notes for every
+# entity at once. Default off — opt in when you want to see HUM-receiver
+# coverage. The purr notes are debug-flavored; the player-facing purr
+# feedback lives in the cat's own animation/audio.
+static var notes_visible: bool = false
 
 var entity_id: int = Constants.INVALID_ID
 var _db: GameStateDB
@@ -22,6 +28,8 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if not notes_visible:
+		return
 	if _db == null or not _db.has_entity(entity_id):
 		return
 	if not _db.has_component(entity_id, &"purr"):

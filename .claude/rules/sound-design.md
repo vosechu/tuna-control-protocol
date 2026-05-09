@@ -5,9 +5,11 @@ paths:
   - "mods/tcp_base/config/**"
 ---
 
-# TCP Sound Design Spec — Rumble's Proposals
+# TCP Sound Design
 
-Six proposals to fill the gaps in the sound system section of PLANNING.md. Each is self-contained. All parameter values belong in `mods/tcp_base/config/*.json` and are tunable per the project's "every number in overridable JSON" rule.
+> Maintained alongside the `sound-designer` (Rumble) agent. Dispatch that agent for review before substantive changes.
+
+All parameter values belong in `mods/tcp_base/config/*.json` and are tunable per the project's "every number in overridable JSON" rule.
 
 ---
 

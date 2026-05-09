@@ -28,6 +28,7 @@ const _HUM_TEX := preload(
 	"res://mods/tcp_base/sprites/infrastructure/server/hum_device_static_strip1.png"
 )
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
+const _PURR_RING_SCRIPT := preload("res://nodes/effects/purr_ring.gd")
 
 const _VISIBLE_BAY_INDICES: Array[int] = [-1, 0, 1]
 
@@ -85,7 +86,12 @@ func _setup_debug_hud() -> void:
 func _setup_narrator_panel() -> void:
 	var narrator := Narrator.new()
 	var panel := NarratorPanel.new()
-	panel.position = Vector2(2, 118)
+	# Centered horizontally on the 224-wide viewport (140 wide → 42px margin
+	# each side); y leaves a 2px gutter above the 128-tall viewport bottom.
+	panel.position = Vector2(
+		float(Constants.VIEWPORT_WIDTH - 140) / 2.0,
+		float(Constants.VIEWPORT_HEIGHT - 16 - 2),
+	)
 	panel.name = "NarratorPanel"
 	$HUD.add_child(panel)
 	panel.initialize(Events, narrator)
@@ -293,30 +299,21 @@ func _setup_placement_ui() -> void:
 	_placement_ui_node = Control.new()
 	_placement_ui_node.name = "PlacementUI"
 	_placement_ui_node.set_script(PlacementUIScript)
-	add_child(_placement_ui_node)
+	# Pin the buttons to the HUD CanvasLayer so they stay in screen space
+	# (a direct child of GameClient renders in world space and drifts with
+	# the camera). The placement buttons must live on the right edge of
+	# the viewport regardless of where the camera is looking.
+	if not has_node("HUD"):
+		var hud := CanvasLayer.new()
+		hud.name = "HUD"
+		add_child(hud)
+	$HUD.add_child(_placement_ui_node)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Cmd+W / Cmd+Q (Mac) or Ctrl+W / Ctrl+Q to quit
 	if event is InputEventKey and event.pressed:
-		if (
-			event.keycode == KEY_W
-			and event.is_command_or_control_pressed()
-		):
-			get_tree().quit()
+		if _handle_key(event as InputEventKey):
 			return
-		if (
-			event.keycode == KEY_Q
-			and event.is_command_or_control_pressed()
-		):
-			get_tree().quit()
-			return
-		if event.keycode == KEY_G:
-			var grid: Node2D = $World.get_node_or_null("SlotGridOverlay")
-			if grid:
-				grid.visible = not grid.visible
-			return
-
 	if not event is InputEventMouseButton:
 		return
 	if not event.pressed:
@@ -338,6 +335,30 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 	else:
 		_try_click_entity(world_pos)
+
+
+# Returns true when the key was consumed.
+func _handle_key(event: InputEventKey) -> bool:
+	if event.is_command_or_control_pressed():
+		if event.keycode == KEY_W or event.keycode == KEY_Q:
+			get_tree().quit()
+			return true
+	if event.keycode == KEY_G:
+		var grid: Node2D = $World.get_node_or_null("SlotGridOverlay")
+		if grid:
+			grid.visible = not grid.visible
+		return true
+	if event.keycode == KEY_N:
+		# Access via preloaded script ref so we don't depend on Godot's
+		# global class-name cache (which can lag behind file edits).
+		_PURR_RING_SCRIPT.notes_visible = not _PURR_RING_SCRIPT.notes_visible
+		return true
+	if event.keycode == KEY_L:
+		var narrator: Control = $HUD.get_node_or_null("NarratorPanel")
+		if narrator:
+			narrator.visible = not narrator.visible
+		return true
+	return false
 
 
 func _try_place_at(

@@ -35,11 +35,10 @@ Root (Node)
     HUD (CanvasLayer)
       HumBar                            # HUM reserve readout
       StatsBar                          # Per-frame diagnostics
-      InspectPanel (PanelContainer)     # On right-click / I / X
-      (RobotNarrator as a Node subscribes to Events.plant_spawned/despawned;
-       renders to its own log surface.)
+      NarratorPanel (PanelContainer)    # Bottom log readout — toggle with L
+      PlacementUI (Control)             # Right-edge placement buttons
+      InspectPanel (PanelContainer)     # On right-click / I / X (planned)
 
-    PlacementUI (Control)               # Ghost + highlights for drag placement
     SoundManager (Node)
       AmbientLayer (AudioStreamPlayer)
 ```

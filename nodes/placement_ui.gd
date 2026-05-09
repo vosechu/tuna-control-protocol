@@ -4,8 +4,9 @@ signal object_selected(object_type: StringName)
 signal remove_toggled(active: bool)
 signal placement_cancelled
 
-const _FONT_SIZE: int = 4
-const _BTN_MIN_SIZE: Vector2 = Vector2(20, 6)
+const _FONT_SIZE: int = 3
+const _BTN_MIN_SIZE: Vector2 = Vector2(14, 4)
+const _PANEL_WIDTH: int = 16  # button width + 2px right gutter
 
 var _selected_type: StringName = &""
 var _remove_mode: bool = false
@@ -18,8 +19,10 @@ func _ready() -> void:
 
 func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
+	# Right-anchored: stack hugs the right edge of the 224-wide viewport with a
+	# 2px gutter (panel width 16 + gutter 2 = 18 px from the right edge).
 	vbox.position = Vector2(
-		float(Constants.VIEWPORT_WIDTH) - 35.0,
+		float(Constants.VIEWPORT_WIDTH - _PANEL_WIDTH),
 		2.0,
 	)
 	vbox.add_theme_constant_override("separation", 0)

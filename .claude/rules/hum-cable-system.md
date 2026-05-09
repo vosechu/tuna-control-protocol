@@ -44,7 +44,7 @@ Cats don't produce HUM — cats purr. The HUM receiver listens for purrs and con
 
 Consequences:
 - New listeners on `purr` (future ferret-calm system, sound mixer, narrator) subscribe without touching cats.
-- New emission kinds (chimes, rings, electrical current, thermal) get their **own** channel (`&"chime"`, `&"ring"`, `&"electrical_emission"`, …) and their **own** receiver + converter into the `hum` battery. They are not added to the purr channel post-hoc.
+- New emission kinds (chimes, rings, electrical current, thermal) get their **own** channel (`&"chime"`, `&"ring"`, `&"electrical_emission"`, …) and their **own** receiver. What the receiver does with the signal — charge HUM, calm ferrets, drive lights, narrate — is a per-channel decision; not every emission feeds HUM. They are not added to the `purr` channel post-hoc, and the `purr` channel and `hum_receiver` component aren't generalized to cover them.
 - `HumSystem.tick_charge()` branches only on the `hum_receiver`, `purr`, and `position` capabilities. It never reads `contentment`, `is_satisfied`, or species labels.
 
 ### Contentment → purr bridge

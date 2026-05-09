@@ -128,13 +128,26 @@ Bonds gate **action-ad consumption only** — passive scatter never reads them. 
 | `tuna_can` | `sealed` → `opened` → `eaten` | No |
 | `cardboard_box` | `new` → `worn` → `scraps` | Yes (HP-driven) |
 
-Per-type specifics live next to the mod — `mods/tcp_tuna/objects/tuna_can.jsonc` and `OBJECT_CONFIG[&"cardboard_box"]` in `object_state_manager.gd`. Two sources today; future work moves everything into mod recipes.
+## Where to put what — authoritative paths
 
-To add a new object type today, extend `OBJECT_CONFIG` in `engine/objects/object_state_manager.gd`. JSON-recipe path is planned but not wired.
+There are **two recipe surfaces today**, and they cover different things.
+Adding a new object means picking the right one for the kind of object you
+have. Mixing them silently is the most common modder mistake — pick
+deliberately.
 
-## Mod-side object recipes
+| Concern | Lives in | Example | Loaded? |
+|---|---|---|---|
+| **State machines** (`state_ads`, `hp_thresholds`, `join` blocks, transitions) | `OBJECT_CONFIG` const in `engine/objects/object_state_manager.gd` | `tuna_can`, `cardboard_box` | **Yes — this is what runs.** |
+| **Stateless device recipes** (placement, physical, behavior-component fields) | `mods/<mod_id>/objects/<id>.jsonc` | `arm`, `hum_device`, `tuna_button`, `tuna_dispenser` | **Yes — loaded by mod pipeline.** |
+| **Shadow state-machine JSON** (e.g. `mods/tcp_tuna/objects/tuna_can.jsonc`) | `mods/<mod_id>/objects/<id>.jsonc` | tuna_can mirrors OBJECT_CONFIG with `"states": {...}` | **No — non-binding documentation.** Listed for the future migration path; the loader does not consume `states` today. |
 
-Objects shipped as mod recipes follow this layout (see `mods/tcp_base/objects/`):
+**Rule of thumb.** If your object has state transitions (sealed→open, new→worn→scraps, etc.), edit `OBJECT_CONFIG` in `engine/objects/object_state_manager.gd`. If it's a stateless device with one component to declare (an arm, a button, a battery), ship a JSON recipe under `mods/<mod_id>/objects/`. Do not write a `states` block in JSON expecting it to load — it won't, and tests won't catch the no-op until runtime.
+
+The full state-machine→JSON migration (`OBJECT_CONFIG` collapses into per-mod JSON loaded by ConfigRegistry) is planned but not staffed. Until then, accept the two-surface split as the real interface, not a temporary glitch.
+
+## Stateless device recipe schema (mod-side)
+
+Stateless devices shipped as mod recipes follow this layout (see `mods/tcp_base/objects/`):
 
 ```jsonc
 {
@@ -150,6 +163,8 @@ Objects shipped as mod recipes follow this layout (see `mods/tcp_base/objects/`)
 ```
 
 The component-name slot declares this object's specialized component (arms have `arm`, buttons have `tuna_button`, dispensers have `tuna_dispenser`). The component's fields are read by the system that owns that behavior (e.g. `FoodSystem` reads `arm.radius_px` and `arm.hum_cost`).
+
+Stateless recipes do **not** declare a `states` block. If your object needs state transitions, see "Where to put what" above.
 
 ## Related rules
 

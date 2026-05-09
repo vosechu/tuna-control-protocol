@@ -23,7 +23,7 @@ func initialize(
 
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(280, 48)
+	custom_minimum_size = Vector2(140, 16)
 
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.05, 0.08, 0.05, 0.9)
@@ -37,7 +37,12 @@ func _build_ui() -> void:
 	_label.fit_content = true
 	_label.scroll_active = false
 	_label.add_theme_font_size_override(
-		"normal_font_size", 8,
+		"normal_font_size", 3,
+	)
+	# Bold the pinned-status line for readability; needs explicit override
+	# at the smaller font size or RichTextLabel uses its default bold font.
+	_label.add_theme_font_size_override(
+		"bold_font_size", 3,
 	)
 	_label.add_theme_color_override(
 		"default_color", Color(0.3, 0.9, 0.3),

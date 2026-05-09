@@ -5,7 +5,9 @@ paths:
   - "config/input/**"
 ---
 
-# TCP Input Design — Pebble's Spec
+# TCP Input Design
+
+> Maintained alongside the `accessibility-advocate` (Pebble) agent. Dispatch that agent for review before substantive changes.
 
 ## 1. Keyboard Shortcut Map
 
@@ -42,6 +44,20 @@ All shortcuts remappable via settings. Stored in `config/input/keyboard_map.json
 | `Enter` | Place |
 | `Escape` | Cancel |
 | `Shift+Up/Down` | Adjust vertical offset for multi-U objects |
+
+### Dev Toggles (shipped, not in player remap UI)
+
+These are diagnostic overlays wired in `nodes/game_client.gd` and `nodes/animal_node.gd`. They predate the player-facing keymap above and are intentionally separate — they should not appear in the future remap UI.
+
+| Key | Action |
+|---|---|
+| `G` | Toggle slot grid overlay (debug) |
+| `N` | Toggle purr-note glyphs around purring entities (default off) |
+| `L` | Toggle narrator log panel (default on) |
+| `C` | Toggle per-animal data/sprite-position outlines (debug) |
+| `Cmd/Ctrl+W` or `Cmd/Ctrl+Q` | Quit |
+
+`N` defaults to **off** — the orbit-note glyphs are debug-flavored coverage feedback for HUM receivers (see `purr-power-ring0-design.md` §"Generation"); toggle on when you need to see which cats are within range. `L` hides the bottom-edge narrator panel for screenshots and uncluttered viewing.
 
 ---
 

@@ -1,11 +1,15 @@
 ---
 paths:
-  - "mods/tcp_base/**"
+  - "mods/*/sprites/**"
+  - "mods/*/sounds/**"
   - "**/*.png"
   - "**/*.ogg"
+  - "**/*.wav"
 ---
 
-# TCP Asset Pipeline — Bento's Spec
+# TCP Asset Pipeline
+
+> Maintained alongside the `game-asset-creator` (Bento) agent. Dispatch that agent for review before substantive changes.
 
 ## Asset Directory Structure
 

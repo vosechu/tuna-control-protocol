@@ -5,7 +5,9 @@ paths:
   - "sprites/**"
 ---
 
-# TCP Art Direction — Smudge's Spec
+# TCP Art Direction
+
+> Maintained alongside the `game-artist` (Smudge) agent. Dispatch that agent for review before substantive changes.
 
 ## 1. Pixel Resolution and Base Grid
 

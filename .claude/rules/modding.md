@@ -72,6 +72,10 @@ Scenarios live per-mod under `mods/<mod_id>/scenarios/<id>.jsonc`. On a fresh ga
 
 Mods override by offering an alternative scenario and asking players to swap `settings.starter_scenario_id`, not by shadowing another mod's file.
 
+## Object Recipes
+
+Object content splits between an engine-side `OBJECT_CONFIG` const (state machines) and per-mod JSON under `mods/<mod_id>/objects/` (stateless device recipes). Some shadow JSON exists today (e.g. `tuna_can.jsonc`) but is non-binding. See `objects.md` §"Where to put what" for the authoritative routing rule before adding a new object.
+
 ## Capability Components
 
 The framework branches on components, not species labels. These are the capability tags defined today:

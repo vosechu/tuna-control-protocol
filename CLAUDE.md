@@ -22,6 +22,19 @@ A cozy, abundance-driven game about raising thousands of animals in an abandoned
 
 ---
 
+## Start here
+
+Cold-start reading order before touching code:
+
+1. `PLANNING.md` — prototype scene, build order, resolved decisions.
+2. `.claude/rules/animal-ai.md` — desires, scoring, scatter.
+3. `.claude/rules/core-loop.md` — purr → HUM → arm → treat → cat.
+4. `.claude/rules/tick-architecture.md` — the 17 numbered tick steps.
+
+Then read on demand. The "Loaded by path" table at the bottom auto-injects the right rule when you touch related code; you do not need to memorize all rule files.
+
+---
+
 ## Core Design Philosophy
 
 - **Abundance over scarcity:** No starvation, no resource depletion, no "you failed because you didn't plan correctly." Treats are always available. Heat always flows. Water always condenses. Negative feedback should feel like "I have so many wonderful options, which one?" not deprivation.
@@ -191,6 +204,21 @@ Design collaboration uses specialized agents in `.claude/agents/`:
 
 Rules live in `.claude/rules/` as auto-loadable files.
 
+<important if="adding or moving a rule, skill, or always-loaded content">
+
+### Rules vs. skills — pick by trigger
+
+| Trigger | Mechanism |
+|---|---|
+| Every conversation needs this | Inline in CLAUDE.md, kept tight — every byte is paid every turn |
+| File matching path X is edited | Path-gated rule in `.claude/rules/` with `paths:` frontmatter (mechanical routing) |
+| Task type X is happening | User-invokable skill in `.claude/skills/` (description routes the model) |
+| Heavy reference, only when deep in a domain | Skill body + `references/` accessories (progressive loading) |
+
+Both rules and skills are paid until compaction once loaded. Routing precision is the #1 failure mode — over-broad path globs or vague skill descriptions cause loading on cases that don't need the content. See `/edit-claude-md` and `/edit-rule-files` for per-mechanism standards.
+
+</important>
+
 ### Always loaded (cross-cutting, small)
 
 | Rule file | Covers |
@@ -209,6 +237,7 @@ Rules live in `.claude/rules/` as auto-loadable files.
 | `/verify-test` | Writing, modifying, or verifying a test — red-green-refactor + mutation + stamp protocol. Required for `verify_tests` to pass. |
 | `/pr-review` | Reviewing a pull request — universal checklist, failure-mode thinking. |
 | `/edit-claude-md` | Creating or editing a CLAUDE.md file — size budget, structure, conditional-context patterns. |
+| `/edit-rule-files` | Creating, editing, or auditing a `.claude/rules/*.md` file — tier-aware size budget, frontmatter precision, gotchas convention. |
 | `/trace-signal-flow` | Wiring a new cross-system signal or debugging signal propagation. Four worked traces. |
 
 ### Loaded by path
@@ -220,8 +249,10 @@ Each file's `paths:` frontmatter is authoritative; this table is the human index
 | `code-style.md` | `**/*.gd` |
 | `testing.md` | `tests/**`, `script/checks/gut_tests`, `script/checks/verify_tests`, `script/stamp_tests` |
 | `design-philosophy.md` | `engine/**`, `nodes/**` |
+| `signals-detail.md` | `engine/**`, `nodes/**` |
 | `tick-architecture.md` | `nodes/game_server.gd`, `engine/core/**`, `engine/desires/**`, `engine/growth/**` |
 | `animal-ai.md` | `engine/animals/**`, `engine/desires/**`, `engine/core/{contentment,animal,desire}*`, `mods/*/species/**`, `config/balance/desire_thresholds.json` |
+| `contentment.md` | `engine/core/contentment*`, `engine/core/player_verbs.gd` |
 | `objects.md` | `engine/core/object_state_manager.gd`, `engine/objects/**`, `mods/**/objects/**` |
 | `food-system.md` | `engine/core/food_system.gd`, `engine/core/object_state_manager.gd`, `mods/tcp_tuna/**` |
 | `hum-cable-system.md` | `engine/core/{hum_,wiring_,contentment}*`, `engine/core/food_system.gd`, `nodes/hud/{wiring,cable,hum_bar,dangling_tip}*`, `mods/tcp_base/config/hum.jsonc` |
@@ -347,6 +378,7 @@ script/validate
 <!-- AI-DEV: Items in this section are **empirical fixes found by trial and error**. We do NOT understand the root causes. Do NOT present these as facts about how Godot works. If a problem recurs, start from first principles rather than assuming these workarounds are correct. -->
 
 - **WAV audio silent despite `playing=true`:** Uncompressed WAV (`compress/mode=0` in `.import`) produced no audio in Godot 4.6.1. Switching to QOA compression (`compress/mode=2`) fixed playback. However, QOA with `edit/loop_mode=1` was also silent — workaround is `edit/loop_mode=0` with code-driven restart when the stream ends. Fix found by comparing with a working project (purrBall), not by understanding the cause.
+- **`class_name` static-var access fails on first reload:** Adding `class_name X` to one file and immediately referencing `X.static_var` from another file can hit `Identifier "X" not declared in the current scope` until Godot's editor rescans for class registrations. `--import` updates `.godot/global_script_class_cache.cfg`, but a running editor/game may have already cached the old script without the registration. Workaround: bind the script via `const X_SCRIPT := preload("res://path/to/x.gd")` and access `X_SCRIPT.static_var` through the const ref. Preload binds the script at parse time of the consumer so it works on the first reload regardless of the global class cache state. Not a substitute for `class_name` in `engine/` (still required for typed parameters and `is X` checks) — just for cross-file static-var access.
 
 ---
 

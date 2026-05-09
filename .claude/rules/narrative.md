@@ -5,7 +5,9 @@ paths:
   - "**/locale/**"
 ---
 
-# TCP Narrative Design — Parcel's Spec
+# TCP Narrative Design
+
+> Maintained alongside the `narrative-designer` (Parcel) agent. Dispatch that agent for review before substantive changes.
 
 ---
 
