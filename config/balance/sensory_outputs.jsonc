@@ -1,0 +1,19 @@
+// Sensory output registry — channel→falloff and output→channel mappings
+// the SensoryEmissionSystem reads. Recipes declare emissions under
+// `sensory_emissions.<output_name>`; the output_name must exist in
+// `outputs` here, and its channel must exist in `channels`.
+//
+// Forward-compat: no consumer reads channel falloff today; HUM still
+// reads `purr.intensity` directly. The registry exists so the validator
+// can reject recipes referencing unknown outputs/channels at mod load.
+{
+  "schema_version": 1,
+
+  "channels": {
+    "acoustic": { "falloff": "quadratic" }
+  },
+
+  "outputs": {
+    "purr": { "channel": "acoustic" }
+  }
+}
