@@ -9,6 +9,9 @@ paths:
 
 > Maintained alongside the `game-artist` (Smudge) agent. Dispatch that agent for review before substantive changes.
 
+> **Use `/load-game-artist`** when about to make an art decision (palette pick, sprite tweak, layout choice) and you want Smudge's principles in front of you first.
+> **Spawn the `game-artist` agent** when you have a finished sprite, scene, or design to review and want a structured pass against those principles with Smudge's voice.
+
 ## 1. Pixel Resolution and Base Grid
 
 **Target viewport:** 224×128 internal (14×8 tiles, 1.75:1), scaled to any display via Godot `canvas_items` stretch mode. 8× → 1792×1024. Fullscreen by default.
@@ -212,6 +215,14 @@ When an animal occupies a slot or an object is placed: a **2px vertical strip** 
 - **Settled:** Body low, eyes half-lidded, slow blink, faint warmth halo. Reads as "content."
 - **Alert:** Ears back, body lifts slightly, tail tip twitches. Reads as "something's off" — before any meter moves.
 - **Relocating:** Stands, moves purposefully. Disruption happened.
+
+---
+
+## 6b. HUD Drawer Character
+
+Drawer art treats UI surfaces as inhabited spaces, not screens. Each drawer should suggest something is happening inside it even when closed: kitten paws poking out from the kitties drawer, cable heads dangling from the wiring drawer, toy feathers sticking up from the toys drawer. Open drawers reveal the messy, lived-in interior — not a tidy menu. The drawer is a character; the user is peeking inside.
+
+This is a TCP-specific art direction choice — most games hide UI behind clean affordances. TCP wants the HUD to feel like the rest of the world: warm, populated, and slightly chaotic.
 
 ---
 
