@@ -28,3 +28,6 @@ signal box_squeaked(box_id: int)
 # Plant growth
 signal plant_spawned(server_id: int)
 signal plant_despawned(server_id: int)
+
+# Inspect (HUD-local; never serialized over the network)
+signal entity_inspect_opened(entity_id: int)
