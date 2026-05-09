@@ -69,7 +69,7 @@ func _ready() -> void:
 	_setup_hum_bar()
 	_setup_stats_bar()
 	_setup_inspect_drawer()
-	_setup_narrator_panel()
+	_setup_narrator_drawer()
 	_setup_debug_hud()
 	# Camera position/zoom handled by camera_controller.gd
 
@@ -87,18 +87,16 @@ func _setup_debug_hud() -> void:
 	debug_hud.initialize(game_server.db, game_server.settings, null)
 
 
-func _setup_narrator_panel() -> void:
-	var narrator := Narrator.new()
-	var panel := NarratorPanel.new()
-	# Centered horizontally on the 224-wide viewport (140 wide → 42px margin
-	# each side); y leaves a 2px gutter above the 128-tall viewport bottom.
-	panel.position = Vector2(
-		float(Constants.VIEWPORT_WIDTH - 140) / 2.0,
-		float(Constants.VIEWPORT_HEIGHT - 16 - 2),
+func _setup_narrator_drawer() -> void:
+	var NarratorDrawerScript: GDScript = preload(
+		"res://nodes/hud/narrator_drawer.gd"
 	)
-	panel.name = "NarratorPanel"
-	$HUD.add_child(panel)
-	panel.initialize(Events, narrator)
+	var narrator := Narrator.new()
+	var drawer: PanelContainer = PanelContainer.new()
+	drawer.set_script(NarratorDrawerScript)
+	drawer.name = "NarratorDrawer"
+	$HUD.add_child(drawer)
+	drawer.initialize(Events, narrator)
 
 
 func _setup_hum_bar() -> void:
@@ -401,9 +399,11 @@ func _handle_key(event: InputEventKey) -> bool:
 		_PURR_RING_SCRIPT.notes_visible = not _PURR_RING_SCRIPT.notes_visible
 		return true
 	if event.keycode == KEY_L:
-		var narrator: Control = $HUD.get_node_or_null("NarratorPanel")
-		if narrator:
-			narrator.visible = not narrator.visible
+		var narrator: PanelContainer = $HUD.get_node_or_null(
+			"NarratorDrawer",
+		) as PanelContainer
+		if narrator and narrator.has_method("toggle"):
+			narrator.toggle()
 		return true
 	if event.keycode == KEY_I or event.keycode == KEY_F1:
 		if _last_clicked_entity_id != Constants.INVALID_ID:
