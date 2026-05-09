@@ -70,11 +70,18 @@ These are diagnostic overlays wired in `nodes/game_client.gd` and `nodes/animal_
 |---|---|
 | `G` | Toggle slot grid overlay (debug) |
 | `N` | Toggle purr-note glyphs around purring entities (default off) |
-| `L` | Toggle narrator log panel (default on) |
+| `L` | Toggle bottom-edge narrator drawer (default open) |
 | `C` | Toggle per-animal data/sprite-position outlines (debug) |
 | `Cmd/Ctrl+W` or `Cmd/Ctrl+Q` | Quit |
 
-`N` defaults to **off** — the orbit-note glyphs are debug-flavored coverage feedback for HUM receivers (see `purr-power-ring0-design.md` §"Generation"); toggle on when you need to see which cats are within range. `L` hides the bottom-edge narrator panel for screenshots and uncluttered viewing.
+`N` defaults to **off** — the orbit-note glyphs are debug-flavored coverage feedback for HUM receivers (see `purr-power-ring0-design.md` §"Generation"); toggle on when you need to see which cats are within range. `L` toggles the bottom-edge narrator drawer for screenshots and uncluttered viewing.
+
+> **Placement drawer (current shape):** keys `1`–`7` open the right-edge
+> placement drawer AND select the type in one motion (implicit trigger).
+> Pressing the already-selected key closes the drawer. `R` toggles
+> remove mode. The four-drawer kitties/cables/infra/utilities split in
+> the Global table above is the long-term target — placement is the v1
+> implementation that proves the right-edge anchor.
 
 ---
 

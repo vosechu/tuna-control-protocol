@@ -35,9 +35,9 @@ Root (Node)
     HUD (CanvasLayer)
       HumBar                            # HUM reserve readout
       StatsBar                          # Per-frame diagnostics
-      NarratorPanel (PanelContainer)    # Bottom log readout — toggle with L
-      PlacementUI (Control)             # Right-edge placement buttons
-      InspectDrawer (PanelContainer)    # Tier-2 inspect, left-edge drawer
+      NarratorDrawer (PanelContainer)   # Bottom-edge drawer (default open) — toggle with L
+      PlacementDrawer (PanelContainer)  # Right-edge drawer (default closed) — opens on 1-7 / R
+      InspectDrawer (PanelContainer)    # Left-edge drawer (default closed) — Tier-2 inspect
 
     SoundManager (Node)
       AmbientLayer (AudioStreamPlayer)
