@@ -18,12 +18,13 @@ paths:
 
 TCP-wide narrative rules. Every player-facing string, log line, or world-building artifact should pass them.
 
-1. **Mail is the world window.** The primary mechanism for delivering lore beyond the robot's logs is physical mail — letters, parcels, and messages from other datacenters or from the past. They arrive occasionally, feel tangible, and expand the world without interrupting play. Example fragment: *"Dear Datacenter 7: Have you seen a repair technician? It's been 14 months. — Datacenter 12"*
-2. **The world heals visually, not textually.** Plants growing, moss spreading, light shifting, halos warming — these are the primary "world is healing" channels. Text supports the visual; it never substitutes. If a story beat would land via a sprite change, prefer the sprite change.
-3. **Names carry narrative weight.** Cat names, datacenter addresses (`tuna://`), skill tower nodes, advertisement channels — every name is a narrative opportunity. Prefer evocative over descriptive: *"Warm Nap Protocol"* beats *"Heat Bonus Level 2."*
-4. **Story never gates gameplay.** A player who ignores every letter has the same mechanical experience as one who reads them all. Narrative is a reward layer, not a progression key.
-5. **Never break the cozy.** Wistfulness, mystery, gentle melancholy — fine. Dread, guilt, existential despair — never. If a narrative element makes the player feel bad without a clear path to feeling better, cut it. The animals are alive and thriving; that's the story.
-6. **No fourth-wall breaks.** The robot doesn't know it's in a game. The animals don't know they're being watched. The world is self-consistent — no winks at the audience.
+1. **The robot is the comedian.** Every piece of "narrative" the player sees is filtered through the robot's misunderstanding. A kitten born is "new drive detected." A cat purring is "healthy disk activity." A ferret hacking the ordering system is "automated procurement sequence initiated." The humor is never mean — the robot is earnest and trying its best.
+2. **Mail is the world window.** The primary mechanism for delivering lore beyond the robot's logs is physical mail — letters, parcels, and messages from other datacenters or from the past. They arrive occasionally, feel tangible, and expand the world without interrupting play. Example fragment: *"Dear Datacenter 7: Have you seen a repair technician? It's been 14 months. — Datacenter 12"*
+3. **The world heals visually, not textually.** Plants growing, moss spreading, light shifting, halos warming — these are the primary "world is healing" channels. Text supports the visual; it never substitutes. If a story beat would land via a sprite change, prefer the sprite change.
+4. **Names carry narrative weight.** Cat names, datacenter addresses (`tuna://`), skill tower nodes, advertisement channels — every name is a narrative opportunity. Prefer evocative over descriptive: *"Warm Nap Protocol"* beats *"Heat Bonus Level 2."*
+5. **Story never gates gameplay.** A player who ignores every letter has the same mechanical experience as one who reads them all. Narrative is a reward layer, not a progression key.
+6. **Never break the cozy.** Wistfulness, mystery, gentle melancholy — fine. Dread, guilt, existential despair — never. If a narrative element makes the player feel bad without a clear path to feeling better, cut it. The animals are alive and thriving; that's the story.
+7. **No fourth-wall breaks.** The robot doesn't know it's in a game. The animals don't know they're being watched. The world is self-consistent — no winks at the audience.
 
 ---
 
