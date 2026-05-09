@@ -63,8 +63,18 @@ func _build_ui() -> void:
 	vbox.position = Vector2(2, 2)
 	add_child(vbox)
 
+	var header_row := HBoxContainer.new()
+	header_row.add_theme_constant_override("separation", 1)
 	_header_label = _make_label(_FONT_SIZE, Color(0.9, 0.85, 0.7))
-	vbox.add_child(_header_label)
+	_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_row.add_child(_header_label)
+	var close_btn := Button.new()
+	close_btn.text = "X"
+	close_btn.add_theme_font_size_override("font_size", _FONT_SIZE)
+	close_btn.custom_minimum_size = Vector2(6, 5)
+	close_btn.pressed.connect(_close_drawer)
+	header_row.add_child(close_btn)
+	vbox.add_child(header_row)
 
 	_status_label = _make_label(_FONT_SIZE, Color(0.7, 0.85, 0.7))
 	vbox.add_child(_status_label)
@@ -113,11 +123,19 @@ func _make_label(font_size: int, font_color: Color) -> Label:
 
 func _on_entity_inspect_opened(entity_id: int) -> void:
 	if _state.is_open() and _state.inspected_id == entity_id:
-		_state.close()
-		close()
+		_close_drawer()
 		return
 	_state.open(entity_id)
 	open()
+
+
+# Single source of truth for closing — used by the X button, click-outside,
+# ESC, controller B, and the toggle path.
+func _close_drawer() -> void:
+	if _state == null:
+		return
+	_state.close()
+	close()
 
 
 func _process(_delta: float) -> void:

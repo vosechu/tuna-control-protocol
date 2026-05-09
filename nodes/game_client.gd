@@ -327,22 +327,32 @@ func _setup_placement_ui() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if _close_inspect_drawer_if_open():
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed:
 		if _handle_key(event as InputEventKey):
 			return
-	if not event is InputEventMouseButton:
-		return
-	if not event.pressed:
-		return
+	if event is InputEventMouseButton and event.pressed:
+		_handle_mouse_button(event as InputEventMouseButton)
+
+
+func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	var camera: Camera2D = $Camera
-	var world_pos: Vector2 = (
-		camera.get_global_mouse_position()
-	)
+	var world_pos: Vector2 = camera.get_global_mouse_position()
 
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		_try_inspect_entity(world_pos)
 		return
 	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+
+	# Left-click outside the open drawer closes it. Control auto-consumes
+	# gui_input within its rect, so reaching here means the click was
+	# outside.
+	if _close_inspect_drawer_if_open():
+		get_viewport().set_input_as_handled()
 		return
 
 	if _placement_ui_node.is_remove_mode():
@@ -354,6 +364,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 	else:
 		_try_click_entity(world_pos)
+
+
+func _close_inspect_drawer_if_open() -> bool:
+	if not has_node("HUD"):
+		return false
+	var drawer: PanelContainer = $HUD.get_node_or_null(
+		"InspectDrawer",
+	) as PanelContainer
+	if drawer == null or not drawer.is_open():
+		return false
+	drawer._close_drawer()
+	return true
 
 
 # Returns true when the key was consumed.
