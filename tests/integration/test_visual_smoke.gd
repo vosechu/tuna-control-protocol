@@ -59,3 +59,30 @@ func test_main_scene_boot_state() -> void:
 		camera.position.x, expected.x, 1.0,
 		"Camera should be at bay 0 center",
 	)
+
+
+func test_inspect_drawer_opens_on_event() -> void:
+	var scene: PackedScene = preload("res://nodes/main.tscn")
+	var client: Node = scene.instantiate()
+	add_child_autofree(client)
+	# Two frames: GameClient._ready() awaits one frame internally before
+	# setting up the HUD.
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var drawer: PanelContainer = client.get_node(
+		"GameClient/HUD/InspectDrawer",
+	) as PanelContainer
+	assert_not_null(drawer, "InspectDrawer should exist under HUD")
+	assert_false(drawer.is_open(), "Drawer is closed at boot")
+
+	var server: Node = client.get_node("GameServer")
+	var db: GameStateDB = server.db
+	var animals: Array[int] = db.get_entities_with(&"sprite_config")
+	assert_gt(animals.size(), 0, "At least one animal should spawn")
+
+	Events.entity_inspect_opened.emit(animals[0])
+	await get_tree().process_frame
+
+	assert_true(drawer.is_open(), "Drawer opens on emit")
+	assert_eq(drawer._state.inspected_id, animals[0])
