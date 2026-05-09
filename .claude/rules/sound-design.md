@@ -20,11 +20,14 @@ All parameter values belong in `mods/tcp_base/config/*.json` and are tunable per
 
 TCP-wide audio rules. Every sound decision should pass them.
 
-1. **Sound teaches before UI does.** A kitten's mew tells the player it's hungry faster than any stat bar. A server fan speeding up warns of heat before the bar turns red. Audio is the fastest feedback channel — design it as the first read, not the last.
-2. **Sound design informs mechanical design.** If a mechanic can't be heard, it can't be felt. Don't treat audio as a polish pass — bring sound into the design conversation early. A mechanic with no audible signature is one the player will miss.
-3. **Most sounds are ambient and comforting; alerts are rare.** Cozy games are calm. The default texture is layered, restful, and rewarding. An attention-grabbing sound earns its rarity by being uncommon — alert fatigue kills the signal value of every sound that came before it.
-4. **The robot has a voice — mechanical, not vocal.** The robot doesn't talk. It servos, beeps, hums, and whirs. Personality is conveyed through pitch, timing, and rhythm of mechanical sounds. WALL-E, not C-3PO. Confused = double-beep with rising inflection. Satisfied = soft descending hum. (The narrative side — how the robot *interprets* animal sounds in its logs — lives in `narrative.md`.)
-5. **Naturalistic, varied, context-sensitive.** Sounds should not feel canned. Vary pitch, timing, and selection from a pool. A cat doesn't meow in a loop — neither do its sound effects.
+1. **Purring is the heartbeat.** The aggregate purr level IS the IOPS metric, made audible. When things are going well, the datacenter hums with a warm, layered purr. When things degrade, the purr thins. The player should be able to close their eyes and know how their datacenter is doing.
+2. **Sound teaches before UI does.** A kitten's mew tells the player it's hungry faster than any stat bar. A server fan speeding up warns of heat before the bar turns red. Audio is the fastest feedback channel — design it as the first read, not the last.
+3. **The robot has a voice — mechanical, not vocal.** The robot doesn't talk. It servos, beeps, hums, and whirs. Personality is conveyed through pitch, timing, and rhythm of mechanical sounds. WALL-E, not C-3PO. Confused = double-beep with rising inflection. Satisfied = soft descending hum. (The narrative side — how the robot *interprets* animal sounds in its logs — lives in `narrative.md`.)
+4. **Volume is a design tool.** A datacenter with 500 happy cats should sound FULL — not overwhelming, but rich and warm and alive. The sound of abundance is layered harmony, not cacophony. This is the audio equivalent of "buried in kittens."
+5. **Silence means something.** A quiet datacenter is a sad datacenter. If the player has let things decay, the silence itself is the feedback. No alarm needed — the absence of purring IS the alarm. (See §3 for the silence-disambiguation system that distinguishes "asleep" from "sad.")
+6. **Sound design informs mechanical design.** If a mechanic can't be heard, it can't be felt. Don't treat audio as a polish pass — bring sound into the design conversation early. A mechanic with no audible signature is one the player will miss.
+7. **Most sounds are ambient and comforting; alerts are rare.** Cozy games are calm. The default texture is layered, restful, and rewarding. An attention-grabbing sound earns its rarity by being uncommon — alert fatigue kills the signal value of every sound that came before it.
+8. **Naturalistic, varied, context-sensitive.** Sounds should not feel canned. Vary pitch, timing, and selection from a pool. A cat doesn't meow in a loop — neither do its sound effects.
 
 ---
 

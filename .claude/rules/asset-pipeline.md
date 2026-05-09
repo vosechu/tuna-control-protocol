@@ -20,10 +20,14 @@ paths:
 
 The philosophical foundations behind the mechanical rules below. They live here (rather than CLAUDE.md or `design-philosophy.md`) because they're specifically about the *bridge* between art and code.
 
-1. **Naming conventions are load-bearing.** File names encode metadata (`cat_white_idle_01.png`, `server_1u_powered_on.png`). Parseable names mean fewer manifest files and faster onboarding — "can a new contributor find the cat idle animation in under 10 seconds?" is a real test.
-2. **Hierarchy follows function, not source.** Files belonging to the same in-game thing live together (`sprites/cat/`, `sounds/cat/`), not segregated by file type. Folder boundaries match conceptual boundaries.
-3. **Implicit dependencies are bugs.** If asset A requires asset B to exist, that dependency is declared (in `mod.json`, in a recipe field, or in the directory structure), not assumed.
-4. **Platform-agnostic by construction.** Assets target the internal viewport (224×128), not specific output resolutions. Integer-only scaling. Palette + atlas conventions hold across desktop, web, console.
+1. **Config over code.** Every number in every formula — heat output per server, kitten gestation time, treat dispenser queue size, desire weight ranges — should be in a JSON file that can be overridden. This is a CLAUDE.md fundamental.
+2. **Naming conventions are load-bearing.** File names encode metadata (`cat_white_idle_01.png`, `server_1u_powered_on.png`, `treat_tuna_seared.png`). Parseable names mean fewer manifest files and faster onboarding — "can a new contributor find the cat idle animation in under 10 seconds?" is a real test.
+3. **Species as data, not code.** A new animal type should be a new JSON definition (needs, contributions, size, animations, sounds), not a new script. The animal behavior system reads these definitions. Adding a guinea pig shouldn't require a programmer.
+4. **Version everything.** Save files include a schema version. Config files include a format version. Asset packs include a compatibility version. Migration paths exist between versions.
+5. **Debug-friendly saves.** Game state exports to human-readable format (JSON or similar). A developer should be able to open a save file and understand what happened. This means save files include not just state but a brief history log.
+6. **Hierarchy follows function, not source.** Files belonging to the same in-game thing live together (`sprites/cat/`, `sounds/cat/`), not segregated by file type. Folder boundaries match conceptual boundaries.
+7. **Implicit dependencies are bugs.** If asset A requires asset B to exist, that dependency is declared (in `mod.json`, in a recipe field, or in the directory structure), not assumed.
+8. **Platform-agnostic by construction.** Assets target the internal viewport (224×128), not specific output resolutions. Integer-only scaling. Palette + atlas conventions hold across desktop, web, console.
 
 ---
 

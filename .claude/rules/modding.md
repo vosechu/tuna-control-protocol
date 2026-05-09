@@ -16,9 +16,13 @@ paths:
 The philosophical foundations behind the mechanical rules below. Apply them when adding new mod-facing surfaces.
 
 1. **Modders are the second dev team.** If the data pipeline is good (species as JSON, formulas in config, capabilities not species), modders will create animal types, infrastructure, and mechanics the core team never imagined. Plan for this. Test through it. Celebrate it.
-2. **Document internals; modders RE them anyway.** Hidden mechanics (desire weights, heat formulas, schema details) get reverse-engineered by mod communities regardless. Better to document them officially — they become a feature, not a leak.
-3. **Stable schemas, explicit migrations.** Schema versioning isn't optional. Config files, save files, and APIs all need version fields. Adding `schema_version` now is trivial; retrofitting it across an existing mod ecosystem is impossible.
-4. **Cozy doesn't mean unmoderated.** "Our players will be nice" is probably true for a cozy game audience but not guaranteed. Plan for light moderation tools — particularly around UGC that crosses into other players' visible space — from the start.
+2. **Share the joy.** TCP's core experience is joy — sharing should amplify that. The `tuna://` URI scheme, rack screenshots, cat profiles, family trees — every shareable artifact should make someone say "aww" or "wow."
+3. **Protect the vibe.** In multiplayer, wandering cats cross into other players' racks. What if a modder creates an ugly or inappropriate cat? Content boundaries matter. The core aesthetic should be protected even when mods are active.
+4. **The wiki is part of the game.** Players discovering that "ferrets like chaos" through observation is great. Players confirming it on a wiki is also great. Design should reward both discovery and documentation. Maybe even: an in-game "field guide" that fills in as the player observes behaviors?
+5. **Community tools need data.** If players want to build IOPS calculators, layout planners, or animal trackers, they need access to game data. The save file format, config schemas, and (eventually) an API should be documented and stable.
+6. **Document internals; modders RE them anyway.** Hidden mechanics (desire weights, heat formulas, schema details) get reverse-engineered by mod communities regardless. Better to document them officially — they become a feature, not a leak.
+7. **Stable schemas, explicit migrations.** Schema versioning isn't optional. Config files, save files, and APIs all need version fields. Adding `schema_version` now is trivial; retrofitting it across an existing mod ecosystem is impossible.
+8. **Cozy doesn't mean unmoderated.** "Our players will be nice" is probably true for a cozy game audience but not guaranteed. Plan for light moderation tools — particularly around UGC that crosses into other players' visible space — from the start.
 
 ---
 

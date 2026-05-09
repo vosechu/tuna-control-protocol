@@ -9,6 +9,9 @@ paths:
 > **Use `/load-game-designer`** when about to make a design decision affecting systems, feedback loops, player motivation, or coherence with TCP's vision — and you want Mochi's principles in front of you first.
 > **Spawn the `game-designer` agent** when you have a mechanic or system design to review against TCP's abundance/emergence philosophy and elegance principle.
 
+> **Use `/load-game-programmer`** when about to make an architecture choice, refactor decision, or "what belongs in pure core" call — and you want Bramble's full TCP code-architecture context in front of you first.
+> **Spawn the `game-programmer` agent** when you have GDScript code or an architecture decision to review for tick scheduling, signals, save/networking, and pure-core/integer/null-free adherence.
+
 These rules apply to ALL code written for TCP.
 
 ## Pure Core Pattern
@@ -57,14 +60,26 @@ GameStateDB maintains a relationship table for entity-to-entity connections: tea
 
 ---
 
-## Game Design Principles
+## Game Design Principles (Mochi)
 
 These complement the engineering rules above. They govern *what* the game does, not *how* the engine works.
 
-- **Five needs, no more, ever.** Hunger, Rest, Social, Comfort, Curiosity. Personality modifies the curves and weights — not the list of needs. Adding a sixth need is a load-bearing design change, not a feature addition.
-- **Inter-species dependency is the progression engine.** Each species recipe unlocks capabilities other recipes need. This is the "why would I leave Phase 1?" answer — new species enable higher happiness ceilings that single-species setups can't reach.
-- **Cozy lives and dies by rhythm.** Every system gets evaluated at three timescales: 1 minute (moment-to-moment feedback loop), 1 hour (session arc), 1 week (long-term progression). A mechanic that feels right at one scale and wrong at another isn't shippable.
-- **Sound is a game mechanic, not a polish layer.** Purr-as-IOPS is a load-bearing system, not decoration. Every system should have an audio signature that conveys state without requiring the player to look at it. (Mechanics in `sound-design.md`.)
+1. **Abundance, not scarcity.** Never design a mechanic around "running out of" something. If a resource exists, it exists to enable, not to constrain. The challenge is optimization, not survival.
+2. **The Gnorp Question.** For every system, ask: "What's the theoretical maximum here, and why is it hard to reach?" The fun is in the asymptotic pursuit, not the binary pass/fail.
+3. **Desire-driven, not script-driven.** Animals have desires (Maslow base + individual traits). Interesting behavior emerges from desire + environment + proximity. Resist the urge to script specific interactions. Start with exactly 5 needs (Hunger, Rest, Social, Comfort, Curiosity) — enough for interesting tradeoffs, few enough to understand. Personality modifies the *curves*, not the *needs*.
+4. **Inter-species dependency is the progression engine.** Each species unlocks capabilities that other species need. This creates the "why would I leave Phase 1?" answer — you leave because new species enable higher happiness ceilings that single-species setups can't reach.
+5. **Nothing is cosmetic.** Every placeable element should have a mechanical purpose, even if that purpose is discovered through emergence rather than designed explicitly.
+6. **The robot's misunderstanding is the UI.** The player sees cute animals; the stats and HUD interpret everything through datacenter metrics. This gap is both the comedy and the information design.
+7. **Cozy lives and dies by rhythm.** Every system gets evaluated at three timescales: 1 minute (moment-to-moment feedback loop), 1 hour (session arc), 1 week (long-term progression). A mechanic that feels right at one scale and wrong at another isn't shippable.
+8. **Sound is a game mechanic, not a polish layer.** Purr-as-IOPS is a load-bearing system, not decoration. Every system should have an audio signature that conveys state without requiring the player to look at it. (Mechanics in `sound-design.md`.)
+
+## Engineering Practice Principles (Bramble)
+
+Cross-cutting engineering disciplines that don't fit a single path-gated rule.
+
+- **Design for the target, implement for the prototype.** The first playable proves *feel* — a cat walking to a warm spot, settling, purring. That doesn't need ECS or spatial hashing. But the architecture MUST support TCP's targets (thousands of animals, multiplayer, emergence) without a rewrite. Clean interfaces from day one, simple implementations behind them, optimized backends swapped in when scale demands it.
+- **AI feel > AI speed.** The hardest part of utility AI isn't performance — it's making animals feel *alive*. Animals should deliberate (brief pause before choosing), commit (don't switch actions when scores change by 0.01), and have visible intent. The animation layer between AI decisions and visible behavior is where believability lives. Budget time for tuning AI *feel*, not just AI *correctness*.
+- **GDExtension escape hatch.** GDScript Dictionary performance at 1000+ entities with per-tick queries may bottleneck. Design hot-path interfaces (GameStateDB and similar) so the implementation can be swapped to a GDExtension (C++) without changing callers. Profile early, profile often.
 
 ---
 

@@ -12,6 +12,16 @@ paths:
 > **Use `/load-game-artist`** when about to make an art decision (palette pick, sprite tweak, layout choice) and you want Smudge's principles in front of you first.
 > **Spawn the `game-artist` agent** when you have a finished sprite, scene, or design to review and want a structured pass against those principles with Smudge's voice.
 
+## 0. Design Principles
+
+1. **Warmth gradient tells the story.** The datacenter starts cold and gray. As animals arrive and thrive, warmth spreads — not just temperature, but visual warmth. Colors shift from blue-gray to amber. Hard edges soften. Plants appear. The art should communicate the world healing without any text.
+2. **Every animal is instantly readable.** At the default zoom level, you should be able to identify species, rough mood (happy/neutral/sad), and activity (sleeping/eating/playing/working) from silhouette and color alone. This means strong shape language: cats are round, ferrets are long, dogs are stocky.
+3. **The robot arm has personality.** It tilts its "head" (the gripper) when confused. It moves smoothly when confident, jerkily when uncertain. It has no face but communicates emotion through body language — like WALL-E's binoculars or the desk lamp from Pixar.
+4. **The HUD drawers are alive.** Kitten paws poking out, cable heads dangling, toy feathers sticking up — these aren't just UI elements, they're characters. The drawers should feel like peeking into a messy, wonderful world. (See §6b for the full HUD-drawer treatment.)
+5. **Scale communicates importance.** The most important things (animals, active infrastructure) are rendered at full detail. Background elements (distant racks, decorative plants) use simpler rendering. This creates depth without overwhelming the eye.
+
+---
+
 ## 1. Pixel Resolution and Base Grid
 
 **Target viewport:** 224×128 internal (14×8 tiles, 1.75:1), scaled to any display via Godot `canvas_items` stretch mode. 8× → 1792×1024. Fullscreen by default.
