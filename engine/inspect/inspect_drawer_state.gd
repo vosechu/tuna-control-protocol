@@ -31,3 +31,9 @@ func process(db: GameStateDB) -> void:
 	if not db.has_entity(inspected_id):
 		close()
 		return
+	if db.has_component(inspected_id, &"desires"):
+		content_type = ContentType.ANIMAL
+	elif db.has_component(inspected_id, &"object_type"):
+		content_type = ContentType.SERVER
+	else:
+		close()

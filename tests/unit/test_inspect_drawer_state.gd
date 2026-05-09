@@ -59,3 +59,33 @@ func test_process_while_closed_is_noop() -> void:
 	state.process(db)
 	assert_false(state.is_open())
 	assert_eq(state.content_type, InspectDrawerState.ContentType.CLOSED)
+
+
+func test_process_animal_sets_content_animal() -> void:
+	var db := GameStateDB.new()
+	var animal_id: int = db.create_entity()
+	db.set_component(animal_id, &"desires", {&"warmth": 500})
+	var state := InspectDrawerState.new()
+	state.open(animal_id)
+	state.process(db)
+	assert_eq(state.content_type, InspectDrawerState.ContentType.ANIMAL)
+
+
+func test_process_server_sets_content_server() -> void:
+	var db := GameStateDB.new()
+	var server_id: int = db.create_entity()
+	db.set_component(server_id, &"object_type", {&"type": &"server_1u"})
+	var state := InspectDrawerState.new()
+	state.open(server_id)
+	state.process(db)
+	assert_eq(state.content_type, InspectDrawerState.ContentType.SERVER)
+
+
+func test_process_neither_capability_closes() -> void:
+	var db := GameStateDB.new()
+	var orphan_id: int = db.create_entity()
+	var state := InspectDrawerState.new()
+	state.open(orphan_id)
+	state.process(db)
+	assert_false(state.is_open())
+	assert_eq(state.content_type, InspectDrawerState.ContentType.CLOSED)
