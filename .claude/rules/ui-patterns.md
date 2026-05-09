@@ -46,7 +46,7 @@ func _on_heat_cell_changed(cell_id: int, _old: float, new_temp: float) -> void:
 
 ## Drawers
 
-A **drawer** is a screen-edge-anchored `PanelContainer` that slides in/out from one viewport edge, stays in screen space (HUD CanvasLayer), and follows this contract. The base lives at `nodes/hud/drawer.gd`; subclasses (today: `InspectDrawer`; planned: placement, narrator) inherit it.
+A **drawer** is a screen-edge-anchored `PanelContainer` that slides in/out from one viewport edge, stays in screen space (HUD CanvasLayer), and follows this contract. The base lives at `nodes/hud/drawer.gd`; subclasses `InspectDrawer` (left), `PlacementDrawer` (right), and `NarratorDrawer` (bottom) inherit it.
 
 | Rule | What it means |
 |---|---|
@@ -56,6 +56,8 @@ A **drawer** is a screen-edge-anchored `PanelContainer` that slides in/out from 
 | Single-occupant per edge | At most one drawer per edge (v1 contract; v2 may stack). |
 | No layout-pushing | An open drawer overlays content behind it. Most-recent drawer wins z-order. |
 | One close path | All affordances (X button, click-outside, ESC, controller B, toggle re-emit) route through one `_close_drawer()` method that closes both the state and the Control. |
+
+**Subclass authoring — set size before `super._ready()`.** The `Drawer` base computes `_closed_position` from `custom_minimum_size` inside its own `_ready()`. Subclasses MUST set `custom_minimum_size`, `anchor_edge`, and `open_position` in their own `_ready()` *before* calling `super._ready()` — otherwise the base reads zero, `_closed_position` collapses to `open_position`, and `close()` never actually slides off-edge (it just fades via the trailing `visible = false`, which masks the bug). `PlacementDrawer` and `NarratorDrawer` follow this pattern; the older `InspectDrawer` does its setup in a separate `initialize()` called after `add_child()` and inherits the latent off-edge bug. New subclasses: do not copy the inspect pattern.
 
 **Click-outside detection comes free.** A `Control` auto-consumes `_gui_input` events within its rect, so `_unhandled_input` only fires for clicks outside the drawer. Don't compute the drawer's rect manually — let the control hierarchy do it.
 
