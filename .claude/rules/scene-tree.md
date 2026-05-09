@@ -66,3 +66,47 @@ AnimalRoot (Node2D)
 **Thin wrapper rule:** Every Node listed under GameServer (SimClock, HeatGrid, DesireResolver, etc.) is a thin wrapper around a RefCounted core object. The Node handles lifecycle (_ready, scene tree integration) and delegates all logic to its core object. This is NOT a contradiction of the Pure Core pattern — Nodes exist to participate in the scene tree; they do not hold authoritative game logic.
 
 Nodes legitimately handle: rendering, input capture, collision shape management, audio playback, and scene tree lifecycle. These feed data INTO core objects but don't hold authoritative state.
+
+## Node coding conventions
+
+These rules apply on top of `code-style.md` when writing code under `nodes/**`.
+
+### `@export` vs ConfigRegistry
+
+`@export` is for scene-specific wiring (NodePaths, editor-time visual tweaks, debug toggles). Game balance values come from ConfigRegistry/JSON. Never duplicate a JSON config value as an export.
+
+### `@onready` and initialization order
+
+Core objects (RefCounted) are created in the node constructor or via `@onready`. Signal wiring happens in `_ready()`. Never access sibling nodes in `_enter_tree` — children are ready before parents (bottom-up).
+
+### `_physics_process` vs `_process`
+
+All simulation runs in `_physics_process` (fixed 10Hz timestep via `Engine.physics_ticks_per_second = 10`). `_process` is only for rendering interpolation, animation, and UI. Never put game logic in `_process`. Never put rendering in `_physics_process`.
+
+### State projection
+
+GameStateDB is authoritative. Nodes project state to Godot systems (AnimationPlayer, ShaderMaterial, AudioStreamPlayer) in `_process`. Godot systems never write back to GameStateDB directly — they emit signals that the core interprets.
+
+### Integer/float rendering boundary
+
+Positions are integer world pixels everywhere in the core (GameStateDB, AI, physics). The rendering boundary converts to `Vector2`/`float` via explicit cast:
+
+```gdscript
+# In core — integer pixels
+var pos: Vector2i = db.get_component(id, &"position")
+# In node rendering — cast to float
+sprite.position = Vector2(pos)
+
+static func to_unit(v: int) -> float:
+    return float(v) / float(UNIT)
+```
+
+Never mix `int` and `float` coordinate math in the same function.
+
+### Node pooling
+
+Node wrappers for animals are pooled (expensive to create/destroy). RefCounted core objects are created/freed directly (cheap). Always `queue_free()`, never `free()` on nodes.
+
+### Resource loading
+
+Base game assets use `preload()`. Mod assets use `ResourceLoader.load_threaded_request()` during the mod loading phase. Never `load()` during gameplay ticks — it causes frame hitches.

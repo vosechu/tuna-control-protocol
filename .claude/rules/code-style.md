@@ -25,12 +25,6 @@ Validate at top, early return on failure. Main logic at lowest indent level.
 ## Error Handling
 `assert()` for programmer errors (debug only). `push_error()` + graceful skip for data errors (bad mod JSON). Never silent swallow.
 
-## Signals
-- Always past tense: `animal_relocated`, `food_dispensed`
-- Include ID of changed entity
-- Include old + new values when delta matters
-- Slot naming: `_on_<emitter>_<signal_name>`
-
 ## Naming Conventions
 | What | Convention | Example |
 |---|---|---|
@@ -66,38 +60,11 @@ Always use typed arrays (`Array[int]`, `Array[AnimalState]`) in game logic. Unty
 ## StringName for Hot Paths
 Use `StringName` for signal names, component keys in GameStateDB, and any string used as a dictionary key in hot paths. Use `&"literal"` syntax for StringName literals. `String` is fine for display text, log messages, and cold paths.
 
-## `@export` vs ConfigRegistry
-`@export` is for scene-specific wiring (NodePaths, editor-time visual tweaks, debug toggles). Game balance values come from ConfigRegistry/JSON. Never duplicate a JSON config value as an export.
+## Node-specific conventions
 
-## `@onready` and Initialization Order
-Core objects (RefCounted) are created in the node constructor or via `@onready`. Signal wiring happens in `_ready()`. Never access sibling nodes in `_enter_tree` — children are ready before parents (bottom-up).
+Lifecycle, `@export`, `@onready`, `_physics_process` vs `_process`, state projection, the integer/float rendering boundary, node pooling, and resource loading are all node-only concerns and live in `scene-tree.md` (path-gated to `nodes/**`).
 
-## `_physics_process` vs `_process`
-All simulation runs in `_physics_process` (fixed 10Hz timestep via `Engine.physics_ticks_per_second = 10`). `_process` is only for rendering interpolation, animation, and UI. Never put game logic in `_process`. Never put rendering in `_physics_process`.
-
-## State Projection
-GameStateDB is authoritative. Nodes project state to Godot systems (AnimationPlayer, ShaderMaterial, AudioStreamPlayer) in `_process`. Godot systems never write back to GameStateDB directly — they emit signals that the core interprets.
-
-## Integer-Float Boundary
-Positions are integer world pixels everywhere in the core (GameStateDB, AI, physics). The rendering boundary converts to `Vector2`/`float` via explicit cast:
-
-```gdscript
-# In core — integer pixels
-var pos: Vector2i = db.get_component(id, &"position")
-# In node rendering — cast to float
-sprite.position = Vector2(pos)
-
-static func to_unit(v: int) -> float:
-    return float(v) / float(UNIT)
-```
-
-Never mix `int` and `float` coordinate math in the same function.
-
-## Node Pooling
-Node wrappers for animals are pooled (expensive to create/destroy). RefCounted core objects are created/freed directly (cheap). Always `queue_free()`, never `free()` on nodes.
-
-## Resource Loading
-Base game assets use `preload()`. Mod assets use `ResourceLoader.load_threaded_request()` during the mod loading phase. Never `load()` during gameplay ticks — it causes frame hitches.
+Signal naming and patterns live in `signals.md` (always-loaded) and `signals-detail.md` (path-gated to engine and nodes).
 
 ---
 
