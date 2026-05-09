@@ -274,6 +274,20 @@ func spawn(
 			{&"rate_when_satisfied": rate, &"base_radius_ru": base_radius_ru},
 		)
 
+	# Sensory emissions: data-driven multi-output emission. Coexists
+	# with the legacy `purr` block while cat.jsonc migrates; the legacy
+	# block is removed once no recipe declares it.
+	if def.has("sensory_emissions"):
+		var emissions: Dictionary = _materialize_sensory_emissions(
+			def["sensory_emissions"]
+		)
+		db.set_component(id, &"sensory_emissions", emissions)
+		for output_name: StringName in emissions:
+			db.set_component(
+				id, output_name,
+				{&"intensity": 0, &"radius_px": 0},
+			)
+
 	# HUM battery: recipe declares capacity; entity starts at full reserve.
 	# Falls back to HumSystem.DEFAULT_CAPACITY when recipe omits the field.
 	if def.has("hum"):
@@ -353,4 +367,72 @@ func _to_stringname_keys(d: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key in d:
 		out[StringName(key)] = d[key]
+	return out
+
+
+# Materializes the recipe's sensory_emissions block:
+#   - Recursively converts String keys to StringName at every nesting level.
+#   - Canonicalizes value sources (base_intensity, base_radius_ru):
+#       int literal -> {kind: &"literal", value: int}
+#       {component, field} -> {kind: &"ref", component, field}
+#   - Sorts each modifiers list by priority ascending; ties preserve list order.
+func _materialize_sensory_emissions(raw: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for output_name in raw:
+		var entry: Dictionary = raw[output_name]
+		out[StringName(output_name)] = _materialize_emission_entry(entry)
+	return out
+
+
+func _materialize_emission_entry(raw: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	if raw.has("trigger"):
+		out[&"trigger"] = _to_stringname_keys_recursive(raw["trigger"])
+	out[&"base_intensity"] = _canonicalize_value_source(raw["base_intensity"])
+	out[&"base_radius_ru"] = _canonicalize_value_source(raw["base_radius_ru"])
+
+	var raw_mods: Array = raw.get("modifiers", [])
+	var typed_mods: Array[Dictionary] = []
+	for m: Dictionary in raw_mods:
+		typed_mods.append(_to_stringname_keys_recursive(m))
+	typed_mods.sort_custom(
+		func(a: Dictionary, b: Dictionary) -> bool:
+			var pa: int = int(a.get(&"priority", 0))
+			var pb: int = int(b.get(&"priority", 0))
+			return pa < pb
+	)
+	out[&"modifiers"] = typed_mods
+	return out
+
+
+func _canonicalize_value_source(raw: Variant) -> Dictionary:
+	if raw is int:
+		return {&"kind": &"literal", &"value": raw}
+	if raw is Dictionary:
+		var d: Dictionary = raw
+		return {
+			&"kind": &"ref",
+			&"component": StringName(d["component"]),
+			&"field": StringName(d["field"]),
+		}
+	push_error("EntityDefRegistry: bad value source: %s" % raw)
+	return {&"kind": &"literal", &"value": 0}
+
+
+# Recursive variant of _to_stringname_keys. Converts String dict keys to
+# StringName at every nesting level; String values are also converted to
+# StringName (modifier op/component/field, trigger component/field).
+# Numeric/bool/Array values pass through (Array elements that are dicts
+# are recursed into; primitive Array elements pass through).
+func _to_stringname_keys_recursive(d: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for key in d:
+		var v: Variant = d[key]
+		var sn_key: StringName = StringName(key)
+		if v is Dictionary:
+			out[sn_key] = _to_stringname_keys_recursive(v)
+		elif v is String:
+			out[sn_key] = StringName(v)
+		else:
+			out[sn_key] = v
 	return out
