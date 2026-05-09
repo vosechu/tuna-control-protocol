@@ -260,23 +260,10 @@ func spawn(
 	if def.get("tends_servers", false):
 		db.set_component(id, &"tends_servers", {})
 
-	# Purr emitter: split recipe dict into two DB components.
-	# purr.intensity is the per-tick broadcast value (hot path, read by HumSystem).
-	# purr.radius_px is also per-tick, written by ContentmentPurrBridge.
-	# purr_config holds cold recipe snapshots (rate_when_satisfied, base_radius_ru).
-	if def.has("purr"):
-		var purr_cfg: Dictionary = def["purr"]
-		var rate: int = int(purr_cfg.get("rate_when_satisfied", 0))
-		var base_radius_ru: int = int(purr_cfg.get("base_radius_ru", 0))
-		db.set_component(id, &"purr", {&"intensity": 0, &"radius_px": 0})
-		db.set_component(
-			id, &"purr_config",
-			{&"rate_when_satisfied": rate, &"base_radius_ru": base_radius_ru},
-		)
-
-	# Sensory emissions: data-driven multi-output emission. Coexists
-	# with the legacy `purr` block while cat.jsonc migrates; the legacy
-	# block is removed once no recipe declares it.
+	# Sensory emissions: data-driven multi-output emission. Recipes
+	# declare what they emit (purr today; future channels gain their
+	# own output entries). The materializer canonicalizes value sources
+	# so the runtime sees no Variant.
 	if def.has("sensory_emissions"):
 		var emissions: Dictionary = _materialize_sensory_emissions(
 			def["sensory_emissions"]
