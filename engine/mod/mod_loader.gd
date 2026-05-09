@@ -1,7 +1,10 @@
 class_name ModLoader extends RefCounted
 
+const _SENSORY_OUTPUTS_PATH := "res://config/balance/sensory_outputs.jsonc"
+
 var validator: SpeciesSchemaValidator = SpeciesSchemaValidator.new()
 var scenario_validator: ScenarioSchemaValidator = ScenarioSchemaValidator.new()
+var sensory_validator: SensoryEmissionsSchemaValidator
 
 
 func load_all(mods_path: String) -> Dictionary:
@@ -12,6 +15,17 @@ func load_all(mods_path: String) -> Dictionary:
 	validator.add_required_field("sprite_config")
 	validator.add_required_field("ambient_states")
 	validator.add_required_field("hud_color")
+
+	# AI-DEV: SensoryEmissionsSchemaValidator must be constructed AFTER
+	# any future config-layering pass completes — cross-mod scenarios
+	# where mod A declares an output that mod B's patch defines depend
+	# on the layered output config being final. ConfigRegistry doesn't
+	# exist yet; today this loads the unlayered base file directly. When
+	# layering ships, swap this single read for the layered registry
+	# read; do not split the read across phases.
+	sensory_validator = SensoryEmissionsSchemaValidator.new(
+		_load_sensory_outputs_config()
+	)
 
 	var mod_dirs: Array[String] = _discover_mods(mods_path)
 
@@ -160,8 +174,28 @@ func _load_jsonc_dir(
 				)
 				entry = dir.get_next()
 				continue
+			if data.has("sensory_emissions"):
+				if not sensory_validator.validate(data["sensory_emissions"]):
+					push_error(
+						(
+							"ModLoader: rejecting recipe '%s' from %s —"
+							+ " sensory_emissions schema violation"
+						) % [entity_id, file_path]
+					)
+					entry = dir.get_next()
+					continue
 			entity_defs.register(entity_id, data)
 		entry = dir.get_next()
+
+
+func _load_sensory_outputs_config() -> Dictionary:
+	if not FileAccess.file_exists(_SENSORY_OUTPUTS_PATH):
+		push_error(
+			"ModLoader: sensory_outputs config missing at %s"
+			% _SENSORY_OUTPUTS_PATH
+		)
+		return {}
+	return _parse_jsonc(_SENSORY_OUTPUTS_PATH)
 
 
 func _parse_jsonc(path: String) -> Dictionary:
