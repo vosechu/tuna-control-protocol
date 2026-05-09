@@ -111,7 +111,7 @@ func _setup_hum_bar() -> void:
 
 func _setup_stats_bar() -> void:
 	var StatsBarScript: GDScript = preload(
-		"res://nodes/animal_stats_bar.gd"
+		"res://nodes/hud/animal_stats_bar.gd"
 	)
 	var stats_bar: HBoxContainer = HBoxContainer.new()
 	stats_bar.set_script(StatsBarScript)
@@ -292,7 +292,7 @@ func _spawn_animal_nodes() -> void:
 
 func _setup_placement_ui() -> void:
 	var PlacementUIScript: GDScript = preload(
-		"res://nodes/placement_ui.gd"
+		"res://nodes/hud/placement_ui.gd"
 	)
 	var old_ui: Control = $PlacementUI
 	old_ui.queue_free()

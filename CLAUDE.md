@@ -250,6 +250,7 @@ Each file's `paths:` frontmatter is authoritative; this table is the human index
 | `testing.md` | `tests/**`, `script/checks/gut_tests`, `script/checks/verify_tests`, `script/stamp_tests` |
 | `design-philosophy.md` | `engine/**`, `nodes/**` |
 | `signals-detail.md` | `engine/**`, `nodes/**` |
+| `ui-patterns.md` | `nodes/hud/**` |
 | `tick-architecture.md` | `nodes/game_server.gd`, `engine/core/**`, `engine/desires/**`, `engine/growth/**` |
 | `animal-ai.md` | `engine/animals/**`, `engine/desires/**`, `engine/core/{contentment,animal,desire}*`, `mods/*/species/**`, `config/balance/desire_thresholds.json` |
 | `contentment.md` | `engine/core/contentment*`, `engine/core/player_verbs.gd` |

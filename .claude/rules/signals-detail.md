@@ -123,40 +123,9 @@ func _ready() -> void:
     _robot_arm = arm
 ```
 
-## UI listening — full example
+## UI listening
 
-```gdscript
-# inspect_panel.gd — part of the HUD CanvasLayer
-extends PanelContainer
-
-var _inspected_animal_id: int = -1
-
-func _ready() -> void:
-    Events.animal_state_changed.connect(_on_animal_state_changed)
-    Events.animal_desire_critical.connect(_on_animal_desire_critical)
-    Events.heat_cell_changed.connect(_on_heat_cell_changed)
-    Events.robot_arm_activated.connect(_on_robot_arm_activated)
-
-func inspect(animal_id: int) -> void:
-    _inspected_animal_id = animal_id
-    _refresh()
-
-func _on_animal_state_changed(animal_id: int, _old: StringName, new_state: StringName) -> void:
-    if animal_id != _inspected_animal_id: return
-    %StateLabel.text = tr("STATE_" + new_state.to_upper())
-
-func _on_animal_desire_critical(animal_id: int, desire_type: StringName, value: float) -> void:
-    if animal_id != _inspected_animal_id: return
-    %DesireBar.update_desire(desire_type, value)
-
-func _on_heat_cell_changed(cell_id: int, _old: float, new_temp: float) -> void:
-    if not _is_cell_relevant(cell_id): return
-    %TempReadout.value = new_temp
-```
-
-**Why not a ViewModel?** At prototype scale (5 animals, 210 heat cells), the bus has trivial traffic. A ViewModel adds indirection that helps nobody. If we hit 1000 animals and 10,000 events/sec the UI doesn't need, add filtering at the bus level (interest management) — not an intermediate ViewModel.
-
-**Why not direct references?** The HUD is a CanvasLayer child of GameClient. GameServer owns simulation state. The HUD must never hold a reference to a GameServer child. `Events` is the client/server membrane.
+The HUD self-subscribes to `Events`. See `ui-patterns.md` (path-gated to `nodes/hud/**`) for the full inspect-panel example and the rationale for "no ViewModel" / "no direct GameServer references."
 
 ## GameServer siblings
 
