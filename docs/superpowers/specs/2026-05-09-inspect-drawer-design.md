@@ -21,7 +21,9 @@
 **Out of v1** (spec'd elsewhere, not built):
 - Multi-panel comparison (input-design.md says up to 3).
 - Trend arrows (require per-channel history ring buffer).
+- **Partial `input-design.md` §5 regression — accepted, with v2 ticket.** §5 mandates four redundant channels per desire (color + fill pattern + icon + text). v1 ships color + numeric value only. The full 4-channel encoding lands together with the 4-state shape language below in v2; until then, the inspect drawer is a known accessibility downgrade vs. the §5 target.
 - 4-state shape language: NOMINAL / ADVISORY / DEGRADED / CRITICAL with circle / triangle / diamond / octagon. v1 uses two states: `Content` / `Wanting`.
+- `reduce_motion` settings hook — there is no settings surface in v1, so the slide tween is unconditional. Add the hook in v2 alongside the settings menu.
 - Off-viewport tether, edge tag, follow-cam.
 - Tier 3 history log, location history, robot notes.
 - Filter shortcut `F`, multi-inspect aggregates (rack, bay).
@@ -36,7 +38,7 @@ A **drawer** is a screen-edge-anchored `Control` that slides in/out from one vie
 - **Open-close affordance** — keyboard shortcut, trigger event, or `X` button in the drawer header. Closing is symmetric — same trigger, `ESC`, click outside, or `X`.
 - **Single-occupant per edge** (v1) — at most one drawer per edge. v2 may stack.
 - **No layout-pushing** — an open drawer overlays content behind it. It does not reflow the rest of the HUD. Most-recent drawer wins z-order.
-- **Slide animation** ~0.15s ease-out (humans perceive <300 ms as snappy). Skip if a `reduce_motion` setting is on.
+- **Slide animation** ~0.15s ease-out (humans perceive <300 ms as snappy). Unconditional in v1; the `reduce_motion` settings hook is a v2 addition once a settings surface exists.
 
 The pattern lives as a small base script (`nodes/hud/drawer.gd`) that Inspect inherits. Future placement and narrator drawers reuse it.
 
@@ -60,32 +62,59 @@ Any of these opens (or re-targets) the inspect drawer for an entity:
 
 ### Closes
 
-- `ESC`.
-- Click outside the drawer.
+- `ESC` (keyboard).
+- Controller `B`.
+- Click outside the drawer rect.
 - The drawer's `X` header button.
 - Trigger fires for the entity already inspected (toggle).
+
+### Focus & navigation
+
+- On open, focus lands on the **first desire bar** (or the close `X` if no bars — i.e. servers).
+- `Tab` / D-pad cycles through bars top-to-bottom, then `X`. `Shift+Tab` reverses.
+- On close, focus returns to the **triggering element** (the portrait that was clicked, the world entity, etc.). For triggers without a focus parent (right-click, controller `X` on world entity), focus returns to the placement drawer's first button or the camera focus, whichever was last.
+- Click-outside hit-test: drawer rect captures clicks within its bounds. The narrator panel (which the drawer overlaps) captures clicks in its non-overlapped region. Hit-priority within the overlap belongs to the drawer.
 
 ### Content (top to bottom)
 
 Fonts at size 3 to match the rest of the HUD.
 
-1. **Header row** — name in entity's `hud_color`; status keyword (`Content` / `Wanting` for animals; `Powered` / `Unpowered` for servers); `X` close button.
-2. **8 desire bars** (animals) — one per row, full 8-channel coloring from `DESIRE_COLORS`. Each bar = label-on-left + colored fill + numeric value. No trend arrows in v1.
-3. **Current action** — one line, derived from `ai_state.state` (lowercased).
-4. **Personality weights** — tight grid of raw weight values from the `personality` component (e.g. `w7 c7 cu1 h7 s5 q6 p5 sa8`). Player-facing intent: understanding, not narration.
+The render path branches on **capability presence**, not species: `db.has_component(_inspected_id, &"desires")` selects the animal layout; absence selects the object layout. No species-label dispatch.
 
-For **servers**, replace #2 with: rack / slot, power state, fan speed, heat output + radius, nearby-animal count. #3 and #4 are omitted (not relevant to servers).
+**Animal layout:**
+
+1. **Header row** — name in entity's `hud_color`; status keyword (`Content` / `Wanting`); `X` close button.
+2. **8 desire bars** — one per row, full 8-channel coloring from `DESIRE_COLORS`. Each bar = label-on-left + colored fill + numeric value. No trend arrows in v1. Channels with `decay == 0` and no live scatter source in the active scenario are rendered **greyed out with a `—` value** to mark them as system-frontier scaffolding (cf. abundance principle: a `Wanting` reading from an unmodeled channel would feel like the player failed at an unshipped feature).
+3. **Current action** — one line, derived from `ai_state.state` (lowercased).
+4. **Personality** — labeled grid of raw weight values from the `personality` component, e.g. `Wa 7  Co 7  Cu 1  Hu 7  So 5  Qu 6  Pe 5  Sa 8`. Two-letter abbreviations are stable so the player learns the column. Raw numbers are intentional; the panel is a discovery surface, not a paraphrase.
+
+**Server layout:**
+
+1. **Header row** — display id (`Server 0/3` for bay 0 / rack 3 / slot N), status keyword (`Powered` / `Unpowered`), `X` close button.
+2. **Real fields** (read from existing components):
+   - rack / slot — derived via `Constants.bay_local_to_slot(position)`
+   - power state — derived from "any HUM has reserve" while cables are out
+   - heat output + radius — read from this entity's `advertisements` for the `warmth` channel
+   - nearby-animal count — `db.query_radius_with(x, y, BAY_WIDTH_PX, &"desires").size()`
+3. **Mock fields** — display only, no backing component. Marked with a leading `~` so the implementer doesn't wire imaginary state. Concretely:
+   - `~ Fan: 1200 RPM` — there is no fan-speed component today; show a fixed-or-randomized number for visual fidelity. Replace with a real read when fans ship.
+
+The `~` prefix is the spec's contract that those rows render placeholder data and must NOT be wired to fabricated GameStateDB writes. When real components arrive, the prefix drops and the row reads live state.
 
 ### Behavior
 
-- One drawer max at a time. Re-targeting (clicking another portrait) updates content in place; no second panel opens.
-- Drawer reads inspected entity's components per-frame in `_process` from GameStateDB. Cheap (one entity).
-- Drawer auto-closes when `db.has_entity(_inspected_id)` becomes false (entity destroyed). No subscribed signal needed — the next-frame poll catches it.
+- One drawer max at a time. Re-targeting (another trigger emission) updates content in place; no second panel opens.
+- Drawer reads inspected entity's components per-frame in `_process` from GameStateDB. Cheap (one entity, one dict-shaped row, ~1 µs).
+- **Auto-close**: drawer auto-closes when `db.has_entity(_inspected_id)` returns false. The `has_entity` check is the **first** statement in `_process`, before any component reads, so a destroyed entity never produces a stale-state frame.
+- **Trigger races**: if two `entity_inspect_opened` events fire in the same frame for different entities, the **last emission wins**. Any in-flight slide tween continues — only the bound `entity_id` is updated, the tween does not restart.
 - Drawer ignores camera position. Entity tracking (tether line, off-viewport edge tag) is a v2 addition.
+- **Multiplayer**: `_inspected_id` is purely local HUD state. The trigger emission is HUD-local only — never serialized over the network. A peer inspecting their own cat does not open another peer's drawer.
+- **Save/load**: `_inspected_id` is **not persisted**. On save, ignored; on load, drawer starts closed.
+- **Scale**: `db.has_entity` is one dict lookup. Even at 1 000-entity datacenters with mass despawns, the close path is constant time.
 
 ### Status keyword derivation
 
-- **Animals:** read `contentment.is_satisfied` → `Content` (true) or `Wanting` (false).
+- **Animals:** read `contentment.is_satisfied` → `Content` (true) or `Wanting` (false). The `is_satisfied` calculation already aggregates only desires that have live scatter sources (the same condition that drives the greyed-bar render in §Content). Frozen system-frontier channels do not flip the keyword.
 - **Servers:** read presence of an active power source. With cables out today (`hum-cable-system.md`), this is "any HUM has reserve" → `Powered`, otherwise `Unpowered`. Revisits when cables come back.
 
 ## Data flow & signals
@@ -95,7 +124,7 @@ The drawer is a HUD consumer. Per `signals.md`, HUD only touches `Events`, never
 ### Open / re-target path
 
 1. Trigger fires (portrait click, right-click world, `I`, `X`, etc.).
-2. Trigger site emits `Events.entity_inspect_requested(entity_id)`.
+2. Trigger site emits `Events.entity_inspect_opened(entity_id)`.
 3. Drawer (subscribed to that signal) calls its own `open(entity_id)`.
 4. Drawer stores `_inspected_id`, fades in if hidden, plays the slide tween if newly opening.
 5. **Camera-center side-effect:** on portrait click only, the trigger handler in `animal_stats_bar.gd` ALSO tweens the camera to the entity's position. Other triggers (right-click world, `I`, `X`) do not touch the camera. The side-effect is co-located with the emission, not inside the drawer.
@@ -103,28 +132,35 @@ The drawer is a HUD consumer. Per `signals.md`, HUD only touches `Events`, never
 ### Per-frame read (in `_process`, never `_physics_process`)
 
 ```gdscript
+# Guard order matters — has_entity FIRST, then component reads.
 if _inspected_id == INVALID_ID:
     return
 if not _db.has_entity(_inspected_id):
     close()
     return
-# Read for animals:
-#   species (name + hud_color)
-#   desires (8 ints)
-#   ai_state.state
-#   personality (8 weights)
-#   contentment.is_satisfied → status keyword
-# Read for servers:
-#   slot via Constants.bay_local_to_slot(position)
-#   advertisements (heat radius / strength)
-#   power-state aggregation
+# Capability branch — animal vs object via component presence, never species.
+if _db.has_component(_inspected_id, &"desires"):
+    # Animal layout reads:
+    #   species (name + hud_color)
+    #   desires (8 ints)
+    #   ai_state.state
+    #   personality (8 weights)
+    #   contentment.is_satisfied → status keyword
+else:
+    # Object layout reads (servers in v1):
+    #   position → Constants.bay_local_to_slot(position)
+    #   advertisements (heat radius / strength)
+    #   spatial.query_radius_with(...) for nearby-animal count
+    #   any HUM reserve > 0 → Powered/Unpowered
 ```
+
+`db.get_component()` returns a reference to the internal row, not a copy (per `CLAUDE.md` GameStateDB Gotchas). The drawer treats every read as read-only and never mutates returned dicts.
 
 ### New signals
 
 | Signal | Payload | Emitted by | Listened by |
 |---|---|---|---|
-| `entity_inspect_requested` | `(entity_id: int)` | Portrait-click handler, right-click handler, `I`/`X` handler | InspectDrawer |
+| `entity_inspect_opened` | `(entity_id: int)` | Portrait-click handler, right-click handler, `I`/`X` handler | InspectDrawer |
 
 One new signal in `Events`. Well below the 50-signal split threshold.
 
@@ -132,26 +168,9 @@ One new signal in `Events`. Well below the 50-signal split threshold.
 
 The drawer is pure HUD. Reads existing components; emits no events of its own beyond the trigger emission; never writes to GameStateDB.
 
-## Migration notes — Placement and Narrator → drawers (v2 task)
+## Migration of Placement and Narrator into the drawer pattern
 
-Documented now so v2 isn't archaeology.
-
-### Placement → right-edge drawer
-
-1. Reparent `placement_ui.gd`'s VBoxContainer into a Drawer-derived control anchored to the right edge.
-2. **Open trigger decision is open.** Two reasonable v2 shapes:
-   - *Explicit:* dedicated key (input-design.md §1 spec uses `1-4` for drawer toggle, but `1-7` are bound for placement today, so this needs a new convention).
-   - *Implicit:* pressing `1-7` opens-and-selects in one motion. Default state closed; the key both opens the drawer and confirms the selection.
-3. Default state changes from always-visible → closed.
-4. Pull `1-7` and `R` keypress handling out of `_unhandled_input` and into the drawer's open-state handler so keys are no-ops while closed.
-
-### Narrator → bottom-edge drawer
-
-1. Reparent NarratorPanel into a Drawer-derived control anchored to the bottom edge.
-2. Replace `panel.visible = not panel.visible` (in `game_client.gd:_handle_key`'s `KEY_L` branch) with the drawer's `open()` / `close()` API so it slides instead of pop.
-3. Default state stays **open** — narrator events are critical feedback; opting out should be deliberate (`L`).
-4. Pinned-line behavior unchanged.
-5. `L` keeps its current narrator-specific binding (no convergence to a single "open drawers" key).
+Out of scope for this spec. See `docs/superpowers/specs/2026-05-09-drawer-migration-design.md` for the placement-drawer and narrator-drawer migrations. That spec depends on this one shipping first (the drawer primitive lives in `nodes/hud/drawer.gd`, introduced here).
 
 ## Open questions answered (record for v2 implementer)
 
@@ -164,47 +183,74 @@ Documented now so v2 isn't archaeology.
 
 ## Testing
 
-Following `test-philosophy.md`.
+Following `test-philosophy.md`. **Heavy unit coverage; minimal integration.** Reuse existing integration tests where possible — do not add a new integration suite if a smoke test already covers the wire-up.
 
 ### Refactor for testability
 
-Extract the drawer's state machine into a RefCounted `InspectDrawerState` (in `engine/hud/`) so it can be unit-tested without the scene tree. The Control wrapper renders that state, plays the tween, routes input.
+Extract the drawer's state machine and its content-building functions into a RefCounted `InspectDrawerState` (in `engine/inspect/`). The state object takes a `GameStateDB` reference, exposes pure methods (`open(id)`, `close()`, `process(db) -> InspectView`, `derive_status_keyword(db, id) -> StringName`, `build_animal_view(db, id) -> Dictionary`, `build_server_view(db, id) -> Dictionary`), and never touches the scene tree.
+
+The `Control` wrapper (`nodes/hud/inspect_drawer.gd`) renders the View, plays the tween, and routes input — all of which are out-of-scope for unit tests.
 
 ### Unit tests — `tests/unit/test_inspect_drawer_state.gd`
 
+State machine:
 1. New state is closed; `inspected_id == INVALID_ID`.
-2. `open(entity_id)` sets state to open and stores the id.
-3. `open(other_id)` while already open re-targets — id changes, state stays "open".
-4. `close()` resets state to closed and clears id.
-5. `open(INVALID_ID)` is a no-op.
-6. Status keyword derivation — `is_satisfied = true` → `Content`, false → `Wanting`.
+2. `open(entity_id)` on a valid entity → state is open, id matches.
+3. `open(other_id)` while already open → id updates, state stays open (re-target).
+4. `open(INVALID_ID)` → no-op; state stays closed; id stays `INVALID_ID`.
+5. `close()` → state closed, id `INVALID_ID`.
+6. `process(db)` after target entity destroyed → state transitions to closed within one call.
+7. `process(db)` while closed → no-op (does not read db).
 
-### Integration tests — `tests/integration/test_inspect_drawer.gd`
+Content branch (capability dispatch):
+8. `process(db)` on entity with `desires` component → returns animal view.
+9. `process(db)` on entity without `desires`, with `object_type` → returns server view.
+10. `process(db)` on entity with neither → returns closed view (defensive; matches drawer auto-close).
 
-1. **Trigger routing:** emit `Events.entity_inspect_requested(animal_id)` → drawer opens with that id.
-2. **Auto-close on destroy:** drawer is open on entity X → `db.destroy_entity(X)` → drawer closes within one frame.
+Status keyword:
+11. Animal with `contentment.is_satisfied = 1` → `Content`.
+12. Animal with `contentment.is_satisfied = 0` → `Wanting`.
+13. Server with at least one HUM having reserve > 0 → `Powered`.
+14. Server with all HUM at 0 reserve → `Unpowered`.
 
-### Not tested
+Frozen-channel rendering:
+15. Desire channel with `decay == 0` and no scatter source in scenario → animal view marks that bar `is_frozen = true`.
+16. Desire channel with `decay < 0` (live) → animal view marks that bar `is_frozen = false`.
+
+Trigger races / re-target during tween:
+17. Two `open()` calls in the same logical "frame" (no `process` between) → second call wins; id reflects second.
+
+### Integration test — extend, don't add
+
+Reuse `tests/integration/test_visual_smoke.gd` (the existing scene-boot smoke test). Add **one** assertion block at the end:
+- After main scene boots, emit `Events.entity_inspect_opened.emit(<spawned_animal_id>)`.
+- Assert `$HUD/InspectDrawer.visible == true` and `$HUD/InspectDrawer.get_state().inspected_id == <spawned_animal_id>`.
+
+This avoids a new integration file and inherits the existing smoke test's setup.
+
+### Not tested (deliberate)
 
 - Tween animation timing (Godot's responsibility).
-- Individual Label / ColorRect rendering (would be testing GUI state, not behavior).
+- Individual `Label` / `ColorRect` rendering (would test GUI state, not behavior).
 - Theme overrides (font sizes, colors).
-- Camera-centering side-effect (lives outside the drawer).
+- Camera-centering side-effect (lives outside the drawer; covered by whatever test exists for `animal_stats_bar.gd:_on_panel_clicked`, if any).
+- Slide-anchor pixel positions (visual concern, hand-tune in playtest).
 
 ## File layout
 
 | File | Purpose |
 |---|---|
-| `nodes/hud/drawer.gd` (new) | Base Control with edge anchoring, open/close API, slide tween. |
-| `nodes/hud/inspect_drawer.gd` (new) | Inspect-specific drawer; renders InspectDrawerState. |
-| `engine/hud/inspect_drawer_state.gd` (new) | RefCounted state machine. Unit-testable. |
-| `nodes/events.gd` | Add `entity_inspect_requested(entity_id: int)` signal. |
-| `nodes/game_client.gd` | Wire right-click world entity to emit `entity_inspect_requested`. Add `_setup_inspect_drawer()` step. Add `I` / `F1` to `_handle_key`. |
-| `nodes/hud/animal_stats_bar.gd` | Replace direct camera-center on portrait click with `Events.entity_inspect_requested.emit()` + camera-center side-effect (co-located). |
-| `tests/unit/test_inspect_drawer_state.gd` (new) | Six unit tests. |
-| `tests/integration/test_inspect_drawer.gd` (new) | Two integration tests. |
+| `nodes/hud/drawer.gd` (new) | Base `Control` with edge anchoring, open/close API, slide tween. |
+| `nodes/hud/inspect_drawer.gd` (new) | Inspect-specific drawer; renders an `InspectDrawerState` view. |
+| `engine/inspect/inspect_drawer_state.gd` (new) | RefCounted state machine + content builders. Unit-testable; takes `GameStateDB` as a dependency. |
+| `nodes/events.gd` | Add `entity_inspect_opened(entity_id: int)` signal. |
+| `nodes/game_client.gd` | Add `_setup_inspect_drawer()` to `_ready()` **after `_setup_stats_bar()` and before `_setup_debug_hud()`** (DebugHud's TODO at lines 81–83 wants an inspect ref). Wire right-click world-entity → emit `entity_inspect_opened`. Add `I` / `F1` to `_handle_key`. |
+| `nodes/hud/animal_stats_bar.gd` | Replace direct camera-center on portrait click with `Events.entity_inspect_opened.emit()` + camera-center side-effect (co-located). The unused `_camera` field may be deletable after the change — verify before removing. |
+| `tests/unit/test_inspect_drawer_state.gd` (new) | 17 unit tests. |
+| `tests/integration/test_visual_smoke.gd` | Extend with one assertion block — see §Testing. No new integration file. |
 | `.claude/rules/scene-tree.md` | Add `InspectDrawer` under HUD. |
 | `.claude/rules/input-design.md` | Update §1 keyboard map (add `I`/`F1`); §6 stays as the long-form target. |
+| `.claude/rules/file-structure.md` | Add `engine/inspect/` to the canonical tree. |
 
 ## Out of scope (do not address in this design)
 
