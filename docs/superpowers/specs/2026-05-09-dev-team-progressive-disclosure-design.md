@@ -1,6 +1,6 @@
 # Dev-Team Progressive-Disclosure Design
 
-> **Status:** open question / design exploration. Not yet committed to implementation. Captured during the 2026-05-09 rule-file audit so the idea doesn't get lost.
+> **Status:** design firmed up 2026-05-09. Not yet implemented. Captured during the rule-file audit so the idea doesn't get lost.
 
 ## Problem
 
@@ -17,64 +17,87 @@ Concrete cases:
 - Naming new advertisement channels (touches `Constants.CHANNELS` but not narrative files; Parcel's voice rules aren't loaded).
 - The user explicitly mentioned this during the rule-file audit: "We might also need to make some of the dev team skills that do progressive disclosure *and* have the option to run as an agent. Some way to allow the main thread to pull in that info."
 
-## Goal
+## Recommended design — three triggers, one source
 
-Each dev-team domain has two surfaces:
+The path-gated rule file stays the canonical source of truth for each domain. Two new surfaces read from it:
 
-1. **Agent invocation** (current) — full review pass, returns structured feedback, runs in isolated context.
-2. **Context-load** (proposed) — main thread pulls in the agent's principles, vocabulary, and decision rubric on demand, without spawning.
+```
+              .claude/rules/art-direction.md  ← single source
+                /          |          \
+               /           |           \
+       path edit       /load-       Agent spawn
+       triggers        game-        (game-artist
+       on .png /       artist       reads same
+       .tscn           invokes      rule for its
+       (mechanical)    explicitly   system prompt)
+                       (on-demand)  (full review)
+```
 
-Both surfaces should share one source of truth.
+Three triggers, one source. No content duplication, no drift.
 
-## Possible shapes
+### Why rules stay canonical (not moved into skills)
 
-### Shape A — Skill per dev-team agent
+- **Path-gated auto-load is a safety net we shouldn't break.** Editing a sprite mechanically pulls in palette guidance today. Moving content into skills means relying on description routing — the model has to recognize "I'm doing art work" instead of the path doing the work. Worse outcomes.
+- **Persona is performance, not principles.** "Smudge is bold, suggests you double the saturation" lives in the agent definition. The principles ("8px tile size, native 1× rendering, palette discipline") live in the rule. Both surfaces read the principles; the agent adds the persona on top.
+- **Today's audit already set this up** — every dev-team rule now has a one-line cross-reference to its agent. Adding the skill is the third leg.
 
-Add a paired user-invokable skill to each dev-team agent: `game-artist` (agent) + `/load-art-context` (skill). The skill loads the same principles the agent would use, into the main thread's context. The agent reads from the skill's content for its own system prompt.
+## Skill naming convention
 
-- **Pro:** Single source of truth. Skill discoverable via the Skill tool.
-- **Con:** Doubles the surface count (8 dev-team agents → 16 surfaces). Skill names get verbose.
+`/load-<agent-role-name>` — matches the agent's `subagent_type` 1:1.
 
-### Shape B — Agent supports "context-only" mode
+Full set:
 
-The Agent tool gains a `context_only: true` parameter. Returns the agent's system prompt as content to the main thread, doesn't spawn the agent loop.
+| Skill | Agent | Loads rule |
+|---|---|---|
+| `/load-game-designer` | `game-designer` | (TBD which rule file owns design principles — possibly `design-philosophy.md`) |
+| `/load-game-asset-creator` | `game-asset-creator` | `asset-pipeline.md` |
+| `/load-game-artist` | `game-artist` | `art-direction.md` |
+| `/load-sound-designer` | `sound-designer` | `sound-design.md` |
+| `/load-narrative-designer` | `narrative-designer` | `narrative.md` |
+| `/load-game-qa` | `game-qa` | (TBD — possibly `testing.md` + `test-philosophy.md`) |
+| `/load-game-programmer` | `game-programmer` | (TBD — possibly `code-style.md` + `design-philosophy.md`) |
+| `/load-accessibility-advocate` | `accessibility-advocate` | `input-design.md` |
+| `/load-community-modder` | `community-modder` | `modding.md` |
 
-- **Pro:** No new surface. Single invocation pattern.
-- **Con:** Requires harness support — TCP can't ship this without Claude Code changes.
+Same vocabulary across both surfaces. Tab-completion surfaces them together. Slightly verbose, unambiguous.
 
-### Shape C — Agent's principles ARE the path-gated rule
+## Decision criteria embedded in each agent and skill
 
-Each dev-team agent's system prompt is a thin wrapper around the existing rule file (e.g. `game-artist` reads `art-direction.md`). The rule already loads on relevant file edits; the agent is "the rule plus an instruction to act on it."
+Without a rubric, the user (or main thread) has to memorize the routing every time. With one, both surfaces self-explain. Pattern: a callout at the top of the rule file (read by both surfaces).
 
-- **Pro:** Uses existing infrastructure. No new files. The path-gated rule IS the context-load surface — agents just dispatch into it.
-- **Con:** Loading is still mechanical (file path), not on-demand. Doesn't directly solve the "make a design decision without editing a file" case — though the user can manually invoke the skill that loads the rule.
+Template:
 
-### Shape D — Dev-team agent definitions live in `.claude/skills/`
+```markdown
+> **Use `/load-game-programmer` when** you're about to make a programming-shape decision and want Bramble's principles in the main thread's context (architecture choice, refactor scope, what-belongs-in-pure-core question).
+> **Spawn the `game-programmer` agent when** you want a structured review of existing code, a second opinion on a finished design, or to parallelize independent investigation.
+```
 
-The agent definition file IS the skill. Both `Agent({subagent_type: "game-artist"})` and `Skill({skill: "game-artist"})` resolve to the same file, with the harness picking spawn-vs-load based on which tool was called.
+Rough rubric:
+- **Skill load** → "I'm about to act, want the principles in front of me first"
+- **Agent spawn** → "I have an artifact, want a structured review against the principles"
 
-- **Pro:** Truly one source of truth, one file per agent.
-- **Con:** Requires harness support. New convention.
+The criteria live in the rule file (one source). Both the skill and the agent read them.
 
-## Key open question
+## Implementation steps
 
-Are the existing dev-team rule files (`art-direction.md`, `sound-design.md`, etc.) already the "context-load" surface — just gated by file path?
+1. **Audit each dev-team agent's prompt against its corresponding rule file.** Where the agent has principles not in the rule, move them into the rule. Where the rule has content the agent doesn't apply, that's fine — the rule is the superset.
+2. **Add a "Use this domain" callout** at the top of each dev-team rule file, with the skill-vs-agent rubric tailored to the domain.
+3. **Rewrite each dev-team agent's system prompt** to: "You are <persona>. Read `.claude/rules/<rule>.md`. Apply those principles to the user's request, with <persona-specific guidance>."
+4. **Add `/load-<agent-role-name>` skills** — one per dev-team agent. Each skill is ~5 lines: a `Skill` invocation that loads the corresponding rule into the main thread.
+5. **Update CLAUDE.md** "Software Rules" section so the rules-vs-skills decision rubric mentions this third surface.
 
-If yes, then the missing piece is a way for the main thread to request the rule on-demand when it's not editing a matching path. That's a small addition: a user-invokable skill per dev-team domain that does nothing but load the rule.
+Some rule files don't map 1:1 to a dev-team agent today (e.g. `code-style.md` covers programming but isn't owned by `game-programmer` exclusively). For those, either:
 
-If no — if the agents have important principles NOT captured in their rule files — then the source-of-truth question is real and Shape A or D matters.
+- Pick the closest agent and have that agent's `/load-` skill load multiple rules.
+- Or split the rule along agent boundaries.
 
-The agent cross-references added during the 2026-05-09 audit ("Maintained alongside the `game-artist` (Smudge) agent") imply the answer is "mostly yes, with the agent adding persona on top." Worth verifying by reading each dev-team agent's actual prompt and diffing against the corresponding rule.
+The TBD entries in the naming-convention table above flag this open question per-domain.
 
-## Recommendation (for future implementation)
+## Alternatives considered
 
-Likely **Shape C with a small skill-per-domain layer on top.**
-
-1. Audit each dev-team agent's prompt against its corresponding rule file. Where the agent has principles not in the rule, move them into the rule.
-2. The agent's system prompt becomes: "You are <persona>. Read `.claude/rules/<rule>.md`. Apply those principles to the user's request."
-3. Add a thin user-invokable skill per dev-team domain (e.g. `/art-context`, `/sound-context`) that loads the rule into the main thread without spawning the agent.
-
-This avoids harness changes (no Shape B/D dependency), keeps one source of truth (the rule), and serves the main-thread case (the skill).
+- **Move rules into skills (drop path-gated loading).** Rejected — see "Why rules stay canonical."
+- **Agent supports `context_only: true` mode.** Would let `Agent({subagent_type: "game-artist", context_only: true})` return the prompt to the main thread without spawning. Cleaner in theory, but requires Claude Code harness changes TCP can't ship unilaterally.
+- **Agent definition file IS the skill (one file per agent).** Same harness-dependency problem; also conflates persona with principles.
 
 ## Defer triggers
 
@@ -84,11 +107,11 @@ Implement when:
 - A dev-team agent's principles diverge meaningfully from its rule file (drift detected during a review).
 - A new dev-team domain is added (good time to standardize the pattern).
 
-Until then: manually invoke a skill that loads a rule, or just spawn the agent.
+Until then: manually invoke a skill that loads a rule (or just add the rule file to the conversation by mentioning it), or spawn the agent.
 
 ## Related
 
 - `.claude/skills/edit-rule-files/SKILL.md` — rule-file standards.
-- `CLAUDE.md` → "Rules vs. skills — pick by trigger" — the decision rubric this would extend.
+- `CLAUDE.md` → "Rules vs. skills — pick by trigger" — the decision rubric this would extend (would gain a third row for the skill-loads-rule pattern).
 - `.claude/agents/` — current dev-team agent definitions.
-- `.claude/rules/{art-direction,sound-design,narrative,input-design,asset-pipeline}.md` — existing per-domain rule files (each now cross-references its agent).
+- `.claude/rules/{art-direction,sound-design,narrative,input-design,asset-pipeline}.md` — existing per-domain rule files (each now cross-references its agent after the 2026-05-09 audit).
