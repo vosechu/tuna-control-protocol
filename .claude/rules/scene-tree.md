@@ -37,7 +37,7 @@ Root (Node)
       StatsBar                          # Per-frame diagnostics
       NarratorPanel (PanelContainer)    # Bottom log readout — toggle with L
       PlacementUI (Control)             # Right-edge placement buttons
-      InspectPanel (PanelContainer)     # On right-click / I / X (planned)
+      InspectDrawer (PanelContainer)    # Tier-2 inspect, left-edge drawer
 
     SoundManager (Node)
       AmbientLayer (AudioStreamPlayer)

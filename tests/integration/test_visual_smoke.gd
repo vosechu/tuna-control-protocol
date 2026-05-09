@@ -7,10 +7,11 @@ extends GutTest
 # debugging benefit of one-assertion-per-test for what is fundamentally
 # a single boot-smoke contract.
 
+const _MAIN_SCENE: PackedScene = preload("res://nodes/main.tscn")
+
 
 func test_main_scene_boot_state() -> void:
-	var scene: PackedScene = preload("res://nodes/main.tscn")
-	var client: Node = scene.instantiate()
+	var client: Node = _MAIN_SCENE.instantiate()
 	add_child_autofree(client)
 	await get_tree().process_frame
 
@@ -62,8 +63,7 @@ func test_main_scene_boot_state() -> void:
 
 
 func test_inspect_drawer_opens_on_event() -> void:
-	var scene: PackedScene = preload("res://nodes/main.tscn")
-	var client: Node = scene.instantiate()
+	var client: Node = _MAIN_SCENE.instantiate()
 	add_child_autofree(client)
 	# Two frames: GameClient._ready() awaits one frame internally before
 	# setting up the HUD.

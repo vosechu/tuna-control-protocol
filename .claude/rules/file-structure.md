@@ -23,6 +23,8 @@ res://
       teaching_system.gd           # Skill transfer with degradation
     economy/                       # Resource flow
       resource_flow.gd             # Pipe/wire resource transfer
+    inspect/                       # Inspect drawer state (RefCounted)
+      inspect_drawer_state.gd      # State machine + content builders
     network/                       # Networking
       net_server.gd                # Authoritative server
       net_client.gd                # Client intent sender
