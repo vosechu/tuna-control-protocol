@@ -1,6 +1,6 @@
 # Drawer Migration — Placement & Narrator → Drawer Pattern
 
-**Status:** design draft, 2026-05-09. Depends on `2026-05-09-inspect-drawer-design.md` shipping first (the drawer primitive at `nodes/hud/drawer.gd` originates there).
+**Status:** design draft, 2026-05-09. The drawer primitive (`nodes/hud/drawer.gd`) and its contract are documented in `.claude/rules/ui-patterns.md` §Drawers; this spec extends that pattern to placement and narrator.
 
 **Companion rules:**
 - `.claude/rules/input-design.md` §1 — keyboard shortcut map.
