@@ -84,9 +84,9 @@ The render path branches on **capability presence**, not species: `db.has_compon
 **Animal layout:**
 
 1. **Header row** — name in entity's `hud_color`; status keyword (`Content` / `Wanting`); `X` close button.
-2. **8 desire bars** — one per row, full 8-channel coloring from `DESIRE_COLORS`. Each bar = label-on-left + colored fill + numeric value. No trend arrows in v1. Channels with `decay == 0` and no live scatter source in the active scenario are rendered **greyed out with a `—` value** to mark them as system-frontier scaffolding (cf. abundance principle: a `Wanting` reading from an unmodeled channel would feel like the player failed at an unshipped feature).
+2. **8 desire bars** — one per row, full 8-channel coloring from `DESIRE_COLORS`, matching the portraits at top-of-screen for visual consistency. Each bar = label-on-left + colored fill + numeric value. No trend arrows in v1. All 8 channels render at full opacity always, including channels with `decay == 0` and no scatter source — the inspect drawer mirrors the portraits' visual language; if a frozen-channel reading feels unfair in playtest, the fix lives in scenario content (add a satisfier) or in the contentment aggregation, not in the drawer.
 3. **Current action** — one line, derived from `ai_state.state` (lowercased).
-4. **Personality** — labeled grid of raw weight values from the `personality` component, e.g. `Wa 7  Co 7  Cu 1  Hu 7  So 5  Qu 6  Pe 5  Sa 8`. Two-letter abbreviations are stable so the player learns the column. Raw numbers are intentional; the panel is a discovery surface, not a paraphrase.
+4. **Personality** — labeled grid of raw weight values from the `personality` component, e.g. `Warmth 7  Comfort 7  Curiosity 1  Hunger 7  Social 5  Quiet 6  Peace 5  Safety 8`. Full channel names; wraps to two rows of four if needed. Raw numbers are intentional; the panel is a discovery surface, not a paraphrase.
 
 **Server layout:**
 
@@ -114,7 +114,7 @@ The `~` prefix is the spec's contract that those rows render placeholder data an
 
 ### Status keyword derivation
 
-- **Animals:** read `contentment.is_satisfied` → `Content` (true) or `Wanting` (false). The `is_satisfied` calculation already aggregates only desires that have live scatter sources (the same condition that drives the greyed-bar render in §Content). Frozen system-frontier channels do not flip the keyword.
+- **Animals:** read `contentment.is_satisfied` → `Content` (true) or `Wanting` (false). The drawer reads whatever the contentment system reports; it does not second-guess the aggregation. If frozen-decay channels with no satisfier cause `Wanting` to appear unfair in playtest, the fix lives in the contentment system or in scenario content (add a satisfier), not in the drawer.
 - **Servers:** read presence of an active power source. With cables out today (`hum-cable-system.md`), this is "any HUM has reserve" → `Powered`, otherwise `Unpowered`. Revisits when cables come back.
 
 ## Data flow & signals
@@ -213,12 +213,8 @@ Status keyword:
 13. Server with at least one HUM having reserve > 0 → `Powered`.
 14. Server with all HUM at 0 reserve → `Unpowered`.
 
-Frozen-channel rendering:
-15. Desire channel with `decay == 0` and no scatter source in scenario → animal view marks that bar `is_frozen = true`.
-16. Desire channel with `decay < 0` (live) → animal view marks that bar `is_frozen = false`.
-
 Trigger races / re-target during tween:
-17. Two `open()` calls in the same logical "frame" (no `process` between) → second call wins; id reflects second.
+15. Two `open()` calls in the same logical "frame" (no `process` between) → second call wins; id reflects second.
 
 ### Integration test — extend, don't add
 
@@ -246,7 +242,7 @@ This avoids a new integration file and inherits the existing smoke test's setup.
 | `nodes/events.gd` | Add `entity_inspect_opened(entity_id: int)` signal. |
 | `nodes/game_client.gd` | Add `_setup_inspect_drawer()` to `_ready()` **after `_setup_stats_bar()` and before `_setup_debug_hud()`** (DebugHud's TODO at lines 81–83 wants an inspect ref). Wire right-click world-entity → emit `entity_inspect_opened`. Add `I` / `F1` to `_handle_key`. |
 | `nodes/hud/animal_stats_bar.gd` | Replace direct camera-center on portrait click with `Events.entity_inspect_opened.emit()` + camera-center side-effect (co-located). The unused `_camera` field may be deletable after the change — verify before removing. |
-| `tests/unit/test_inspect_drawer_state.gd` (new) | 17 unit tests. |
+| `tests/unit/test_inspect_drawer_state.gd` (new) | 15 unit tests. |
 | `tests/integration/test_visual_smoke.gd` | Extend with one assertion block — see §Testing. No new integration file. |
 | `.claude/rules/scene-tree.md` | Add `InspectDrawer` under HUD. |
 | `.claude/rules/input-design.md` | Update §1 keyboard map (add `I`/`F1`); §6 stays as the long-form target. |
