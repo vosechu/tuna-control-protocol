@@ -29,6 +29,7 @@ const _HUM_TEX := preload(
 )
 const _ANIMAL_SCENE := preload("res://nodes/animal.tscn")
 const _PURR_RING_SCRIPT := preload("res://nodes/effects/purr_ring.gd")
+const _INSPECT_DRAWER_SCRIPT := preload("res://nodes/hud/inspect_drawer.gd")
 
 const _VISIBLE_BAY_INDICES: Array[int] = [-1, 0, 1]
 
@@ -65,6 +66,7 @@ func _ready() -> void:
 	_setup_lighting()
 	_setup_hum_bar()
 	_setup_stats_bar()
+	_setup_inspect_drawer()
 	_setup_narrator_panel()
 	_setup_debug_hud()
 	# Camera position/zoom handled by camera_controller.gd
@@ -120,6 +122,18 @@ func _setup_stats_bar() -> void:
 	stats_bar.add_theme_constant_override("separation", 2)
 	$HUD.add_child(stats_bar)
 	stats_bar.initialize(game_server.db, $Camera)
+
+
+func _setup_inspect_drawer() -> void:
+	if not has_node("HUD"):
+		var hud := CanvasLayer.new()
+		hud.name = "HUD"
+		add_child(hud)
+	var drawer: PanelContainer = PanelContainer.new()
+	drawer.set_script(_INSPECT_DRAWER_SCRIPT)
+	drawer.name = "InspectDrawer"
+	$HUD.add_child(drawer)
+	drawer.initialize(game_server.db)
 
 
 func _setup_lighting() -> void:
