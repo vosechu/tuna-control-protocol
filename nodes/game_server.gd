@@ -10,6 +10,7 @@ var nav_builder: NavGraphBuilder
 var hum_system: HumSystem
 var contentment: Contentment
 var contentment_purr_bridge: ContentmentPurrBridge
+var sensory_emission: SensoryEmissionSystem
 var food_system: FoodSystem
 var movement_system: MovementSystem
 var ai_state_system: AiStateSystem
@@ -44,6 +45,9 @@ func _ready() -> void:
 	heat_grid = HeatGrid.new(db)
 	contentment = Contentment.new(db)
 	contentment_purr_bridge = ContentmentPurrBridge.new(db)
+	sensory_emission = SensoryEmissionSystem.new(
+		db, mod_result.get("sensory_outputs", {})
+	)
 	hum_system = HumSystem.new(db, Events)
 	food_system = FoodSystem.new(db, hum_system, Events)
 	desire_resolver = DesireResolver.new(db)
@@ -100,6 +104,8 @@ func _physics_process(_delta: float) -> void:
 	#   - heat_grid before _scatter_desires (warmth feeds desire scatter)
 	#   - contentment before contentment_purr_bridge (bridge reads is_satisfied)
 	#   - contentment_purr_bridge before hum_system (maps purr.intensity before charge)
+	#   - sensory_emission runs alongside the bridge during cutover; it
+	#     processes recipes that declare sensory_emissions (zero today).
 	#   - hum_system before desire_resolver (HUM reserve affects arm actions)
 	#   - movement_system before reclamation (reads fresh positions)
 	#   - food_system before reclamation (food state resolves before presence)
@@ -111,6 +117,7 @@ func _physics_process(_delta: float) -> void:
 	_scatter_desires()                                      # 3
 	contentment.evaluate_all()                              # 4
 	contentment_purr_bridge.tick()                          # 5
+	sensory_emission.tick()                                 # 5b — coexists during cutover
 	hum_system.tick_charge()                                # 6
 	hum_system.tick_idle_drain()                            # 7
 	_decay_commitment()                                     # 8

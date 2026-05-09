@@ -23,9 +23,8 @@ func load_all(mods_path: String) -> Dictionary:
 	# exist yet; today this loads the unlayered base file directly. When
 	# layering ships, swap this single read for the layered registry
 	# read; do not split the read across phases.
-	sensory_validator = SensoryEmissionsSchemaValidator.new(
-		_load_sensory_outputs_config()
-	)
+	var sensory_outputs: Dictionary = _load_sensory_outputs_config()
+	sensory_validator = SensoryEmissionsSchemaValidator.new(sensory_outputs)
 
 	var mod_dirs: Array[String] = _discover_mods(mods_path)
 
@@ -64,6 +63,7 @@ func load_all(mods_path: String) -> Dictionary:
 		"manifests": manifests,
 		"sprite_resolver": sprite_resolver,
 		"scenarios": scenarios,
+		"sensory_outputs": sensory_outputs,
 	}
 
 
