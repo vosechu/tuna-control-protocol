@@ -23,3 +23,11 @@ func close() -> void:
 
 func is_open() -> bool:
 	return inspected_id != Constants.INVALID_ID
+
+
+func process(db: GameStateDB) -> void:
+	if inspected_id == Constants.INVALID_ID:
+		return
+	if not db.has_entity(inspected_id):
+		close()
+		return

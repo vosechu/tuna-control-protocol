@@ -37,3 +37,25 @@ func test_close_resets() -> void:
 	state.close()
 	assert_eq(state.inspected_id, Constants.INVALID_ID)
 	assert_false(state.is_open())
+
+
+func test_process_after_destroy_closes_state() -> void:
+	var db := GameStateDB.new()
+	var entity_id: int = db.create_entity()
+	db.set_component(entity_id, &"desires", {&"warmth": 500})
+	var state := InspectDrawerState.new()
+	state.open(entity_id)
+	state.process(db)
+	assert_true(state.is_open())
+	db.destroy_entity(entity_id)
+	state.process(db)
+	assert_false(state.is_open())
+	assert_eq(state.inspected_id, Constants.INVALID_ID)
+
+
+func test_process_while_closed_is_noop() -> void:
+	var db := GameStateDB.new()
+	var state := InspectDrawerState.new()
+	state.process(db)
+	assert_false(state.is_open())
+	assert_eq(state.content_type, InspectDrawerState.ContentType.CLOSED)
