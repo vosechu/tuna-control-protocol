@@ -184,3 +184,13 @@ The highest-scoring verb wins. Ties break in dictionary iteration order. An acto
 `VerbResolver` is built, unit-tested, and instantiated on `GameServer`. It is **not yet wired to the action loop** — no tick code calls `score_verbs` on arrival at a target. Verbs are a latent capability waiting for the next generation of action mechanics. Mod authors declaring verbs today are writing forward-compatible config; the scoring will start mattering when the action-dispatch layer ships.
 
 Do not remove unused verbs from recipes. Do not add affordance booleans to objects "until verbs are ready" — the scoring infrastructure already works.
+
+## Common slip patterns
+
+| Slip | Why it bites | Fix |
+|---|---|---|
+| Hand-writing a mod ID in `mod.json` | IDs are derived from `title` via `derive_mod_id()`. A hand-written `id` field will diverge from the derived value silently. | Don't add an `id` field. Set `title`; the loader derives the ID. |
+| Adding `depends:` / `load_after:` / `tcp_engine` to `mod.json` | Manual ordering doesn't exist. Dependencies are auto-detected by `ModAnalyzer` from referenced IDs. | Reference the other mod's namespaced IDs in your config; the analyzer picks up the dependency. |
+| Providing a "default" for a missing required field in a recipe to avoid validation errors | Silent defaults produce mysterious behavior modders can't trace. Schema validators are the only contract that points modders at the line to fix. | Let validators `push_error` + skip. Add the required field to the recipe. |
+| Removing unused `verbs` blocks because "verbs aren't wired yet" | Verbs are forward-compatible config. The scoring infrastructure is in place; the action loop will consume them when shipped. Removed verbs need to be re-derived later from playtesting. | Leave verbs declared. |
+| Branching engine code on species labels (`if species == "cat"`, hardcoded `&"tcp_cats:cat"`) | `script/checks/no_species_dispatch` blocks this in `engine/` and `nodes/` — the regression guard exists because every species branch is a step toward a non-moddable engine. | Add a capability tag to the recipe and branch on `has_component`. |

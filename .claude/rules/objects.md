@@ -166,6 +166,14 @@ The component-name slot declares this object's specialized component (arms have 
 
 Stateless recipes do **not** declare a `states` block. If your object needs state transitions, see "Where to put what" above.
 
+## Common slip patterns
+
+| Slip | Why it bites | Fix |
+|---|---|---|
+| Writing a `states` block in a stateless device JSON recipe | Loader doesn't read it — silent no-op until runtime. State-machine content lives in `OBJECT_CONFIG`, not in JSON. | See "Where to put what" — pick the right surface deliberately. JSON recipes are stateless devices; engine `OBJECT_CONFIG` owns state machines. |
+| Routing passive scatter through a bond bypass to satisfy "the cat in the box" | Overreach. Scatter never reads bonds; bonds gate action-ad consumption only. Earlier drafts shipped the bypass and had to be retired. | Use `effect_slot: true` on the host object's ads. The cat-in-box satisfaction loop is delivered by slot delivery, not by bonds. |
+| Declaring an ad with both `effect_radius_px` and `effect_slot: true` | Mutually exclusive; validator rejects, but a missing rejection check would silently double-deliver. | Pick one per ad. Slot for structural effects (boxes, beds, tubes), radius for physics (heat, sound, scent). |
+
 ## Related rules
 
 - Advertisement scoring and desire channels: `.claude/rules/animal-ai.md`

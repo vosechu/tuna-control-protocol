@@ -56,6 +56,14 @@ func try_transition(new_state: StringName, score: int) -> bool:
 
 Weighted random pool filtered by context: warm → grooming/kneading eligible, near other animal → slow blink eligible, high energy → SPEED_BUMP eligible, low energy → SLEEPING. Per-species weights and per-state `min_duration_ticks` both live in the recipe's `ambient_states` block, not in engine code.
 
+### Common slip patterns
+
+| Slip | Why it bites | Fix |
+|---|---|---|
+| Leaving `commitment_score` non-zero on arrival, completion, or cancellation | Typical ad scores are 200-350; a stale 315 demands the next score > 465, which no ad produces. Symptom: entity sniffs one target and never moves again. | Set `commitment_score = 0` on every `GOAL_DIRECTED → AMBIENT` transition. |
+| Adding a species-specific state like `DEAD_SLEEP` or `WAR_DANCE` | States are universal; species-specific naming bakes species into the AI and breaks the recipe-driven model. | Add an animation variant keyed off the existing state (e.g. `SLEEPING`) in the species recipe's `states` mapping. |
+| Checking `is_available()` or capacity inside advertisement scoring | Cats can't see at distance whether a box is full — that's omniscience and kills emergence. | Score on weight × strength × deficit × distance only. Soft-cap on arrival via reduced comfort as occupants accumulate. |
+
 ---
 
 ## Object Advertisement Schema
