@@ -8,6 +8,24 @@ paths:
 
 # TCP Testing Rules
 
+> **Use `/load-game-qa`** when about to write tests or design test coverage and you want Kibble's edge-case-thinking and failure-mode rubric in front of you first.
+> **Spawn the `game-qa` agent** when you have a feature or design to stress-test for "what happens when…" cases, coverage gaps, and shipping readiness.
+
+---
+
+## 0. QA Philosophy
+
+Testing principles specific to a cozy emergent game.
+
+1. **No lose condition doesn't mean no bugs.** A stuck animal, a stuck UI, a stuck progression path — these are failures even if the game doesn't say "game over." The absence of a fail state raises the bar on what counts as broken, not lowers it.
+2. **Emergence must be testable.** You can't predict emergent behavior, but you can: (a) verify the inputs to emergence are correct (desires are being calculated, proximity is being detected); (b) verify the outputs are sane (no negative happiness, no infinite loops); (c) record and replay interesting scenarios as regression tests. Use the **anecdote test** (Kate Compton): after a 10-minute play session, can the tester tell a specific story about a specific animal? "Cats sat on warm things" = emergence isn't working. "Mittens kept going back to rack 3 because that's where she met the ferret" = working.
+3. **Fun at scale is a QA concern.** "Thousands of kittens" requires a load-test prototype early — not for performance but to verify the *design* works at scale. Does the player still feel in control with 500 animals? Can they find a specific cat? Is the optimizer still challenging or has it become noise?
+4. **First-time experience is sacred.** Tutorial/onboarding flows are tested with fresh saves on fresh installs, AND tested with the player doing things "wrong" (places box too high, ignores highlights, opens drawers in the wrong order). The new player has no design doc to fall back on.
+5. **Every feature needs a multiplayer pass.** Wandering cats crossing boundaries, heat spilling between racks, sync timing, concurrent placement, disconnect mid-action. "We'll figure out multiplayer later" violates the day-one architecture rule. Every single-player feature needs at minimum a thought experiment about multiplayer implications.
+6. **Emotional correctness matters.** A technically correct behavior can be emotionally wrong. "The cat made a sad face when I moved its box and the player didn't understand why" is a design failure, not a feature. In a cozy game, an unexplained sad cat is worse than a minor visual glitch.
+
+---
+
 ## Core Belief
 If it is not tested, it will break on the day of the demo. Pure core logic is testable without nodes. If you cannot test it without a scene tree, refactor it.
 
