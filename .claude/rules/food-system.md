@@ -101,7 +101,7 @@ cat satisfied  →  HumSystem.tick_charge  →  reserve ++
                                          reserve approaches 0 → brownout visuals
 ```
 
-Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. Dispensers and arms both route drain through `FoodSystem.is_powered(device_id, cost)`, which today returns the first HUM with enough reserve, ignoring `device_id` (cables are not implemented — see the banner on `hum-cable-system.md`). If no HUM has enough reserve, food actions silently no-op (button press returns `INVALID_ID`; arm tick skips the can). This is graceful-degradation, not an error state — the game is still playable, just slower to feed cats.
+Per-tick HUM accounting is managed by `HumSystem`; `FoodSystem` is a consumer. Dispensers and arms both route drain through `FoodSystem.is_powered(device_id, cost)`, which today returns the first HUM with enough reserve, ignoring `device_id` (cables are not implemented — see `hum-cable-system.md` and the cable-restoration spec it links). If no HUM has enough reserve, food actions silently no-op (button press returns `INVALID_ID`; arm tick skips the can). This is graceful-degradation, not an error state — the game is still playable, just slower to feed cats.
 
 ## Events
 
@@ -118,6 +118,6 @@ The HUD's HumBar, SoundManager, and LightingSystem all subscribe to `hum_reserve
 
 - `.claude/rules/objects.md` — Object state mechanics underlying the tuna can.
 - `.claude/rules/core-loop.md` — Design intent for the purr-power loop this implements.
-- `.claude/rules/hum-cable-system.md` — Per-HUM battery design (cable layer not currently implemented; banner explains).
+- `.claude/rules/hum-cable-system.md` — Per-HUM battery design. Cable layer not currently implemented; restoration design at `docs/superpowers/specs/2026-05-09-cables-restoration-design.md`.
 - `.claude/rules/animal-ai.md` — Desire scoring (how hungry cats pick targets).
 - `.claude/rules/signals.md` — Event bus ownership for cross-system signals.

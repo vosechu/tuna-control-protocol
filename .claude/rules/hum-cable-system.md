@@ -8,22 +8,9 @@ paths:
 
 # TCP HUM & Cable System
 
-> **Status — 2026-05-02:** **CABLES NOT IMPLEMENTED.** The cable subsystem
-> (WiringSystem, CableLayer/View, WiringController, DanglingTip, the
-> `hum_powered` / `hum_cable` capability tags, the `cable_connected` /
-> `cable_disconnected` events, and `mods/tcp_base/config/hum.jsonc`) was
-> removed in May 2026 to simplify Ring 0. The HUM battery, the
-> contentment→purr bridge, and the per-device charge loop remain live; the
-> cable layer between HUMs and actuators is the only piece that's gone.
->
-> Today's `FoodSystem.is_powered(device_id, cost)` returns the first HUM
-> with enough reserve, ignoring `device_id`. When cables come back, restore
-> this spec's gating contract verbatim.
->
-> Everything below this banner is the **target design**, kept for the day
-> cables ship again. Do not assume any of it is currently wired.
+Per-device HUM batteries charged by purr emissions, drained by every action that costs power. The mechanical spine of the purr-power loop described in `core-loop.md`.
 
-Per-device HUM batteries, emit/listen charging, and player-placed power cables to kinetic actuators. This is the mechanical spine of the purr-power loop described in `core-loop.md`.
+The cable layer between HUMs and HUM-powered actuators is not currently implemented. `FoodSystem.is_powered()` returns the first HUM with enough reserve regardless of which device is asking. The cable-restoration design (player-placed power cables, per-device routing, mid-drag save semantics, the `hum_powered`/`hum_cable` capability tags, the `cable_connected`/`cable_disconnected` events, `mods/tcp_base/config/hum.jsonc`) lives at `docs/superpowers/specs/2026-05-09-cables-restoration-design.md` for the day it ships again.
 
 ## Components
 
@@ -33,10 +20,6 @@ Per-device HUM batteries, emit/listen charging, and player-placed power cables t
 | `hum_receiver` | `{radius_px: int}` | HUM entities | Server — saved |
 | `purr` | `{intensity: int}` — per-tick broadcast strength | any "thing that purrs" (cats in Ring 1) | Server — saved, written by contentment→purr bridge |
 | `purr_config` | `{rate_when_satisfied: int}` | same recipe that declares `purr` | Server — materialized from recipe at spawn |
-| `hum_powered` | `{}` (capability tag) | any device that needs a cable to operate | Server — saved |
-| `hum_cable` | `{hum_id: int}` — which HUM this actuator is cabled to | a `hum_powered` device | Server — saved |
-
-`hum_powered` is presence-only: the component's presence means "this device needs a HUM cable." The actuator's own `hum_cost` stays on its device-specific component (e.g. `tuna_dispenser.hum_cost`, `arm.hum_cost`).
 
 ## Emit / Listen, Not Produce / Consume
 
@@ -97,100 +80,21 @@ func tick_charge() -> void                             # emit/listen pass descri
 
 There is no facility-wide reserve. Each HUM is its own battery. `FACILITY_ID=0` is reserved for non-HUM facility state; it does not carry a `hum` component.
 
-## Cables
+## Power gate
 
-### Placement is a player decision, not automation
-
-The player explicitly plugs each cable by clicking source → target in wiring mode. Servers and passive devices are wireless — they pick up the HUM's acoustic carrier from the field. Only kinetic actuators (dispensers, arms, future motors) need a direct cable for the concentrated carrier to perform physical work.
-
-### "Needs a cable" is a capability, not a species
-
-An entity needs a cable iff it carries `&"hum_powered"`. Mods add `hum_powered: {}` to any entity recipe and inherit the full cable pipeline without engine changes.
-
-### Power check
-
-One helper, one gate — called by every drain site:
+`FoodSystem.is_powered(device_id, cost)` is the single power gate every drain site calls (button press, arm tick). Today it ignores `device_id` and returns the first HUM with enough reserve, or `INVALID_ID`:
 
 ```gdscript
-func _is_powered(device_id: int, cost: int) -> int:
-    # Returns hum_id if the device can drain `cost`, else Constants.INVALID_ID.
-    if not db.has_component(device_id, &"hum_powered"): return INVALID_ID
-    if not db.has_component(device_id, &"hum_cable"):   return INVALID_ID
-    var hum_id := db.get_field(device_id, &"hum_cable", &"hum_id")
-    if hum_id == INVALID_ID:                            return INVALID_ID
-    if not db.has_entity(hum_id):                       return INVALID_ID  # tombstone
-    if not db.has_component(hum_id, &"hum"):            return INVALID_ID
-    if not hum.has_reserve(hum_id, cost):               return INVALID_ID
-    return hum_id
+func is_powered(_device_id: int, cost: int) -> int:
+    for hum_id: int in _db.get_entities_with(&"hum"):
+        if _hum.has_reserve(hum_id, cost):
+            return hum_id
+    return Constants.INVALID_ID
 ```
 
-Drain sites (`food_system.press_button`, `food_system.tick_arms`) call `_is_powered`, bail silently on `INVALID_ID`, and drain the returned HUM otherwise.
+When the cable layer returns, this function takes per-device routing back: check for `&"hum_powered"`, look up the device's `&"hum_cable"` component, validate the wired HUM still exists, then check reserve. The contract for callers stays the same — `is_powered` returns a HUM id or `INVALID_ID`. See `docs/superpowers/specs/2026-05-09-cables-restoration-design.md`.
 
-### Tombstone model (no eager cleanup)
-
-When a HUM entity is destroyed, cables pointing at it become **tombstones**: the `hum_cable` component is still on the actuator but `has_entity(hum_id)` is false. `_is_powered` treats tombstones as unpowered. No `cable_disconnected` event fires on HUM destruction — the HUM is gone; there's nothing to narrate. Stale components are cleaned up by the reload-validation pass. Forward-compatible: when `GameStateDB` gains lifecycle hooks (see `design-philosophy.md`), upgrade to eager cleanup with a `cable_disconnected` emit.
-
-### Disconnect is instant
-
-No grace period. Player pulls the cable → device stops this tick. Event emission is cause-agnostic — player disconnect, system cleanup, future kitten disconnect all go through the same write-then-emit path.
-
-## Signal Ordering (Write Then Emit)
-
-Every cable mutation follows this order. Listeners always observe either the pre-write state or the post-write state, never mid-transition.
-
-**Fresh connect:**
-1. `db.set_component(device_id, &"hum_cable", {hum_id})`
-2. `Events.cable_connected.emit(hum_id, device_id, &"hum_power")`
-
-**Disconnect:**
-1. Capture `old_hum_id = db.get_field(device_id, &"hum_cable", &"hum_id")`
-2. `db.remove_component(device_id, &"hum_cable")`
-3. `Events.cable_disconnected.emit(old_hum_id, device_id)`
-
-**Replace (connect on an already-cabled device):**
-1. Capture `old_hum_id`.
-2. `db.set_component(device_id, &"hum_cable", {hum_id: new_hum_id})` — single write overwrites.
-3. `Events.cable_disconnected.emit(old_hum_id, device_id)`
-4. `Events.cable_connected.emit(new_hum_id, device_id, &"hum_power")`
-
-Same-tick disconnect+connect pairs are coalesced into one narrator line ("re-coupled through alternate bridge"). See `.claude/rules/narrative.md`.
-
-## Server Authority & Pickup Locks
-
-Wiring state is server-authoritative; clients send intents, server validates and broadcasts deltas.
-
-**Transient pickup state table** (server, not saved to GameStateDB, but *readable by the save serializer*):
-
-```
-endpoint_key → {owner_peer_id, tick, original_hum_id, original_actuator_id}
-```
-
-`endpoint_key = "hum:<hum_id>:cable:<actuator_id>"` for HUM-end pickup; `"actuator:<actuator_id>"` for actuator-end pickup. Keying by the cable's actuator id on both sides means two players picking up two different cables out of the same HUM get distinct lock entries.
-
-The table serves two purposes:
-1. **MP pickup lock** — prevents two peers grabbing the same endpoint.
-2. **Mid-drag source of truth** — the save serializer reads this table together with live DB rows to reconstruct any cable currently being dragged.
-
-Locks auto-expire after ~200 ticks (20s @ 10Hz) of peer inactivity.
-
-### Save mid-drag
-
-The serializer does **not** mutate live state to "retract" a held cable. It writes the union of:
-
-1. All live `hum_cable` components, plus
-2. For any pickup entry with `original_hum_id != INVALID_ID`, a synthetic `hum_cable` row on `original_actuator_id` → `original_hum_id`.
-
-Live state stays whatever it is; saved state represents "what we'd restore to if the drag cancelled." Pickup ordering: the pickup intent populates the table *before* it removes the `hum_cable` component (steps 1→2 above), so a same-tick save always sees a consistent synthetic row.
-
-### Reload
-
-Load entities first. On a second pass, drop any `hum_cable` whose `hum_id` doesn't resolve to a live `hum`-carrying entity. Log each drop.
-
-### Rack-stripe validation
-
-Each player owns a rack stripe (see `networking.md`). Cables cannot cross stripes; `CABLE_CONNECT_INTENT` with endpoints on different stripes is rejected (`CABLE_DENIED{reason: "cross_stripe"}`). The global `cable_max_length_ru` is a separate check applied on top.
-
-Floor entities (ARM) belong to the stripe whose rack range covers `nearest_rack_for(world_x)`; round toward the lower rack index if exactly on a boundary.
+If `is_powered` returns `INVALID_ID`, the drain site no-ops silently — button presses return `INVALID_ID`, arm ticks skip the can. Graceful degradation, not an error state.
 
 ## Events
 
@@ -199,31 +103,21 @@ Floor entities (ARM) belong to the stripe whose rack range covers `nearest_rack_
 | `hum_reserve_changed` | `(hum_id, old_reserve, new_reserve)` | `HumSystem._emit_if_changed` |
 | `hum_brownout_entered` | `(hum_id)` | `HumSystem._emit_if_changed` on cross into brownout band |
 | `hum_brownout_recovered` | `(hum_id)` | inverse of above |
-| `cable_connected` | `(hum_id, device_id, cable_type)` — `cable_type = &"hum_power"` today | `WiringSystem` (write-then-emit) |
-| `cable_disconnected` | `(old_hum_id, device_id)` | `WiringSystem` (write-then-emit) |
 
 Aggregation for the HUD's single `HumBar` is a **display-side** sum across all HUM entities. Core brownout signals stay per-HUM — the HUD decides whether to aggregate, per-device dim, or both.
 
+`cable_connected` and `cable_disconnected` are part of the cable-restoration spec, not currently emitted.
+
 ## Config
 
-`mods/tcp_base/config/hum.jsonc`:
+HUM internals (`DEFAULT_CAPACITY`, `IDLE_DRAIN_BASE`, `BROWNOUT_THRESHOLD`) live in `engine/core/hum_system.gd`. A config-externalization pass is future work. The cable-layer config (`mods/tcp_base/config/hum.jsonc` with `cable_max_length_ru`, `cable_sag_factor`) is detailed in the cable-restoration spec; it is not currently loaded.
 
-```jsonc
-{
-  "schema_version": 1,
-  "cable_max_length_ru": 20,   // max Euclidean distance between HUM and device in rack units
-  "cable_sag_factor":   150    // catenary droop: max(3, length_px * factor / 1000)
-}
-```
-
-HUM internals (`DEFAULT_CAPACITY`, `IDLE_DRAIN_BASE`, `BROWNOUT_THRESHOLD`) currently live in `engine/core/hum_system.gd`. A config-externalization pass is future work.
-
-## Non-goals (stay out of `purr` / `hum_cable`)
+## Non-goals (stay out of `purr` and HUM scope)
 
 - Signal cables (button→dispenser wiring stays a same-rack placement rule).
 - Server cabling (servers are wireless permanently).
 - Multiple input ports per device (each actuator has exactly one input).
-- Multiple cable types per device (`hum_cable` is the only cable today).
+- Multiple cable types per device (`hum_cable` is the only cable type when cables return).
 - Per-device `cable_max_length_ru` overrides.
 - HUM output-port caps.
 - Non-purr emission channels (chime, ring, electrical, thermal, kinetic) — each ships its own capability + receiver chain when the feature lands. Don't generalize the `purr` channel or the `hum_receiver` component to cover them.
@@ -232,7 +126,8 @@ HUM internals (`DEFAULT_CAPACITY`, `IDLE_DRAIN_BASE`, `BROWNOUT_THRESHOLD`) curr
 
 - `.claude/rules/core-loop.md` — design intent for the purr-power loop.
 - `.claude/rules/tick-architecture.md` — contentment→purr bridge ordering.
-- `.claude/rules/food-system.md` — how dispensers and arms call `_is_powered`.
-- `.claude/rules/signals.md` — signal patterns, cable scenario trace.
-- `.claude/rules/modding.md` — `hum_powered` / `hum_cable` / `purr` as capability tags.
-- `.claude/rules/narrative.md` — Robot Cable Interpretation (player-facing log lines).
+- `.claude/rules/food-system.md` — how dispensers and arms call `is_powered`.
+- `.claude/rules/signals.md` — signal patterns.
+- `.claude/rules/modding.md` — `purr` as a capability tag.
+- `.claude/rules/narrative.md` — Robot Cable Interpretation (player-facing log lines, including HUM brownout).
+- `docs/superpowers/specs/2026-05-09-cables-restoration-design.md` — cable subsystem (currently absent; spec for restoration).
