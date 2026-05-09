@@ -3,7 +3,7 @@
 # manually update hashes.
 ---
 setup_hash: e3b0c442
-verified_at: '2026-05-09T19:13:53Z'
+verified_at: '2026-05-09T19:14:33Z'
 tests:
   test_new_state_is_closed: bb2a6d2f
   test_open_with_valid_id_sets_open: b40ec2e8
@@ -15,3 +15,7 @@ tests:
   test_process_animal_sets_content_animal: 6a0478ef
   test_process_server_sets_content_server: 3a355c3c
   test_process_neither_capability_closes: 06f69091
+  test_animal_content_when_satisfied: 6fa0d7b2
+  test_animal_wanting_when_unsatisfied: 7a094bf6
+  test_server_powered_when_any_hum_has_reserve: aa14aab6
+  test_server_unpowered_when_all_hum_at_zero: fadd1b82

@@ -37,3 +37,20 @@ func process(db: GameStateDB) -> void:
 		content_type = ContentType.SERVER
 	else:
 		close()
+
+
+func derive_status_keyword(db: GameStateDB) -> StringName:
+	if content_type == ContentType.ANIMAL:
+		if not db.has_component(inspected_id, &"contentment"):
+			return &"Wanting"
+		var c: Dictionary = db.get_component(inspected_id, &"contentment")
+		if int(c.get(&"is_satisfied", 0)) == 1:
+			return &"Content"
+		return &"Wanting"
+	if content_type == ContentType.SERVER:
+		for hum_id: int in db.get_entities_with(&"hum"):
+			var h: Dictionary = db.get_component(hum_id, &"hum")
+			if int(h.get(&"reserve", 0)) > 0:
+				return &"Powered"
+		return &"Unpowered"
+	return &""

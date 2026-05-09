@@ -89,3 +89,49 @@ func test_process_neither_capability_closes() -> void:
 	state.process(db)
 	assert_false(state.is_open())
 	assert_eq(state.content_type, InspectDrawerState.ContentType.CLOSED)
+
+
+func test_animal_content_when_satisfied() -> void:
+	var db := GameStateDB.new()
+	var animal_id: int = db.create_entity()
+	db.set_component(animal_id, &"desires", {&"warmth": 800})
+	db.set_component(animal_id, &"contentment", {&"is_satisfied": 1})
+	var state := InspectDrawerState.new()
+	state.open(animal_id)
+	state.process(db)
+	assert_eq(state.derive_status_keyword(db), &"Content")
+
+
+func test_animal_wanting_when_unsatisfied() -> void:
+	var db := GameStateDB.new()
+	var animal_id: int = db.create_entity()
+	db.set_component(animal_id, &"desires", {&"warmth": 100})
+	db.set_component(animal_id, &"contentment", {&"is_satisfied": 0})
+	var state := InspectDrawerState.new()
+	state.open(animal_id)
+	state.process(db)
+	assert_eq(state.derive_status_keyword(db), &"Wanting")
+
+
+func test_server_powered_when_any_hum_has_reserve() -> void:
+	var db := GameStateDB.new()
+	var server_id: int = db.create_entity()
+	db.set_component(server_id, &"object_type", {&"type": &"server_1u"})
+	var hum_id: int = db.create_entity()
+	db.set_component(hum_id, &"hum", {&"reserve": 500, &"capacity": 1000})
+	var state := InspectDrawerState.new()
+	state.open(server_id)
+	state.process(db)
+	assert_eq(state.derive_status_keyword(db), &"Powered")
+
+
+func test_server_unpowered_when_all_hum_at_zero() -> void:
+	var db := GameStateDB.new()
+	var server_id: int = db.create_entity()
+	db.set_component(server_id, &"object_type", {&"type": &"server_1u"})
+	var hum_id: int = db.create_entity()
+	db.set_component(hum_id, &"hum", {&"reserve": 0, &"capacity": 1000})
+	var state := InspectDrawerState.new()
+	state.open(server_id)
+	state.process(db)
+	assert_eq(state.derive_status_keyword(db), &"Unpowered")
