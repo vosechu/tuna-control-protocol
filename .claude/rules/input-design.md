@@ -9,6 +9,23 @@ paths:
 
 > Maintained alongside the `accessibility-advocate` (Pebble) agent. Dispatch that agent for review before substantive changes.
 
+> **Use `/load-accessibility-advocate`** when about to design an input flow, UI affordance, or color/shape indicator and you want Pebble's accessibility-first principles in front of you first.
+> **Spawn the `accessibility-advocate` agent** when you have a UI flow or indicator to review for color-independent communication, controller-first navigation, and barrier removal.
+
+---
+
+## 0. Design Principles
+
+TCP-wide accessibility rules. Every input or UI decision should pass them.
+
+1. **Cozy means accessible.** TCP's "no time pressure, no fail state" philosophy is inherently accessible. Protect it. Never add a mechanic that requires speed, precision, or simultaneous inputs.
+2. **Every channel has a backup.** Sound has a visual equivalent. Color has a shape/pattern. Text has an icon. Animation has a static-frame equivalent. No single channel is the only way to understand game state. (See §5 for the color-specific implementation table.)
+3. **Controller-first interaction design.** If it works with a controller (d-pad navigation, no hover dependency, no right-click required), it works with mouse, touch, and keyboard. Design for the most constrained input first; mouse/touch enhancements layer on top.
+4. **Progressive complexity, not progressive difficulty.** New systems layer on without making earlier ones harder. A player who only understands heat and cats should be able to play happily forever; treats and ferrets are optional enrichment.
+5. **Test with real constraints.** Play with no audio. Play with the monitor in grayscale. Play with only keyboard. Play with only a controller. Each test reveals a different gap.
+
+---
+
 ## 1. Keyboard Shortcut Map
 
 All shortcuts remappable via settings. Stored in `config/input/keyboard_map.json`.
