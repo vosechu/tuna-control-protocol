@@ -45,6 +45,8 @@ var _placement_ui_node: Control
 var _object_sprites: Dictionary = {}  # entity_id -> Sprite2D
 # entity_id -> float (seconds elapsed in clearing)
 var _clearing_objects: Dictionary = {}
+# Last entity hit by a click — keyboard inspect uses this as its target.
+var _last_clicked_entity_id: int = Constants.INVALID_ID
 
 @onready var game_server: Node = %GameServer
 
@@ -332,13 +334,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.pressed:
 		return
-	if event.button_index != MOUSE_BUTTON_LEFT:
-		return
-
 	var camera: Camera2D = $Camera
 	var world_pos: Vector2 = (
 		camera.get_global_mouse_position()
 	)
+
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		_try_inspect_entity(world_pos)
+		return
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
 
 	if _placement_ui_node.is_remove_mode():
 		_try_remove_at(world_pos)
@@ -371,6 +376,10 @@ func _handle_key(event: InputEventKey) -> bool:
 		var narrator: Control = $HUD.get_node_or_null("NarratorPanel")
 		if narrator:
 			narrator.visible = not narrator.visible
+		return true
+	if event.keycode == KEY_I or event.keycode == KEY_F1:
+		if _last_clicked_entity_id != Constants.INVALID_ID:
+			Events.entity_inspect_opened.emit(_last_clicked_entity_id)
 		return true
 	return false
 
@@ -523,6 +532,7 @@ func _try_click_entity(world_pos: Vector2) -> void:
 		if game_server.db.has_component(
 			entity_id, &"tuna_button",
 		):
+			_last_clicked_entity_id = entity_id
 			var can_id: int = (
 				game_server.food_system.press_button(
 					entity_id,
@@ -535,12 +545,14 @@ func _try_click_entity(world_pos: Vector2) -> void:
 		if game_server.db.has_component(
 			entity_id, &"species",
 		):
+			_last_clicked_entity_id = entity_id
 			_pet_animal(entity_id)
 			return
 		# Click on box → squeak it
 		if game_server.db.has_component(
 			entity_id, &"object_type",
 		):
+			_last_clicked_entity_id = entity_id
 			var otype: Dictionary = (
 				game_server.db.get_component(
 					entity_id, &"object_type",
@@ -549,6 +561,21 @@ func _try_click_entity(world_pos: Vector2) -> void:
 			if otype[&"type"] == &"cardboard_box":
 				_squeak_box(entity_id)
 				return
+
+
+func _try_inspect_entity(world_pos: Vector2) -> void:
+	var click_px := Vector2i(roundi(world_pos.x), roundi(world_pos.y))
+	var nearby: Array[int] = game_server.db.query_radius(
+		click_px.x, click_px.y, 2 * Constants.SLOT_HEIGHT_PX,
+	)
+	for eid: int in nearby:
+		if (
+			game_server.db.has_component(eid, &"species")
+			or game_server.db.has_component(eid, &"object_type")
+		):
+			_last_clicked_entity_id = eid
+			Events.entity_inspect_opened.emit(eid)
+			return
 
 
 func _pet_animal(entity_id: int) -> void:
