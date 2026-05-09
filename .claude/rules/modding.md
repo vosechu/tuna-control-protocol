@@ -93,6 +93,8 @@ Mechanics and invariants live in each subsystem's rule file (see `hum-cable-syst
 
 The `SensoryEmissionSystem` reads recipe-declared emissions and writes per-output components (today: `purr`). Modders pick from a bounded engine-defined vocabulary; you cannot add new ops or falloff curves via JSON.
 
+**Design split (load-bearing).** The recipe declares **what the entity knows about itself** — that it's contented, that stress dampens its output, that it produces purr at a certain loudness. The recipe does **not** declare its channel or its falloff curve — those are properties of *the channel*, not *the cat*, and live in `config/balance/sensory_outputs.jsonc` (mod-patchable). When a tuning fork ships a `ring` output sharing the `acoustic` channel, the recipe declares `ring` and the global config maps it to `acoustic`; falloff is shared because the physics is shared. If you find yourself adding `falloff` or `channel` to a species recipe, stop — you've crossed the split.
+
 ### Modifier ops
 
 | Op | Effect on intensity |
@@ -144,6 +146,22 @@ Each entry in the `modifiers` array:
 ### Channel registry
 
 `config/balance/sensory_outputs.jsonc` declares `outputs` (output_name → channel) and `channels` (channel → falloff). Recipes can only reference output names registered there. Mods extend the registry through standard config-layering; the schema validator rejects recipes that reference unknown outputs or channels.
+
+### Runtime failure semantics
+
+Recipe-author-facing behaviors of the runner. The validator catches malformed recipes at load; these rules cover what happens when a recipe is well-formed but references a component absent at *runtime* (a conditionally-present component, a forward reference to another mod's writer, a component the entity hasn't gained yet):
+
+| Situation | Result |
+|---|---|
+| `trigger.component` not on entity | Trigger fails. `intensity = 0`, `radius_px = 0`. Both fields written each tick — never left stale. |
+| `trigger` field/value mismatch | Same as above. |
+| Modifier `component` not on entity | Modifier is identity (skipped). Lets recipes declare modifiers for conditionally-present components without the entity needing them yet. |
+| `value_source` ref's component not on entity | `_read_value` reads a default int (zero); design assumes the validator's component-ref warning has already been heeded. |
+| Unknown modifier `op` | `push_error` + identity. The validator should have rejected this at mod load; runtime error means a mod was patched in without revalidation. |
+| Unknown `value_source.kind` | `push_error` + 0. Same source — validator should have caught. |
+| Modifier drives intensity negative | Clamped to 0 floor. `radius_px` follows (also 0). |
+
+The "absent component → identity" rule is the design's load-bearing affordance for cross-mod composition. A recipe declaring `inverse_factor stress` works correctly whether the stress writer mod is loaded or not.
 
 ---
 
