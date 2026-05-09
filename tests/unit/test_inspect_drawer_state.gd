@@ -135,3 +135,14 @@ func test_server_unpowered_when_all_hum_at_zero() -> void:
 	state.open(server_id)
 	state.process(db)
 	assert_eq(state.derive_status_keyword(db), &"Unpowered")
+
+
+func test_two_opens_in_one_frame_last_wins() -> void:
+	# Trigger-race contract: when two emissions happen in the same frame,
+	# the last one binds. The drawer's slide tween (in the Control wrapper)
+	# does not restart on re-target — it just rebinds the entity_id.
+	var state := InspectDrawerState.new()
+	state.open(42)
+	state.open(99)
+	assert_eq(state.inspected_id, 99)
+	assert_true(state.is_open())
