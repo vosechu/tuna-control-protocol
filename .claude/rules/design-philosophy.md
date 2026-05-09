@@ -6,6 +6,9 @@ paths:
 
 # TCP Design Philosophy Rules
 
+> **Use `/load-game-designer`** when about to make a design decision affecting systems, feedback loops, player motivation, or coherence with TCP's vision — and you want Mochi's principles in front of you first.
+> **Spawn the `game-designer` agent** when you have a mechanic or system design to review against TCP's abundance/emergence philosophy and elegance principle.
+
 These rules apply to ALL code written for TCP.
 
 ## Pure Core Pattern
@@ -51,6 +54,17 @@ Hooks are batched to end-of-tick like watchers. They do not execute synchronousl
 
 ## Entity Relationships
 GameStateDB maintains a relationship table for entity-to-entity connections: teaching lineages, social bonds, infrastructure links. Lightweight bidirectional lookup — forward (`get_targets`) and reverse (`get_sources`). Relationships auto-clean on entity despawn via lifecycle hooks. Relationship types are defined in config, not code.
+
+---
+
+## Game Design Principles
+
+These complement the engineering rules above. They govern *what* the game does, not *how* the engine works.
+
+- **Five needs, no more, ever.** Hunger, Rest, Social, Comfort, Curiosity. Personality modifies the curves and weights — not the list of needs. Adding a sixth need is a load-bearing design change, not a feature addition.
+- **Inter-species dependency is the progression engine.** Each species recipe unlocks capabilities other recipes need. This is the "why would I leave Phase 1?" answer — new species enable higher happiness ceilings that single-species setups can't reach.
+- **Cozy lives and dies by rhythm.** Every system gets evaluated at three timescales: 1 minute (moment-to-moment feedback loop), 1 hour (session arc), 1 week (long-term progression). A mechanic that feels right at one scale and wrong at another isn't shippable.
+- **Sound is a game mechanic, not a polish layer.** Purr-as-IOPS is a load-bearing system, not decoration. Every system should have an audio signature that conveys state without requiring the player to look at it. (Mechanics in `sound-design.md`.)
 
 ---
 
